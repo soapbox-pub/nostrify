@@ -2,29 +2,14 @@ import { NostrEvent } from './NostrEvent.ts';
 import { NostrFilter } from './NostrFilter.ts';
 
 export interface NStore<T extends NostrEvent = NostrEvent, F extends NostrFilter = NostrFilter> {
-  event(event: T, opts?: NStoreAddOpts): Promise<void>;
-  query(filters: F[], opts?: NStoreFilterOpts): Promise<T[]>;
-  count?(filters: F[], opts?: NStoreCountOpts): Promise<number>;
-  remove?(filters: F[], opts?: NStoreRemoveOpts): Promise<void>;
+  event(event: T, opts?: NStoreOpts): Promise<void>;
+  query(filters: F[], opts?: NStoreOpts): Promise<T[]>;
+  count?(filters: F[], opts?: NStoreOpts): Promise<number>;
+  remove?(filters: F[], opts?: NStoreOpts): Promise<void>;
 }
 
-export interface NStoreAddOpts {
-  signal?: AbortSignal;
-  relays?: WebSocket['url'][];
-}
-
-export interface NStoreFilterOpts {
+export interface NStoreOpts {
   signal?: AbortSignal;
   relays?: WebSocket['url'][];
   limit?: number;
-}
-
-export interface NStoreCountOpts {
-  signal?: AbortSignal;
-  relays?: WebSocket['url'][];
-}
-
-export interface NStoreRemoveOpts {
-  signal?: AbortSignal;
-  relays?: WebSocket['url'][];
 }

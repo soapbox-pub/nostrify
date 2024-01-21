@@ -1,4 +1,4 @@
-export interface MapCache<K, V> {
-  fetch(key: K): Promise<V>;
+export interface MapCache<K, V, O> {
+  fetch(key: K, opts?: O): Promise<V>;
   put(key: K, value: V): Promise<void>;
 }

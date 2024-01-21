@@ -2,7 +2,7 @@ import { NostrEvent } from './NostrEvent.ts';
 import { NostrFilter } from './NostrFilter.ts';
 
 export interface NStore<T extends NostrEvent = NostrEvent, F extends NostrFilter = NostrFilter> {
-  save(event: T, opts?: NStoreAddOpts): Promise<void>;
+  event(event: T, opts?: NStoreAddOpts): Promise<void>;
   query(filters: F[], opts?: NStoreFilterOpts): Promise<T[]>;
   count?(filters: F[], opts?: NStoreCountOpts): Promise<number>;
   remove?(filters: F[], opts?: NStoreRemoveOpts): Promise<void>;

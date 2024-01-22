@@ -23,11 +23,11 @@ export class NIP05 {
   }
 
   /** Resolve NIP-05 name to a profile pointer. */
-  static async lookup(value: string, opts?: LookupOpts): Promise<NProfilePointer> {
+  static async lookup(nip05: string, opts?: LookupOpts): Promise<NProfilePointer> {
     const { fetch = globalThis.fetch, signal } = opts ?? {};
 
-    const match = value.match(NIP05.regex());
-    if (!match) throw new Error(`NIP-05: invalid name ${value}`);
+    const match = nip05.match(NIP05.regex());
+    if (!match) throw new Error(`NIP-05: invalid name ${nip05}`);
 
     const [_, name = '_', domain] = match;
 
@@ -37,7 +37,7 @@ export class NIP05 {
     const { names, relays } = NIP05.nostrJsonSchema().parse(await res.json());
     const pubkey = names[name] as string | undefined;
 
-    if (!pubkey) throw new Error(`NIP-05: no match for ${value}`);
+    if (!pubkey) throw new Error(`NIP-05: no match for ${nip05}`);
 
     return {
       pubkey,

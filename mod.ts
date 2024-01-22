@@ -1,3 +1,5 @@
+export { NIP05 } from './src/NIP05.ts';
+
 export type { LNURLDetails } from './interfaces/LNURLDetails.ts';
 export type { MapCache } from './interfaces/MapCache.ts';
 export type { NostrEvent } from './interfaces/NostrEvent.ts';

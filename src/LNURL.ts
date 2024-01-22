@@ -16,11 +16,20 @@ export class LNURL {
     return z.object({
       allowsNostr: z.boolean().optional(),
       callback: z.string().url(),
+      commentAllowed: z.number().nonnegative().int().optional(),
       maxSendable: z.number().positive().int(),
       minSendable: z.number().positive().int(),
       metadata: z.string(),
       nostrPubkey: n.id().optional(),
       tag: z.literal('payRequest'),
+    }).superRefine((details, ctx) => {
+      if (details.minSendable > details.maxSendable) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'minSendable must be less than or equal to maxSendable',
+          path: ['minSendable'],
+        });
+      }
     });
   }
 

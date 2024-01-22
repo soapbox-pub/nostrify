@@ -1,6 +1,8 @@
 import { bech32 } from 'npm:@scure/base@^1.1.5';
 
+import { LNURLCallback } from '../interfaces/LNURLCallback.ts';
 import { LNURLDetails } from '../interfaces/LNURLDetails.ts';
+import { NostrEvent } from '../interfaces/NostrEvent.ts';
 
 import { n, z } from './schema.ts';
 
@@ -8,6 +10,17 @@ interface LookupOpts {
   fetch?: typeof fetch;
   signal?: AbortSignal | null;
   limit?: number;
+}
+
+interface CallbackOpts {
+  fetch?: typeof fetch;
+  signal?: AbortSignal | null;
+}
+
+interface CallbackParams {
+  amount: number;
+  nostr?: NostrEvent;
+  lnurl?: string;
 }
 
 export class LNURL {
@@ -33,6 +46,14 @@ export class LNURL {
     });
   }
 
+  /** LNURL callback schema. */
+  static lnurlCallbackSchema(): z.ZodType<LNURLCallback> {
+    return z.object({
+      pr: n.bech32(),
+      routes: z.tuple([]),
+    });
+  }
+
   /** Resolve an LNURL to its details. */
   static async lookup(lnurl: string, opts?: LookupOpts): Promise<LNURLDetails> {
     const { fetch = globalThis.fetch, signal, limit } = opts ?? {};
@@ -41,6 +62,25 @@ export class LNURL {
     const res = await fetch(url, { signal });
 
     return LNURL.lnurlDetailsSchema().parse(await res.json());
+  }
+
+  /** Generate an LNURL invoice from the params. */
+  static async callback(url: string | URL, params: CallbackParams, opts?: CallbackOpts): Promise<LNURLCallback> {
+    const { fetch = globalThis.fetch, signal } = opts ?? {};
+
+    const callback = new URL(url);
+    const search = new URLSearchParams();
+
+    search.set('amount', params.amount.toString());
+
+    if (params.nostr) search.set('nostr', JSON.stringify(params.nostr));
+    if (params.lnurl) search.set('lnurl', params.lnurl);
+
+    callback.search = search.toString();
+
+    const res = await fetch(callback, { signal });
+
+    return LNURL.lnurlCallbackSchema().parse(await res.json());
   }
 
   /** Decode an LNURL into a URL. */

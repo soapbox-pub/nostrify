@@ -41,7 +41,7 @@ export class NIP05 {
 
     return {
       pubkey,
-      relays: relays?.[name] ?? [],
+      relays: relays?.[pubkey] ?? [],
     };
   }
 }

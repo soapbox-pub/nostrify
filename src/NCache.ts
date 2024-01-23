@@ -64,7 +64,7 @@ class NCache extends NSet implements NStore {
     return (await this.query(filters)).length;
   }
 
-  [Symbol.toStringTag]: string = 'NCache';
+  [Symbol.toStringTag] = 'NCache';
 }
 
 export { NCache };

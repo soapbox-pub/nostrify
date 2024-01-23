@@ -2,7 +2,7 @@ import { assertEquals } from 'https://deno.land/std@0.212.0/assert/mod.ts';
 import { returnsNext, stub } from 'https://deno.land/std@0.212.0/testing/mock.ts';
 
 import { NIP05 } from './NIP05.ts';
-import nostrJson from '../fixtures/nostr.json' assert { type: 'json' };
+import nostrJson from '../fixtures/nostr.json' with { type: 'json' };
 
 Deno.test('NIP05.lookup', async () => {
   const fetch = stub(

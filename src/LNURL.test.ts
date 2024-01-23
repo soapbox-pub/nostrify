@@ -3,8 +3,8 @@ import { returnsNext, stub } from 'https://deno.land/std@0.212.0/testing/mock.ts
 
 import { LNURL } from './LNURL.ts';
 
-import lnurlDetails from '../fixtures/lnurlp.json' assert { type: 'json' };
-import callback from '../fixtures/callback.json' assert { type: 'json' };
+import lnurlDetails from '../fixtures/lnurlp.json' with { type: 'json' };
+import callback from '../fixtures/callback.json' with { type: 'json' };
 
 Deno.test('LNURL.lookup', async () => {
   const fetch = stub(

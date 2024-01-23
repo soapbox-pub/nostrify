@@ -2,7 +2,7 @@ import { assertEquals } from 'https://deno.land/std@0.212.0/assert/mod.ts';
 
 import { NCache } from './NCache.ts';
 
-import event1 from '../fixtures/event.json' assert { type: 'json' };
+import event1 from '../fixtures/event.json' with { type: 'json' };
 
 Deno.test('NCache', async () => {
   const cache = new NCache({

@@ -2,8 +2,8 @@ import { assert } from 'https://deno.land/std@0.212.0/assert/mod.ts';
 
 import { n } from './schema.ts';
 
-import nostrEvent from '../fixtures/event.json' assert { type: 'json' };
-import lnurlCallback from '../fixtures/callback.json' assert { type: 'json' };
+import nostrEvent from '../fixtures/event.json' with { type: 'json' };
+import lnurlCallback from '../fixtures/callback.json' with { type: 'json' };
 
 Deno.test('n.id', () => {
   assert(n.id().safeParse(nostrEvent.id).success);

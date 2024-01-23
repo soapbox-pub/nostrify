@@ -1,4 +1,4 @@
-import { assertEquals } from 'https://deno.land/std@0.212.0/assert/assert_equals.ts';
+import { assertEquals } from 'https://deno.land/std@0.212.0/assert/mod.ts';
 
 import { NCache } from './NCache.ts';
 

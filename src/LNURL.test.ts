@@ -1,4 +1,4 @@
-import { assertEquals } from 'https://deno.land/std@0.212.0/assert/assert_equals.ts';
+import { assertEquals } from 'https://deno.land/std@0.212.0/assert/mod.ts';
 import { returnsNext, stub } from 'https://deno.land/std@0.212.0/testing/mock.ts';
 
 import { LNURL } from './LNURL.ts';

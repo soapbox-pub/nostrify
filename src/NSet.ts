@@ -14,14 +14,14 @@ import { NostrEvent } from '../interfaces/NostrEvent.ts';
  * Event validation is NOT performed. Callers MUST verify signatures before adding events to the set.
  */
 class NSet<T extends NostrEvent = NostrEvent> implements Set<T> {
-  #map: Map<string, T>;
+  protected cache: Map<string, T>;
 
   constructor(map?: Map<string, T>) {
-    this.#map = map ?? new Map();
+    this.cache = map ?? new Map();
   }
 
   get size() {
-    return this.#map.size;
+    return this.cache.size;
   }
 
   add(event: T): this {
@@ -35,7 +35,7 @@ class NSet<T extends NostrEvent = NostrEvent> implements Set<T> {
       }
     }
 
-    this.#map.set(event.id, event);
+    this.cache.set(event.id, event);
     return this;
   }
 
@@ -43,7 +43,7 @@ class NSet<T extends NostrEvent = NostrEvent> implements Set<T> {
     if (event.kind === 5) {
       for (const tag of event.tags) {
         if (tag[0] === 'e') {
-          const e = this.#map.get(tag[1]);
+          const e = this.cache.get(tag[1]);
           if (e && e.pubkey === event.pubkey) {
             this.delete(e);
           }
@@ -53,37 +53,37 @@ class NSet<T extends NostrEvent = NostrEvent> implements Set<T> {
   }
 
   clear(): void {
-    this.#map.clear();
+    this.cache.clear();
   }
 
   delete(event: T): boolean {
-    return this.#map.delete(event.id);
+    return this.cache.delete(event.id);
   }
 
   forEach(callbackfn: (event: T, key: T, set: typeof this) => void, thisArg?: any): void {
-    return this.#map.forEach((event, _id) => callbackfn(event, event, this), thisArg);
+    return this.cache.forEach((event, _id) => callbackfn(event, event, this), thisArg);
   }
 
   has(event: T): boolean {
-    return this.#map.has(event.id);
+    return this.cache.has(event.id);
   }
 
   *entries(): IterableIterator<[T, T]> {
-    for (const event of this.#map.values()) {
+    for (const event of this.cache.values()) {
       yield [event, event];
     }
   }
 
   keys(): IterableIterator<T> {
-    return this.#map.values();
+    return this.cache.values();
   }
 
   values(): IterableIterator<T> {
-    return this.#map.values();
+    return this.cache.values();
   }
 
   [Symbol.iterator](): IterableIterator<T> {
-    return this.#map.values();
+    return this.cache.values();
   }
 
   [Symbol.toStringTag]: string = 'NSet';

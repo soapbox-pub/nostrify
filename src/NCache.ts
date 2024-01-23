@@ -10,18 +10,17 @@ import { NStore } from '../interfaces/NStore.ts';
 import { NSet } from './NSet.ts';
 
 /** Nost event LRU cache based on [`npm:lru-cache`](https://www.npmjs.com/package/lru-cache). */
-class NCache<T extends NostrEvent = NostrEvent, F extends NostrFilter = NostrFilter> extends NSet<T>
-  implements NStore<T, F> {
-  constructor(...args: ConstructorParameters<typeof LRUCache<string, T>>) {
-    super(new LRUCache<string, T>(...args) as Map<string, T>);
+class NCache extends NSet implements NStore {
+  constructor(...args: ConstructorParameters<typeof LRUCache<string, NostrEvent>>) {
+    super(new LRUCache<string, NostrEvent>(...args) as Map<string, NostrEvent>);
   }
 
-  async event(event: T): Promise<void> {
+  async event(event: NostrEvent): Promise<void> {
     this.add(event);
   }
 
-  async query(filters: F[]): Promise<T[]> {
-    const events: T[] = [];
+  async query(filters: NostrFilter[]): Promise<NostrEvent[]> {
+    const events: NostrEvent[] = [];
 
     for (const event of this) {
       if (matchFilters(filters, event)) {
@@ -33,7 +32,7 @@ class NCache<T extends NostrEvent = NostrEvent, F extends NostrFilter = NostrFil
     return events;
   }
 
-  async remove(filters: F[]): Promise<void> {
+  async remove(filters: NostrFilter[]): Promise<void> {
     for (const event of this) {
       if (matchFilters(filters, event)) {
         this.delete(event);
@@ -41,7 +40,7 @@ class NCache<T extends NostrEvent = NostrEvent, F extends NostrFilter = NostrFil
     }
   }
 
-  async count(filters: F[]): Promise<number> {
+  async count(filters: NostrFilter[]): Promise<number> {
     return (await this.query(filters)).length;
   }
 }

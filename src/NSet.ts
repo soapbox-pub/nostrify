@@ -13,10 +13,10 @@ import { NostrEvent } from '../interfaces/NostrEvent.ts';
  *
  * Event validation is NOT performed. Callers MUST verify signatures before adding events to the set.
  */
-class NSet<T extends NostrEvent = NostrEvent> implements Set<T> {
-  protected cache: Map<string, T>;
+class NSet implements Set<NostrEvent> {
+  protected cache: Map<string, NostrEvent>;
 
-  constructor(map?: Map<string, T>) {
+  constructor(map?: Map<string, NostrEvent>) {
     this.cache = map ?? new Map();
   }
 
@@ -24,7 +24,7 @@ class NSet<T extends NostrEvent = NostrEvent> implements Set<T> {
     return this.cache.size;
   }
 
-  add(event: T): this {
+  add(event: NostrEvent): this {
     this.#processDeletions(event);
 
     for (const e of this) {
@@ -39,7 +39,7 @@ class NSet<T extends NostrEvent = NostrEvent> implements Set<T> {
     return this;
   }
 
-  #processDeletions(event: T): void {
+  #processDeletions(event: NostrEvent): void {
     if (event.kind === 5) {
       for (const tag of event.tags) {
         if (tag[0] === 'e') {
@@ -56,33 +56,33 @@ class NSet<T extends NostrEvent = NostrEvent> implements Set<T> {
     this.cache.clear();
   }
 
-  delete(event: T): boolean {
+  delete(event: NostrEvent): boolean {
     return this.cache.delete(event.id);
   }
 
-  forEach(callbackfn: (event: T, key: T, set: typeof this) => void, thisArg?: any): void {
+  forEach(callbackfn: (event: NostrEvent, key: NostrEvent, set: typeof this) => void, thisArg?: any): void {
     return this.cache.forEach((event, _id) => callbackfn(event, event, this), thisArg);
   }
 
-  has(event: T): boolean {
+  has(event: NostrEvent): boolean {
     return this.cache.has(event.id);
   }
 
-  *entries(): IterableIterator<[T, T]> {
+  *entries(): IterableIterator<[NostrEvent, NostrEvent]> {
     for (const event of this.cache.values()) {
       yield [event, event];
     }
   }
 
-  keys(): IterableIterator<T> {
+  keys(): IterableIterator<NostrEvent> {
     return this.cache.values();
   }
 
-  values(): IterableIterator<T> {
+  values(): IterableIterator<NostrEvent> {
     return this.cache.values();
   }
 
-  [Symbol.iterator](): IterableIterator<T> {
+  [Symbol.iterator](): IterableIterator<NostrEvent> {
     return this.cache.values();
   }
 

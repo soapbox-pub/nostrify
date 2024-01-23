@@ -63,6 +63,8 @@ class NCache extends NSet implements NStore {
   async count(filters: NostrFilter[]): Promise<number> {
     return (await this.query(filters)).length;
   }
+
+  [Symbol.toStringTag]: string = 'NCache';
 }
 
 export { NCache };

@@ -9,7 +9,27 @@ import { NStore } from '../interfaces/NStore.ts';
 
 import { NSet } from './NSet.ts';
 
-/** Nost event LRU cache based on [`npm:lru-cache`](https://www.npmjs.com/package/lru-cache). */
+/**
+ * Nostr LRU cache based on [`npm:lru-cache`](https://www.npmjs.com/package/lru-cache).
+ * It implements both `NStore` and `NSet` interfaces.
+ *
+ * ```ts
+ * // Accepts the options of `npm:lru-cache`:
+ * const cache = new NCache({ max: 1000 });
+ *
+ * // Events can be added like a regular `Set`:
+ * cache.add(event1);
+ * cache.add(event2);
+ *
+ * // Can be queried like `NStore`:
+ * const events = await cache.query([{ kinds: [1] }]);
+ *
+ * // Can be iterated like `NSet`:
+ * for (const event of cache) {
+ *  console.log(event);
+ * }
+ * ```
+ */
 class NCache extends NSet implements NStore {
   constructor(...args: ConstructorParameters<typeof LRUCache<string, NostrEvent>>) {
     super(new LRUCache<string, NostrEvent>(...args) as Map<string, NostrEvent>);

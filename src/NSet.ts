@@ -88,37 +88,47 @@ class NSet implements Set<NostrEvent> {
 
   [Symbol.toStringTag]: string = 'NSet';
 
-  /** Events are **replaceable**, which means that, for each combination of `pubkey` and `kind`, only the latest event is expected to (SHOULD) be stored by relays, older versions are expected to be discarded. */
-  protected static isReplaceable({ kind }: NostrEvent) {
+  /** Event kind is **replaceable**, which means that, for each combination of `pubkey` and `kind`, only the latest event is expected to (SHOULD) be stored by relays, older versions are expected to be discarded. */
+  protected static isReplaceable(kind: number) {
     return [0, 3].includes(kind) || (10000 <= kind && kind < 20000);
   }
 
-  /** Events are **parameterized replaceable**, which means that, for each combination of `pubkey`, `kind` and the `d` tag, only the latest event is expected to be stored by relays, older versions are expected to be discarded. */
-  protected static isParameterizedReplaceable({ kind }: NostrEvent) {
+  /** Event kind is **parameterized replaceable**, which means that, for each combination of `pubkey`, `kind` and the `d` tag, only the latest event is expected to be stored by relays, older versions are expected to be discarded. */
+  protected static isParameterizedReplaceable(kind: number) {
     return 30000 <= kind && kind < 40000;
   }
 
-  /** Returns true if both events are replaceable, belong to the same kind and pubkey (and `d` tag, for parameterized events), and the first event is newer than the second one. */
+  /**
+   * Returns true if `event` replaces `target`.
+   *
+   * Both events must be replaceable, belong to the same kind and pubkey (and `d` tag, for parameterized events), and the `event` must be newer than the `target`.
+   */
   protected static replaces(event: NostrEvent, target: NostrEvent): boolean {
-    if (NSet.isReplaceable(event)) {
-      return event.kind === target.kind && event.pubkey === target.pubkey && event.created_at > target.created_at;
-    } else if (NSet.isParameterizedReplaceable(event)) {
-      const d = event.tags.find(([name]) => name === 'd')?.[1] || '';
-      const d2 = target.tags.find(([name]) => name === 'd')?.[1] || '';
+    const { kind, pubkey, created_at } = event;
 
-      return event.kind === target.kind &&
-        event.pubkey === target.pubkey &&
-        d === d2 &&
-        event.created_at > target.created_at;
+    if (NSet.isReplaceable(kind)) {
+      return kind === target.kind && pubkey === target.pubkey && created_at > target.created_at;
     }
+
+    if (NSet.isParameterizedReplaceable(kind)) {
+      const d1 = event.tags.find(([name]) => name === 'd')?.[1] || '';
+      const d2 = target.tags.find(([name]) => name === 'd')?.[1] || '';
+      return kind === target.kind && pubkey === target.pubkey && created_at > target.created_at && d1 === d2;
+    }
+
     return false;
   }
 
-  /** Returns true if the event is a delete event for the target event. */
-  protected static deletes(event: NostrEvent, target: NostrEvent): boolean {
-    if (event.kind === 5 && event.pubkey === target.pubkey) {
-      for (const tag of event.tags) {
-        if (tag[0] === 'e' && tag[1] === target.id) {
+  /**
+   * Returns true if the `event` deletes`target`.
+   *
+   * `event` must be a kind `5` event, and both events must share the same `pubkey`.
+   */
+  static deletes(event: NostrEvent, target: NostrEvent): boolean {
+    const { kind, pubkey, tags } = event;
+    if (kind === 5 && pubkey === target.pubkey) {
+      for (const [name, value] of tags) {
+        if (name === 'e' && value === target.id) {
           return true;
         }
       }

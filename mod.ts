@@ -1,6 +1,7 @@
 export { LNURL } from './src/LNURL.ts';
 export { NCache } from './src/NCache.ts';
 export { NIP05 } from './src/NIP05.ts';
+export { NSchema } from './src/NSchema.ts';
 export { NSet } from './src/NSet.ts';
 
 export type { LNURLDetails } from './interfaces/LNURLDetails.ts';

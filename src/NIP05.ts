@@ -1,7 +1,7 @@
 import { NostrJson } from '../interfaces/NostrJson.ts';
 import { NProfilePointer } from '../interfaces/NProfilePointer.ts';
 
-import { n, z } from './schema.ts';
+import { NSchema as n, z } from './NSchema.ts';
 
 interface LookupOpts {
   fetch?: typeof fetch;

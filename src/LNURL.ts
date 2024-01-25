@@ -4,7 +4,7 @@ import { LNURLCallback } from '../interfaces/LNURLCallback.ts';
 import { LNURLDetails } from '../interfaces/LNURLDetails.ts';
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 
-import { n, z } from './schema.ts';
+import { NSchema as n, z } from './NSchema.ts';
 
 interface LookupOpts {
   fetch?: typeof fetch;

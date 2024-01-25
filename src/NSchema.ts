@@ -1,6 +1,6 @@
 import { z } from 'npm:zod@^3.22.4';
 
-class n {
+class NSchema {
   /** Schema to validate Nostr hex IDs such as event IDs and pubkeys. */
   static id() {
     return z.string().regex(/^[0-9a-f]{64}$/);
@@ -14,4 +14,4 @@ class n {
   }
 }
 
-export { n, z };
+export { NSchema, z };

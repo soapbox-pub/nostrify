@@ -1,6 +1,6 @@
 // deno-lint-ignore-file require-await
 
-import { LRUCache } from 'npm:lru-cache@^10.1.0';
+import { LRUCache } from 'npm:lru-cache@^10.2.0';
 import { matchFilters } from 'npm:nostr-tools@^2.1.4';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
@@ -32,7 +32,7 @@ import { NSet } from './NSet.ts';
  */
 class NCache extends NSet implements NStore {
   constructor(...args: ConstructorParameters<typeof LRUCache<string, NostrEvent>>) {
-    super(new LRUCache<string, NostrEvent>(...args) as unknown as Map<string, NostrEvent>);
+    super(new LRUCache<string, NostrEvent>(...args));
   }
 
   async event(event: NostrEvent): Promise<void> {

@@ -37,32 +37,32 @@ class NSchema {
   }
 
   /** NIP-01 `EVENT` message from relay to client. */
-  static relayMsgEvent(): z.ZodType<NostrRelayEVENT> {
+  static relayEVENT(): z.ZodType<NostrRelayEVENT> {
     return z.tuple([z.literal('EVENT'), z.string(), NSchema.event()]);
   }
 
   /** NIP-01 `OK` message from relay to client. */
-  static relayMsgOk(): z.ZodType<NostrRelayOK> {
+  static relayOK(): z.ZodType<NostrRelayOK> {
     return z.tuple([z.literal('OK'), NSchema.id(), z.boolean(), z.string()]);
   }
 
   /** NIP-01 `EOSE` message from relay to client. */
-  static relayMsgEose(): z.ZodType<NostrRelayEOSE> {
+  static relayEOSE(): z.ZodType<NostrRelayEOSE> {
     return z.tuple([z.literal('EOSE'), z.string()]);
   }
 
   /** NIP-01 `NOTICE` message from relay to client. */
-  static relayMsgNotice(): z.ZodType<NostrRelayNOTICE> {
+  static relayNOTICE(): z.ZodType<NostrRelayNOTICE> {
     return z.tuple([z.literal('NOTICE'), z.string()]);
   }
 
   /** NIP-01 message from relay to client. */
   static relayMsg(): z.ZodType<NostrRelayMsg> {
     return z.union([
-      NSchema.relayMsgEvent(),
-      NSchema.relayMsgOk(),
-      NSchema.relayMsgEose(),
-      NSchema.relayMsgNotice(),
+      NSchema.relayEVENT(),
+      NSchema.relayOK(),
+      NSchema.relayEOSE(),
+      NSchema.relayNOTICE(),
     ]);
   }
 

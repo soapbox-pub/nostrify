@@ -1,6 +1,6 @@
 import { NostrEvent } from './NostrEvent.ts';
 
-export interface NSigner {
+export interface NostrSigner {
   /** Returns a public key as hex. */
   getPublicKey(): Promise<string>;
   /** Takes an event template, adds `id`, `pubkey` and `sig` and returns it. */

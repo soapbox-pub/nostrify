@@ -19,7 +19,7 @@ Our goal is to create interfaces for Nostr as if they would be implemented by we
 - Interoperability with modern JavaScript data structures (`Map`, `Set`, etc).
 - Consistent naming conventions.
 
-## Naming conventions
+### Naming conventions
 
 Module prefixes:
 
@@ -28,6 +28,10 @@ Module prefixes:
 - `N-` - Proposed Nostr interfaces. They are considered ideal, optimal interfaces for the given purpose, but may be subject to change between major versions.
 
 - Others - Support interfaces. These may be exposed for convenience, but may be modified or removed.
+
+## Interfaces
+
+Interfaces are defined in the `interfaces/` directory. They are pure type files, describing parts of a Nostr system to be implemented.
 
 ## Reference implementations
 

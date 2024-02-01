@@ -1,5 +1,6 @@
 import { NostrEvent } from './NostrEvent.ts';
 
+/** NIP-07 Nostr signer. */
 export interface NostrSigner {
   /** Returns a public key as hex. */
   getPublicKey(): Promise<string>;

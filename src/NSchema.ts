@@ -2,6 +2,7 @@ import { z } from 'npm:zod@^3.22.4';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import {
+  NostrRelayCLOSED,
   NostrRelayEOSE,
   NostrRelayEVENT,
   NostrRelayMsg,
@@ -54,6 +55,11 @@ class NSchema {
   /** NIP-01 `NOTICE` message from relay to client. */
   static relayNOTICE(): z.ZodType<NostrRelayNOTICE> {
     return z.tuple([z.literal('NOTICE'), z.string()]);
+  }
+
+  /** NIP-01 `CLOSED` message from relay to client. */
+  static relayCLOSED(): z.ZodType<NostrRelayCLOSED> {
+    return z.tuple([z.literal('CLOSED'), z.string(), z.string()]);
   }
 
   /** NIP-01 message from relay to client. */

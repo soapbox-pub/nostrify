@@ -1,5 +1,6 @@
 import { NostrEvent } from './NostrEvent.ts';
 import { NostrFilter } from './NostrFilter.ts';
+import { NostrRelayCOUNT } from './NostrRelayMsg.ts';
 
 /** Nostr event store. */
 export interface NStore {
@@ -8,7 +9,7 @@ export interface NStore {
   /** Get an array of events matching filters. */
   query(filters: NostrFilter[], opts?: NStoreOpts): Promise<NostrEvent[]>;
   /** Get the number of events matching filters (equivalent of `COUNT` verb). */
-  count?(filters: NostrFilter[], opts?: NStoreOpts): Promise<number>;
+  count?(filters: NostrFilter[], opts?: NStoreOpts): Promise<NostrRelayCOUNT[2]>;
   /** Remove events from the store. This action is temporary, unless a kind `5` deletion is issued. */
   remove?(filters: NostrFilter[], opts?: NStoreOpts): Promise<void>;
 }

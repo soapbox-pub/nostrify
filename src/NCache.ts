@@ -5,6 +5,7 @@ import { matchFilters } from 'npm:nostr-tools@^2.1.4';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NostrFilter } from '../interfaces/NostrFilter.ts';
+import { NostrRelayCOUNT } from '../interfaces/NostrRelayMsg.ts';
 import { NStore } from '../interfaces/NStore.ts';
 
 import { NSet } from './NSet.ts';
@@ -60,8 +61,12 @@ class NCache extends NSet implements NStore {
     }
   }
 
-  async count(filters: NostrFilter[]): Promise<number> {
-    return (await this.query(filters)).length;
+  async count(filters: NostrFilter[]): Promise<NostrRelayCOUNT[2]> {
+    const events = await this.query(filters);
+    return {
+      count: events.length,
+      approximate: false,
+    };
   }
 
   [Symbol.toStringTag] = 'NCache';

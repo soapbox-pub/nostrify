@@ -14,4 +14,10 @@ export type NostrRelayNOTICE = ['NOTICE', message: string];
 export type NostrRelayCOUNT = ['COUNT', subscriptionId: string, { count: number; approximate?: boolean }];
 
 /** NIP-01 message from a relay to client. */
-export type NostrRelayMsg = NostrRelayEVENT | NostrRelayOK | NostrRelayEOSE | NostrRelayNOTICE | NostrRelayCOUNT;
+export type NostrRelayMsg =
+  | NostrRelayEVENT
+  | NostrRelayOK
+  | NostrRelayEOSE
+  | NostrRelayCLOSED
+  | NostrRelayNOTICE
+  | NostrRelayCOUNT;

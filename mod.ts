@@ -6,6 +6,13 @@ export { NSecSigner } from './src/NSecSigner.ts';
 export { NSet } from './src/NSet.ts';
 
 export type { LNURLDetails } from './interfaces/LNURLDetails.ts';
+export type {
+  NostrClientCLOSE,
+  NostrClientCOUNT,
+  NostrClientEVENT,
+  NostrClientMsg,
+  NostrClientREQ,
+} from './interfaces/NostrClientMsg.ts';
 export type { NostrEvent } from './interfaces/NostrEvent.ts';
 export type { NostrFilter } from './interfaces/NostrFilter.ts';
 export type {

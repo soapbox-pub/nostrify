@@ -11,11 +11,11 @@ Deno.test('NCache', async () => {
     sizeCalculation: (event) => JSON.stringify(event).length,
   });
 
-  assertEquals(await cache.count([{ ids: [event1.id] }]), 0);
+  assertEquals(await cache.count([{ ids: [event1.id] }]), { count: 0, approximate: false });
 
   await cache.event(event1);
 
-  assertEquals(await cache.count([{ ids: [event1.id] }]), 1);
+  assertEquals(await cache.count([{ ids: [event1.id] }]), { count: 1, approximate: false });
 
   const result = await cache.query([{ ids: [event1.id] }]);
   assertEquals(result[0], event1);

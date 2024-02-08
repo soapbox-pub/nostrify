@@ -5,7 +5,7 @@ import { NSchema as n, z } from './NSchema.ts';
 
 interface LookupOpts {
   fetch?: typeof fetch;
-  signal?: AbortSignal | null;
+  signal?: AbortSignal;
 }
 
 export class NIP05 {

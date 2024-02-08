@@ -7,7 +7,6 @@ await build({
   outDir: './npm',
   shims: {
     deno: 'dev',
-    webSocket: true,
   },
   package: {
     name: 'nspec',
@@ -22,7 +21,6 @@ await build({
       url: 'https://gitlab.com/soapbox-pub/NSpec/-/issues',
     },
   },
-  test: false,
   postBuild() {
     Deno.copyFileSync('LICENSE', 'npm/LICENSE');
     Deno.copyFileSync('README.md', 'npm/README.md');

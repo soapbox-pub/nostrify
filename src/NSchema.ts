@@ -33,8 +33,11 @@ class NSchema {
    * Bech32 string.
    * @see https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki#bech32
    */
-  static bech32(): z.ZodString {
-    return z.string().regex(/^[\x21-\x7E]{1,83}1[023456789acdefghjklmnpqrstuvwxyz]{6,}$/);
+  static bech32<P extends string>(prefix?: P): z.ZodType<`${P}1${string}`> {
+    return z
+      .string()
+      .regex(/^[\x21-\x7E]{1,83}1[023456789acdefghjklmnpqrstuvwxyz]{6,}$/)
+      .refine((value) => prefix ? value.startsWith(`${prefix}1`) : true) as z.ZodType<`${P}1${string}`>;
   }
 
   /** NIP-01 `EVENT` message from relay to client. */

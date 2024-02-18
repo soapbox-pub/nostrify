@@ -14,7 +14,7 @@ Deno.test('n.id', () => {
 });
 
 Deno.test('n.bech32', () => {
-  assert(n.bech32().safeParse('npub108pv4cg5ag52nq082kd5leu9ffrn2gdg6g4xdwatn73y36uzplmq9uyev6').success);
+  assert(n.bech32('npub').safeParse('npub108pv4cg5ag52nq082kd5leu9ffrn2gdg6g4xdwatn73y36uzplmq9uyev6').success);
   assert(n.bech32().safeParse(lnurlCallback.pr).success);
 
   assert(!n.bech32().safeParse('abc').success);

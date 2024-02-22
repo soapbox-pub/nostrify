@@ -13,3 +13,14 @@ Deno.test('NSecSigner', async () => {
 
   assertEquals(await signer.signEvent(template), finalizeEvent(template, secretKey));
 });
+
+Deno.test('NSecSigner.nip44', async () => {
+  const secretKey = generateSecretKey();
+  const signer = new NSecSigner(secretKey);
+
+  const pubkey = await signer.getPublicKey();
+  const plaintext = 'Hello, world!';
+
+  const ciphertext = await signer.nip44.encrypt(pubkey, plaintext);
+  assertEquals(await signer.nip44.decrypt(pubkey, ciphertext), plaintext);
+});

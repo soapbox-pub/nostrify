@@ -38,7 +38,7 @@ export interface NDatabaseOpts {
   /** Conditions for when to index certain tags. */
   tagIndexes?: Record<string, NTagIndex>;
   /** Build a search index from the event. Only applicable if `fts` is `true`. */
-  buildSearchContent?(event: NostrEvent): string;
+  searchText?(event: NostrEvent): string;
 }
 
 /** SQLite database storage adapter for Nostr events. */
@@ -46,13 +46,13 @@ export class NDatabase implements NStore {
   #db: Kysely<NDatabaseSchema>;
   #fts: boolean;
   #tagIndexes: Record<string, NTagIndex>;
-  #buildSearchContent: (event: NostrEvent) => string;
+  #searchText: (event: NostrEvent) => string;
 
   constructor(db: Kysely<any>, opts?: NDatabaseOpts) {
     this.#db = db as Kysely<NDatabaseSchema>;
     this.#fts = opts?.fts ?? false;
     this.#tagIndexes = opts?.tagIndexes ?? NDatabase.tagIndexes;
-    this.#buildSearchContent = opts?.buildSearchContent ?? NDatabase.buildSearchContent;
+    this.#searchText = opts?.searchText ?? NDatabase.searchText;
   }
 
   /** Default tag conditions. */
@@ -63,8 +63,8 @@ export class NDatabase implements NStore {
   };
 
   /** Default search content builder. */
-  static buildSearchContent(event: NostrEvent): string {
-    return `${event.content} ${event.tags.map(([_name, value]) => value).join(' ')}`;
+  static searchText(event: NostrEvent): string {
+    return `${event.content} ${event.tags.map(([_name, value]) => value).join(' ')}`.substring(0, 1000);
   }
 
   /** Insert an event (and its tags) into the database. */
@@ -80,10 +80,10 @@ export class NDatabase implements NStore {
       /** Add search data to the FTS table. */
       const indexSearch = async () => {
         if (!this.#fts) return;
-        const searchContent = this.#buildSearchContent(event);
-        if (!searchContent) return;
+        const content = this.#searchText(event);
+        if (!content) return;
         await trx.insertInto('nostr_fts')
-          .values({ event_id: event.id, content: searchContent.substring(0, 1000) })
+          .values({ event_id: event.id, content })
           .execute();
       };
 

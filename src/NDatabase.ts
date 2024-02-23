@@ -26,7 +26,7 @@ export interface NDatabaseSchema {
     name: string;
     value: string;
   };
-  nostr_fts?: {
+  nostr_fts: {
     event_id: string;
     content: string;
   };
@@ -48,8 +48,8 @@ export class NDatabase implements NStore {
   #tagConditions: Record<string, TagCondition>;
   #buildSearchContent: (event: NostrEvent) => string;
 
-  constructor(db: Kysely<NDatabaseSchema>, opts?: NDatabaseOpts) {
-    this.#db = db;
+  constructor(db: Kysely<unknown>, opts?: NDatabaseOpts) {
+    this.#db = db as Kysely<NDatabaseSchema>;
     this.#fts = opts?.fts ?? false;
     this.#tagConditions = opts?.tagConditions ?? NDatabase.tagConditions;
     this.#buildSearchContent = opts?.buildSearchContent ?? NDatabase.buildSearchContent;
@@ -181,9 +181,7 @@ export class NDatabase implements NStore {
 
     if (filter.search && this.#fts) {
       query = query
-        // @ts-ignore FTS is enabled
         .innerJoin('nostr_fts', 'nostr_fts.event_id', 'nostr_events.id')
-        // @ts-ignore FTS is enabled
         .where('nostr_fts.content', 'match', JSON.stringify(filter.search));
     }
 
@@ -193,7 +191,11 @@ export class NDatabase implements NStore {
   /** Combine filter queries into a single union query. */
   getEventsQuery(filters: NostrFilter[]) {
     return filters
-      .map((filter) => this.#db.selectFrom(() => this.getFilterQuery(this.#db, filter).as('events')).selectAll())
+      .map((filter) =>
+        this.#db
+          .selectFrom(() => this.getFilterQuery(this.#db, filter).as('nostr_events'))
+          .selectAll()
+      )
       .reduce((result, query) => result.unionAll(query));
   }
 
@@ -224,7 +226,6 @@ export class NDatabase implements NStore {
 
     if (this.#fts) {
       await db.deleteFrom('nostr_fts')
-        // @ts-ignore FTS is enabled
         .where('event_id', 'in', () => query)
         .execute();
     }

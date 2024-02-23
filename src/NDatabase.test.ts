@@ -28,6 +28,11 @@ Deno.test('NDatabase.migrate with FTS', async () => {
   await createDB({ fts: true });
 });
 
+Deno.test('NDatabase.migrate twice', async () => {
+  const db = await createDB();
+  await db.migrate();
+});
+
 Deno.test('NDatabase.count', async () => {
   const db = await createDB();
   assertEquals((await db.count([{ kinds: [1] }])).count, 0);

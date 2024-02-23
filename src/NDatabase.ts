@@ -145,44 +145,39 @@ export class NDatabase implements NStore {
       .selectAll()
       .orderBy('created_at', 'desc');
 
-    for (const [key, value] of Object.entries(filter)) {
-      if (value === undefined) continue;
-
-      switch (key as keyof NostrFilter) {
-        case 'ids':
-          query = query.where('id', 'in', filter.ids!);
-          break;
-        case 'kinds':
-          query = query.where('kind', 'in', filter.kinds!);
-          break;
-        case 'authors':
-          query = query.where('pubkey', 'in', filter.authors!);
-          break;
-        case 'since':
-          query = query.where('created_at', '>=', filter.since!);
-          break;
-        case 'until':
-          query = query.where('created_at', '<=', filter.until!);
-          break;
-        case 'limit':
-          query = query.limit(filter.limit!);
-          break;
-      }
-
-      if (key.startsWith('#')) {
-        const name = key.replace(/^#/, '');
-        const value = filter[key as `#${string}`] as string[];
-        query = query
-          .leftJoin('nostr_tags', 'nostr_tags.event_id', 'nostr_events.id')
-          .where('nostr_tags.name', '=', name)
-          .where('nostr_tags.value', 'in', value);
-      }
+    if (filter.ids) {
+      query = query.where('id', 'in', filter.ids);
+    }
+    if (filter.kinds) {
+      query = query.where('kind', 'in', filter.kinds);
+    }
+    if (filter.authors) {
+      query = query.where('pubkey', 'in', filter.authors);
+    }
+    if (typeof filter.since === 'number') {
+      query = query.where('created_at', '>=', filter.since);
+    }
+    if (typeof filter.until === 'number') {
+      query = query.where('created_at', '<=', filter.until);
+    }
+    if (typeof filter.limit === 'number') {
+      query = query.limit(filter.limit);
     }
 
     if (filter.search && this.fts) {
       query = query
         .innerJoin('nostr_fts', 'nostr_fts.event_id', 'nostr_events.id')
         .where('nostr_fts.content', 'match', JSON.stringify(filter.search));
+    }
+
+    for (const [key, value] of Object.entries(filter)) {
+      if (key.startsWith('#') && Array.isArray(value)) {
+        const name = key.replace(/^#/, '');
+        query = query
+          .leftJoin('nostr_tags', 'nostr_tags.event_id', 'nostr_events.id')
+          .where('nostr_tags.name', '=', name)
+          .where('nostr_tags.value', 'in', value);
+      }
     }
 
     return query;

@@ -33,11 +33,11 @@ export interface NDatabaseSchema {
 }
 
 export interface NDatabaseOpts {
-  /** Conditions for when to index certain tags. */
-  tagConditions?: Record<string, TagCondition>;
   /** Whether or not to use FTS. */
   fts?: boolean;
-  /** Build a search index from the event. */
+  /** Conditions for when to index certain tags. */
+  tagConditions?: Record<string, TagCondition>;
+  /** Build a search index from the event. Only applicable if `fts` is `true`. */
   buildSearchContent?(event: NostrEvent): string;
 }
 

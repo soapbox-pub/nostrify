@@ -36,13 +36,17 @@ Deno.test('NDatabase.count', async () => {
 });
 
 Deno.test('NDatabase.query', async () => {
-  const db = await createDB();
+  const db = await createDB({ tagConditions: { proxy: () => true } });
   await db.event(event1);
 
   assertEquals(await db.query([{ kinds: [1] }]), [event1]);
   assertEquals(await db.query([{ kinds: [3] }]), []);
   assertEquals(await db.query([{ since: 1691091000 }]), [event1]);
   assertEquals(await db.query([{ until: 1691091000 }]), []);
+  assertEquals(
+    await db.query([{ '#proxy': ['https://gleasonator.com/objects/8f6fac53-4f66-4c6e-ac7d-92e5e78c3e79'] }]),
+    [event1],
+  );
 });
 
 Deno.test('NDatabase.query with search', async () => {

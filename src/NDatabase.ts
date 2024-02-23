@@ -1,24 +1,17 @@
-import { Kysely } from 'npm:kysely@^0.27.2';
+import { Kysely, sql } from 'npm:kysely@^0.27.2';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NStore, NStoreOpts } from '../interfaces/NStore.ts';
 import { NostrFilter } from '../interfaces/NostrFilter.ts';
 
+import { NKinds } from './NKinds.ts';
+import { NSchema as n } from './NSchema.ts';
+
 /** Function to decide whether or not to index a tag. */
-type TagCondition = ({ event, count, value }: {
-  event: NostrEvent;
-  count: number;
-  value: string;
-}) => boolean;
+export type TagCondition = ({ event, count, value }: { event: NostrEvent; count: number; value: string }) => boolean;
 
-/** Conditions for when to index certain tags. */
-const tagConditions: Record<string, TagCondition> = {
-  'd': ({ event, count }) => count === 0 && isParameterizedReplaceableKind(event.kind),
-  'e': ({ count, value }) => (count < 15) && isNostrId(value),
-  'p': ({ event, count, value }) => (count < 15 || event.kind === 3) && isNostrId(value),
-};
-
-interface NDatabaseSchema {
+/** Kysely database schema for Nostr. */
+export interface NDatabaseSchema {
   nostr_events: {
     id: string;
     kind: number;
@@ -27,67 +20,85 @@ interface NDatabaseSchema {
     created_at: number;
     tags: string;
     sig: string;
-  }
+  };
   nostr_tags: {
+    event_id: string;
     name: string;
     value: string;
-    event_id: string;
-  }
+  };
   nostr_fts?: {
     event_id: string;
     content: string;
-  }
+  };
 }
 
-interface NDatabaseOpts {
-  logger?: Console['log'];
+export interface NDatabaseOpts {
+  /** Conditions for when to index certain tags. */
+  tagConditions?: Record<string, TagCondition>;
+  /** Whether or not to use FTS. */
   fts?: boolean;
+  /** Build a search index from the event. */
+  buildSearchContent?(event: NostrEvent): string;
 }
 
 /** SQLite database storage adapter for Nostr events. */
 export class NDatabase implements NStore {
   #db: Kysely<NDatabaseSchema>;
-  #logger: Console['log'];
   #fts: boolean;
+  #tagConditions: Record<string, TagCondition>;
+  #buildSearchContent: (event: NostrEvent) => string;
 
   constructor(db: Kysely<NDatabaseSchema>, opts?: NDatabaseOpts) {
     this.#db = db;
-    this.#logger = opts?.logger ?? console.log;
     this.#fts = opts?.fts ?? false;
+    this.#tagConditions = opts?.tagConditions ?? NDatabase.tagConditions;
+    this.#buildSearchContent = opts?.buildSearchContent ?? NDatabase.buildSearchContent;
+  }
+
+  /** Default tag conditions. */
+  static tagConditions: Record<string, TagCondition> = {
+    'd': ({ event, count }) => count === 0 && NKinds.parameterizedReplaceable(event.kind),
+    'e': ({ count, value }) => (count < 15) && n.id().safeParse(value).success,
+    'p': ({ event, count, value }) => (count < 15 || event.kind === 3) && n.id().safeParse(value).success,
+  };
+
+  /** Default search content builder. */
+  static buildSearchContent(event: NostrEvent): string {
+    return `${event.content} ${event.tags.map(([_name, value]) => value).join(' ')}`;
   }
 
   /** Insert an event (and its tags) into the database. */
   async event(event: NostrEvent, _opts?: NStoreOpts): Promise<void> {
     return await this.#db.transaction().execute(async (trx) => {
       /** Insert the event into the database. */
-      async function addEvent() {
+      const addEvent = async () => {
         await trx.insertInto('nostr_events')
           .values({ ...event, tags: JSON.stringify(event.tags) })
           .execute();
-      }
+      };
 
       /** Add search data to the FTS table. */
-      const indexSearch = async() => {
+      const indexSearch = async () => {
         if (!this.#fts) return;
-        const searchContent = buildSearchContent(event);
+        const searchContent = this.#buildSearchContent(event);
         if (!searchContent) return;
         await trx.insertInto('nostr_fts')
           .values({ event_id: event.id, content: searchContent.substring(0, 1000) })
           .execute();
-      }
+      };
 
       /** Index event tags depending on the conditions defined above. */
-      async function indexTags() {
-        const tags = filterIndexableTags(event);
+      const indexTags = async () => {
+        const tags = this.filterIndexableTags(event);
         const rows = tags.map(([name, value]) => ({ event_id: event.id, name, value }));
 
         if (!tags.length) return;
         await trx.insertInto('nostr_tags')
           .values(rows)
           .execute();
-      }
+      };
 
-      if (isReplaceableKind(event.kind)) {
+      if (NKinds.replaceable(event.kind)) {
         const prevEvents = await this.getFilterQuery(trx, { kinds: [event.kind], authors: [event.pubkey] }).execute();
         for (const prevEvent of prevEvents) {
           if (prevEvent.created_at >= event.created_at) {
@@ -97,7 +108,7 @@ export class NDatabase implements NStore {
         await this.deleteEventsTrx(trx, [{ kinds: [event.kind], authors: [event.pubkey] }]);
       }
 
-      if (isParameterizedReplaceableKind(event.kind)) {
+      if (NKinds.parameterizedReplaceable(event.kind)) {
         const d = event.tags.find(([tag]) => tag === 'd')?.[1];
         if (d) {
           const prevEvents = await this.getFilterQuery(trx, { kinds: [event.kind], authors: [event.pubkey], '#d': [d] })
@@ -189,8 +200,6 @@ export class NDatabase implements NStore {
   /** Get events for filters from the database. */
   async query(filters: NostrFilter[], opts: NStoreOpts = {}): Promise<NostrEvent[]> {
     if (!filters.length) return Promise.resolve([]);
-
-    this.#logger('REQ', JSON.stringify(filters));
     let query = this.getEventsQuery(filters);
 
     if (typeof opts.limit === 'number') {
@@ -213,8 +222,6 @@ export class NDatabase implements NStore {
   /** Delete events from each table. Should be run in a transaction! */
   async deleteEventsTrx(db: Kysely<NDatabaseSchema>, filters: NostrFilter[]) {
     if (!filters.length) return Promise.resolve();
-    this.#logger('DELETE', JSON.stringify(filters));
-
     const query = this.getEventsQuery(filters).clearSelect().select('id');
 
     if (this.#fts) {
@@ -232,16 +239,12 @@ export class NDatabase implements NStore {
   /** Delete events based on filters from the database. */
   async remove(filters: NostrFilter[], _opts?: NStoreOpts): Promise<void> {
     if (!filters.length) return Promise.resolve();
-    this.#logger('DELETE', JSON.stringify(filters));
-
     await this.#db.transaction().execute((trx) => this.deleteEventsTrx(trx, filters));
   }
 
   /** Get number of events that would be returned by filters. */
-  async count(filters: NostrFilter[], _opts: NStoreOpts = {}): Promise<{ count: number; approximate: false}> {
+  async count(filters: NostrFilter[], _opts: NStoreOpts = {}): Promise<{ count: number; approximate: false }> {
     if (!filters.length) return Promise.resolve({ count: 0, approximate: false });
-
-    this.#logger('COUNT', JSON.stringify(filters));
     const query = this.getEventsQuery(filters);
 
     const [{ count }] = await query
@@ -254,62 +257,72 @@ export class NDatabase implements NStore {
       approximate: false,
     };
   }
-}
 
-/** Return only the tags that should be indexed. */
-function filterIndexableTags(event: NostrEvent): string[][] {
-  const tagCounts: Record<string, number> = {};
+  /** Return only the tags that should be indexed. */
+  protected filterIndexableTags(event: NostrEvent): string[][] {
+    const tagCounts: Record<string, number> = {};
 
-  function getCount(name: string) {
-    return tagCounts[name] || 0;
-  }
-
-  function incrementCount(name: string) {
-    tagCounts[name] = getCount(name) + 1;
-  }
-
-  function checkCondition(name: string, value: string, condition: TagCondition) {
-    return condition({
-      event,
-      count: getCount(name),
-      value,
-    });
-  }
-
-  return event.tags.reduce<string[][]>((results, tag) => {
-    const [name, value] = tag;
-    const condition = tagConditions[name] as TagCondition | undefined;
-
-    if (value && condition && value.length < 200 && checkCondition(name, value, condition)) {
-      results.push(tag);
+    function getCount(name: string) {
+      return tagCounts[name] || 0;
     }
 
-    incrementCount(name);
-    return results;
-  }, []);
-}
+    function incrementCount(name: string) {
+      tagCounts[name] = getCount(name) + 1;
+    }
 
-/** Build a search index from the event. */
-function buildSearchContent(event: NostrEvent): string {
-  switch (event.kind) {
-    case 0:
-      return buildUserSearchContent(event);
-    case 1:
-      return event.content;
-    case 30009:
-      return buildTagsSearchContent(event.tags.filter(([t]) => t !== 'alt'));
-    default:
-      return '';
+    function checkCondition(name: string, value: string, condition: TagCondition) {
+      return condition({
+        event,
+        count: getCount(name),
+        value,
+      });
+    }
+
+    return event.tags.reduce<string[][]>((results, tag) => {
+      const [name, value] = tag;
+      const condition = this.#tagConditions[name] as TagCondition | undefined;
+
+      if (value && condition && value.length < 200 && checkCondition(name, value, condition)) {
+        results.push(tag);
+      }
+
+      incrementCount(name);
+      return results;
+    }, []);
   }
-}
 
-/** Build search content for a user. */
-function buildUserSearchContent(event: NostrEvent): string {
-  const { name, nip05, about } = jsonMetaContentSchema.parse(event.content);
-  return [name, nip05, about].filter(Boolean).join('\n');
-}
+  /** Migrate the database schema. */
+  async migrate() {
+    const schema = this.#db.schema;
 
-/** Build search content from tag values. */
-function buildTagsSearchContent(tags: string[][]): string {
-  return tags.map(([_tag, value]) => value).join('\n');
+    await schema
+      .createTable('nostr_events')
+      .ifNotExists()
+      .addColumn('id', 'text', (col) => col.primaryKey())
+      .addColumn('kind', 'integer', (col) => col.notNull())
+      .addColumn('pubkey', 'text', (col) => col.notNull())
+      .addColumn('content', 'text', (col) => col.notNull())
+      .addColumn('created_at', 'integer', (col) => col.notNull())
+      .addColumn('tags', 'text', (col) => col.notNull())
+      .addColumn('sig', 'text', (col) => col.notNull())
+      .execute();
+
+    await schema
+      .createTable('nostr_tags')
+      .ifNotExists()
+      .addColumn('name', 'text', (col) => col.notNull())
+      .addColumn('value', 'text', (col) => col.notNull())
+      .addColumn('event_id', 'text', (col) => col.references('nostr_events.id').onDelete('cascade'))
+      .execute();
+
+    await schema.createIndex('nostr_events_kind').on('nostr_events').ifNotExists().column('kind').execute();
+    await schema.createIndex('nostr_events_pubkey').on('nostr_events').ifNotExists().column('pubkey').execute();
+    await schema.createIndex('nostr_tags_name').on('nostr_tags').ifNotExists().column('name').execute();
+    await schema.createIndex('nostr_tags_value').on('nostr_tags').ifNotExists().column('value').execute();
+    await schema.createIndex('nostr_tags_event_id').on('nostr_tags').ifNotExists().column('event_id').execute();
+
+    if (this.#fts) {
+      await sql`CREATE VIRTUAL TABLE nostr_fts USING fts5(event_id, content)`.execute(this.#db);
+    }
+  }
 }

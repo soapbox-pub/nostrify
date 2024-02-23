@@ -2,7 +2,7 @@ import { assert } from 'https://deno.land/std@0.212.0/assert/mod.ts';
 
 import { NSchema as n } from './NSchema.ts';
 
-import nostrEvent from '../fixtures/event.json' with { type: 'json' };
+import nostrEvent from '../fixtures/event-1.json' with { type: 'json' };
 import lnurlCallback from '../fixtures/callback.json' with { type: 'json' };
 
 Deno.test('n.id', () => {

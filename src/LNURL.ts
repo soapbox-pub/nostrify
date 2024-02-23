@@ -8,13 +8,13 @@ import { NSchema as n, z } from './NSchema.ts';
 
 interface LookupOpts {
   fetch?: typeof fetch;
-  signal?: AbortSignal | null;
+  signal?: AbortSignal;
   limit?: number;
 }
 
 interface CallbackOpts {
   fetch?: typeof fetch;
-  signal?: AbortSignal | null;
+  signal?: AbortSignal;
 }
 
 interface CallbackParams {
@@ -68,7 +68,7 @@ export class LNURL {
   static async callback(url: string | URL, params: CallbackParams, opts?: CallbackOpts): Promise<LNURLCallback> {
     const { fetch = globalThis.fetch, signal } = opts ?? {};
 
-    const callback = new URL(url);
+    const callback = new URL(url.toString());
     const search = new URLSearchParams();
 
     search.set('amount', params.amount.toString());

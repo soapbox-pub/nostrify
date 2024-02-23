@@ -21,4 +21,5 @@ Deno.test('NIP05.lookup', async () => {
   };
 
   assertEquals(result, expected);
+  fetch.restore();
 });

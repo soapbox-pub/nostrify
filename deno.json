@@ -3,8 +3,10 @@
   "lock": false,
   "tasks": {
     "test": "deno test",
-    "check": "deno check mod.ts"
+    "check": "deno check mod.ts",
+    "npm": "deno run -A scripts/npm.ts"
   },
+  "exclude": ["npm"],
   "lint": {
     "rules": {
       "tags": ["recommended"],

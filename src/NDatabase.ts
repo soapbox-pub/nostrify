@@ -199,7 +199,6 @@ export class NDatabase implements NStore {
 
   /** Get events for filters from the database. */
   async query(filters: NostrFilter[], opts: NStoreOpts = {}): Promise<NostrEvent[]> {
-    if (!filters.length) return Promise.resolve([]);
     let query = this.getEventsQuery(filters);
 
     if (typeof opts.limit === 'number') {
@@ -221,7 +220,6 @@ export class NDatabase implements NStore {
 
   /** Delete events from each table. Should be run in a transaction! */
   async deleteEventsTrx(db: Kysely<NDatabaseSchema>, filters: NostrFilter[]) {
-    if (!filters.length) return Promise.resolve();
     const query = this.getEventsQuery(filters).clearSelect().select('id');
 
     if (this.#fts) {
@@ -238,13 +236,11 @@ export class NDatabase implements NStore {
 
   /** Delete events based on filters from the database. */
   async remove(filters: NostrFilter[], _opts?: NStoreOpts): Promise<void> {
-    if (!filters.length) return Promise.resolve();
     await this.#db.transaction().execute((trx) => this.deleteEventsTrx(trx, filters));
   }
 
   /** Get number of events that would be returned by filters. */
   async count(filters: NostrFilter[], _opts: NStoreOpts = {}): Promise<{ count: number; approximate: false }> {
-    if (!filters.length) return Promise.resolve({ count: 0, approximate: false });
     const query = this.getEventsQuery(filters);
 
     const [{ count }] = await query

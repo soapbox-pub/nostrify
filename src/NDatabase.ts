@@ -43,16 +43,16 @@ export interface NDatabaseOpts {
 
 /** SQLite database storage adapter for Nostr events. */
 export class NDatabase implements NStore {
-  #db: Kysely<NDatabaseSchema>;
-  #fts: boolean;
-  #tagIndexes: Record<string, NTagIndex>;
-  #searchText: (event: NostrEvent) => string;
+  private db: Kysely<NDatabaseSchema>;
+  private fts: boolean;
+  private tagIndexes: Record<string, NTagIndex>;
+  private searchText: (event: NostrEvent) => string;
 
   constructor(db: Kysely<any>, opts?: NDatabaseOpts) {
-    this.#db = db as Kysely<NDatabaseSchema>;
-    this.#fts = opts?.fts ?? false;
-    this.#tagIndexes = opts?.tagIndexes ?? NDatabase.tagIndexes;
-    this.#searchText = opts?.searchText ?? NDatabase.searchText;
+    this.db = db as Kysely<NDatabaseSchema>;
+    this.fts = opts?.fts ?? false;
+    this.tagIndexes = opts?.tagIndexes ?? NDatabase.tagIndexes;
+    this.searchText = opts?.searchText ?? NDatabase.searchText;
   }
 
   /** Default tag conditions. */
@@ -69,7 +69,7 @@ export class NDatabase implements NStore {
 
   /** Insert an event (and its tags) into the database. */
   async event(event: NostrEvent, _opts?: NStoreOpts): Promise<void> {
-    return await this.#db.transaction().execute(async (trx) => {
+    return await this.db.transaction().execute(async (trx) => {
       /** Insert the event into the database. */
       const addEvent = async () => {
         await trx.insertInto('nostr_events')
@@ -79,8 +79,8 @@ export class NDatabase implements NStore {
 
       /** Add search data to the FTS table. */
       const indexSearch = async () => {
-        if (!this.#fts) return;
-        const content = this.#searchText(event);
+        if (!this.fts) return;
+        const content = this.searchText(event);
         if (!content) return;
         await trx.insertInto('nostr_fts')
           .values({ event_id: event.id, content })
@@ -179,7 +179,7 @@ export class NDatabase implements NStore {
       }
     }
 
-    if (filter.search && this.#fts) {
+    if (filter.search && this.fts) {
       query = query
         .innerJoin('nostr_fts', 'nostr_fts.event_id', 'nostr_events.id')
         .where('nostr_fts.content', 'match', JSON.stringify(filter.search));
@@ -192,8 +192,8 @@ export class NDatabase implements NStore {
   getEventsQuery(filters: NostrFilter[]) {
     return filters
       .map((filter) =>
-        this.#db
-          .selectFrom(() => this.getFilterQuery(this.#db, filter).as('nostr_events'))
+        this.db
+          .selectFrom(() => this.getFilterQuery(this.db, filter).as('nostr_events'))
           .selectAll()
       )
       .reduce((result, query) => result.unionAll(query));
@@ -224,7 +224,7 @@ export class NDatabase implements NStore {
   async deleteEventsTrx(db: Kysely<NDatabaseSchema>, filters: NostrFilter[]) {
     const query = this.getEventsQuery(filters).clearSelect().select('id');
 
-    if (this.#fts) {
+    if (this.fts) {
       await db.deleteFrom('nostr_fts')
         .where('event_id', 'in', () => query)
         .execute();
@@ -237,7 +237,7 @@ export class NDatabase implements NStore {
 
   /** Delete events based on filters from the database. */
   async remove(filters: NostrFilter[], _opts?: NStoreOpts): Promise<void> {
-    await this.#db.transaction().execute((trx) => this.deleteEventsTrx(trx, filters));
+    await this.db.transaction().execute((trx) => this.deleteEventsTrx(trx, filters));
   }
 
   /** Get number of events that would be returned by filters. */
@@ -277,7 +277,7 @@ export class NDatabase implements NStore {
 
     return event.tags.reduce<string[][]>((results, tag) => {
       const [name, value] = tag;
-      const index = this.#tagIndexes[name] as NTagIndex | undefined;
+      const index = this.tagIndexes[name] as NTagIndex | undefined;
 
       if (value && index && value.length < 200 && checkIndex(name, value, index)) {
         results.push(tag);
@@ -290,7 +290,7 @@ export class NDatabase implements NStore {
 
   /** Migrate the database schema. */
   async migrate() {
-    const schema = this.#db.schema;
+    const schema = this.db.schema;
 
     await schema
       .createTable('nostr_events')
@@ -318,8 +318,8 @@ export class NDatabase implements NStore {
     await schema.createIndex('nostr_tags_value').on('nostr_tags').ifNotExists().column('value').execute();
     await schema.createIndex('nostr_tags_event_id').on('nostr_tags').ifNotExists().column('event_id').execute();
 
-    if (this.#fts) {
-      await sql`CREATE VIRTUAL TABLE nostr_fts USING fts5(event_id, content)`.execute(this.#db);
+    if (this.fts) {
+      await sql`CREATE VIRTUAL TABLE nostr_fts USING fts5(event_id, content)`.execute(this.db);
     }
   }
 }

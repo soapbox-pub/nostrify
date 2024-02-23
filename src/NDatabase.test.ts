@@ -36,7 +36,7 @@ Deno.test('NDatabase.count', async () => {
 });
 
 Deno.test('NDatabase.query', async () => {
-  const db = await createDB({ tagConditions: { proxy: () => true } });
+  const db = await createDB({ tagIndexes: { proxy: () => true } });
   await db.event(event1);
 
   assertEquals(await db.query([{ kinds: [1] }]), [event1]);

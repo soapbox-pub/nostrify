@@ -8,7 +8,7 @@ import { NKinds } from './NKinds.ts';
 import { NSchema as n } from './NSchema.ts';
 
 /** Function to decide whether or not to index a tag. */
-export type TagCondition = ({ event, count, value }: { event: NostrEvent; count: number; value: string }) => boolean;
+export type NTagIndex = ({ event, count, value }: { event: NostrEvent; count: number; value: string }) => boolean;
 
 /** Kysely database schema for Nostr. */
 export interface NDatabaseSchema {
@@ -36,7 +36,7 @@ export interface NDatabaseOpts {
   /** Whether or not to use FTS. */
   fts?: boolean;
   /** Conditions for when to index certain tags. */
-  tagConditions?: Record<string, TagCondition>;
+  tagIndexes?: Record<string, NTagIndex>;
   /** Build a search index from the event. Only applicable if `fts` is `true`. */
   buildSearchContent?(event: NostrEvent): string;
 }
@@ -45,18 +45,18 @@ export interface NDatabaseOpts {
 export class NDatabase implements NStore {
   #db: Kysely<NDatabaseSchema>;
   #fts: boolean;
-  #tagConditions: Record<string, TagCondition>;
+  #tagIndexes: Record<string, NTagIndex>;
   #buildSearchContent: (event: NostrEvent) => string;
 
-  constructor(db: Kysely<unknown>, opts?: NDatabaseOpts) {
+  constructor(db: Kysely<any>, opts?: NDatabaseOpts) {
     this.#db = db as Kysely<NDatabaseSchema>;
     this.#fts = opts?.fts ?? false;
-    this.#tagConditions = opts?.tagConditions ?? NDatabase.tagConditions;
+    this.#tagIndexes = opts?.tagIndexes ?? NDatabase.tagIndexes;
     this.#buildSearchContent = opts?.buildSearchContent ?? NDatabase.buildSearchContent;
   }
 
   /** Default tag conditions. */
-  static tagConditions: Record<string, TagCondition> = {
+  static tagIndexes: Record<string, NTagIndex> = {
     'd': ({ event, count }) => count === 0 && NKinds.parameterizedReplaceable(event.kind),
     'e': ({ count, value }) => (count < 15) && n.id().safeParse(value).success,
     'p': ({ event, count, value }) => (count < 15 || event.kind === 3) && n.id().safeParse(value).success,
@@ -267,8 +267,8 @@ export class NDatabase implements NStore {
       tagCounts[name] = getCount(name) + 1;
     }
 
-    function checkCondition(name: string, value: string, condition: TagCondition) {
-      return condition({
+    function checkIndex(name: string, value: string, index: NTagIndex) {
+      return index({
         event,
         count: getCount(name),
         value,
@@ -277,9 +277,9 @@ export class NDatabase implements NStore {
 
     return event.tags.reduce<string[][]>((results, tag) => {
       const [name, value] = tag;
-      const condition = this.#tagConditions[name] as TagCondition | undefined;
+      const index = this.#tagIndexes[name] as NTagIndex | undefined;
 
-      if (value && condition && value.length < 200 && checkCondition(name, value, condition)) {
+      if (value && index && value.length < 200 && checkIndex(name, value, index)) {
         results.push(tag);
       }
 

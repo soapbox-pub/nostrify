@@ -41,7 +41,30 @@ export interface NDatabaseOpts {
   searchText?(event: NostrEvent): string;
 }
 
-/** SQLite database storage adapter for Nostr events. */
+/**
+ * SQLite database storage adapter for Nostr events.
+ * It uses [Kysely](https://kysely.dev/) to make queries, making it flexible for a variety of use-cases.
+ *
+ * ```ts
+ * // Create a Kysely instance.
+ * const kysely = new Kysely({
+ *   dialect: new DenoSqliteDialect({
+ *     database: new Sqlite('./db.sqlite3'),
+ *   }),
+ * });
+ *
+ * // Pass Kysely into the constructor.
+ * const db = new NDatabase(kysely);
+ *
+ * // Migrate the database before use.
+ * await db.migrate();
+ *
+ * // Now it's just a regular storage.
+ * await db.event(event1);
+ * await db.event(event2);
+ * const events = await db.query([{ kinds: [1] }]);
+ * ```
+ */
 export class NDatabase implements NStore {
   private db: Kysely<NDatabaseSchema>;
   private fts: boolean;

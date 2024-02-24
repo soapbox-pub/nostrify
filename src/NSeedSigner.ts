@@ -8,7 +8,19 @@ export interface NSeedSignerOpts {
   passphrase?: string;
 }
 
-/** [NIP-06](https://github.com/nostr-protocol/nips/blob/master/06.md) mnemonic seed signer. */
+/**
+ * Similar to `NSecSigner`, but it accepts a BIP-39 mnemonic seed phrase which it uses to derive the secret key according to [NIP-06](https://github.com/nostr-protocol/nips/blob/master/06.md).
+ *
+ * ```ts
+ * const signer = new NSeedSigner('abandon baby cabbage dad ...', {
+ *   account: 0, // Optional account number. Default is 0.
+ *   passphrase: 'very special mother', // Optional passphrase. Default is no passphrase.
+ * });
+ *
+ * const pubkey = await signer.getPublicKey();
+ * const event = await signer.signEvent({ content: 'Hello, world!', kind: 1, ... });
+```
+ */
 export class NSeedSigner extends NSecSigner {
   constructor(mnemonic: string, opts: NSeedSignerOpts = {}) {
     const { account = 0, passphrase } = opts;

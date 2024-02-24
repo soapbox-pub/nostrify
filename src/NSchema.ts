@@ -11,6 +11,18 @@ import {
   NostrRelayOK,
 } from '../interfaces/NostrRelayMsg.ts';
 
+/**
+ * A suite of [zod](https://github.com/colinhacks/zod) schemas for Nostr.
+ *
+ * ```ts
+ * import { NSchema as n } from 'nspec';
+ *
+ * const event: NostrEvent = n.event().parse(eventData);
+ * const metadata: NostrMetadata = n.json().pipe(n.metadata()).parse(event.content);
+ * const msg: NostrRelayMsg = n.relayMsg().parse(e.data);
+ * const nsec: `nsec1${string}` = n.bech32('nsec').parse(token);
+ * ```
+ */
 class NSchema {
   /** Schema to validate Nostr hex IDs such as event IDs and pubkeys. */
   static id(): z.ZodString {

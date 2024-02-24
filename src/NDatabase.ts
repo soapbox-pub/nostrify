@@ -99,26 +99,27 @@ export class NDatabase implements NStore {
       };
 
       if (NKinds.replaceable(event.kind)) {
-        const prevEvents = await this.getFilterQuery(trx, { kinds: [event.kind], authors: [event.pubkey] }).execute();
+        const prevFilter = { kinds: [event.kind], authors: [event.pubkey] };
+        const prevEvents = await this.getFilterQuery(trx, prevFilter).execute();
         for (const prevEvent of prevEvents) {
           if (prevEvent.created_at >= event.created_at) {
             throw new Error('Cannot replace an event with an older event');
           }
         }
-        await this.deleteEventsTrx(trx, [{ kinds: [event.kind], authors: [event.pubkey] }]);
+        await this.deleteEventsTrx(trx, [prevFilter]);
       }
 
       if (NKinds.parameterizedReplaceable(event.kind)) {
         const d = event.tags.find(([tag]) => tag === 'd')?.[1];
         if (d) {
-          const prevEvents = await this.getFilterQuery(trx, { kinds: [event.kind], authors: [event.pubkey], '#d': [d] })
-            .execute();
+          const prevFilter = { kinds: [event.kind], authors: [event.pubkey], '#d': [d] };
+          const prevEvents = await this.getFilterQuery(trx, prevFilter).execute();
           for (const prevEvent of prevEvents) {
             if (prevEvent.created_at >= event.created_at) {
               throw new Error('Cannot replace an event with an older event');
             }
           }
-          await this.deleteEventsTrx(trx, [{ kinds: [event.kind], authors: [event.pubkey], '#d': [d] }]);
+          await this.deleteEventsTrx(trx, [prevFilter]);
         }
       }
 
@@ -139,7 +140,7 @@ export class NDatabase implements NStore {
   }
 
   /** Build the query for a filter. */
-  getFilterQuery(db: Kysely<NDatabaseSchema>, filter: NostrFilter) {
+  protected getFilterQuery(db: Kysely<NDatabaseSchema>, filter: NostrFilter) {
     let query = db
       .selectFrom('nostr_events')
       .selectAll()
@@ -184,7 +185,7 @@ export class NDatabase implements NStore {
   }
 
   /** Combine filter queries into a single union query. */
-  getEventsQuery(filters: NostrFilter[]) {
+  protected getEventsQuery(filters: NostrFilter[]) {
     return filters
       .map((filter) =>
         this.db
@@ -216,7 +217,7 @@ export class NDatabase implements NStore {
   }
 
   /** Delete events from each table. Should be run in a transaction! */
-  async deleteEventsTrx(db: Kysely<NDatabaseSchema>, filters: NostrFilter[]) {
+  protected async deleteEventsTrx(db: Kysely<NDatabaseSchema>, filters: NostrFilter[]) {
     const query = this.getEventsQuery(filters).clearSelect().select('id');
 
     if (this.fts) {

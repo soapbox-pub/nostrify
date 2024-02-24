@@ -1,6 +1,7 @@
 import { z } from 'npm:zod@^3.22.4';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
+import { NostrMetadata } from '../interfaces/NostrMetadata.ts';
 import {
   NostrRelayCLOSED,
   NostrRelayEOSE,
@@ -73,6 +74,19 @@ class NSchema {
       NSchema.relayEOSE(),
       NSchema.relayNOTICE(),
     ]);
+  }
+
+  /** Kind 0 content schema. */
+  static metadata(): z.ZodType<NostrMetadata> {
+    return z.object({
+      name: z.string().optional().catch(undefined),
+      about: z.string().optional().catch(undefined),
+      picture: z.string().optional().catch(undefined),
+      banner: z.string().optional().catch(undefined),
+      nip05: z.string().optional().catch(undefined),
+      lud06: z.string().optional().catch(undefined),
+      lud16: z.string().optional().catch(undefined),
+    }).passthrough() as z.ZodType<NostrMetadata>;
   }
 
   /**

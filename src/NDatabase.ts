@@ -99,27 +99,25 @@ export class NDatabase implements NStore {
       };
 
       if (NKinds.replaceable(event.kind)) {
-        const prevFilter = { kinds: [event.kind], authors: [event.pubkey] };
-        const prevEvents = await this.getFilterQuery(trx, prevFilter).execute();
-        for (const prevEvent of prevEvents) {
-          if (prevEvent.created_at >= event.created_at) {
-            throw new Error('Cannot replace an event with an older event');
-          }
-        }
-        await this.deleteEventsTrx(trx, [prevFilter]);
+        await this.deleteReplaced(
+          trx,
+          event,
+          { kinds: [event.kind], authors: [event.pubkey] },
+          (event, prevEvent) => event.created_at > prevEvent.created_at,
+          'Cannot replace an event with an older event',
+        );
       }
 
       if (NKinds.parameterizedReplaceable(event.kind)) {
         const d = event.tags.find(([tag]) => tag === 'd')?.[1];
         if (d) {
-          const prevFilter = { kinds: [event.kind], authors: [event.pubkey], '#d': [d] };
-          const prevEvents = await this.getFilterQuery(trx, prevFilter).execute();
-          for (const prevEvent of prevEvents) {
-            if (prevEvent.created_at >= event.created_at) {
-              throw new Error('Cannot replace an event with an older event');
-            }
-          }
-          await this.deleteEventsTrx(trx, [prevFilter]);
+          await this.deleteReplaced(
+            trx,
+            event,
+            { kinds: [event.kind], authors: [event.pubkey], '#d': [d] },
+            (event, prevEvent) => event.created_at > prevEvent.created_at,
+            'Cannot replace an event with an older event',
+          );
         }
       }
 
@@ -137,6 +135,22 @@ export class NDatabase implements NStore {
         throw error;
       }
     });
+  }
+
+  protected async deleteReplaced(
+    trx: Kysely<NDatabaseSchema>,
+    event: NostrEvent,
+    filter: NostrFilter,
+    replaces: (event: NostrEvent, prevEvent: NDatabaseSchema['nostr_events']) => boolean,
+    error: string,
+  ) {
+    const prevEvents = await this.getFilterQuery(trx, filter).execute();
+    for (const prevEvent of prevEvents) {
+      if (!replaces(event, prevEvent)) {
+        throw new Error(error);
+      }
+    }
+    await this.deleteEventsTrx(trx, [filter]);
   }
 
   /** Build the query for a filter. */

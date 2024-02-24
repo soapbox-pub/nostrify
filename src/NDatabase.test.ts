@@ -84,3 +84,23 @@ Deno.test('NDatabase.event with replaceable event', async () => {
   await db.event(changeEvent);
   assertEquals(await db.query([{ kinds: [0] }]), [changeEvent]);
 });
+
+Deno.test('NDatabase.event with parametirized replaceable event', async () => {
+  const db = await createDB();
+
+  const event0 = { id: '1', kind: 30000, pubkey: 'abc', content: '', created_at: 0, sig: '', tags: [['d', 'a']] };
+  const event1 = { id: '2', kind: 30000, pubkey: 'abc', content: '', created_at: 1, sig: '', tags: [['d', 'a']] };
+  const event2 = { id: '3', kind: 30000, pubkey: 'abc', content: '', created_at: 2, sig: '', tags: [['d', 'a']] };
+
+  await db.event(event0);
+  assertEquals(await db.query([{ ids: [event0.id] }]), [event0]);
+
+  await db.event(event1);
+  assertEquals(await db.query([{ ids: [event0.id] }]), []);
+  assertEquals(await db.query([{ ids: [event1.id] }]), [event1]);
+
+  await db.event(event2);
+  assertEquals(await db.query([{ ids: [event0.id] }]), []);
+  assertEquals(await db.query([{ ids: [event1.id] }]), []);
+  assertEquals(await db.query([{ ids: [event2.id] }]), [event2]);
+});

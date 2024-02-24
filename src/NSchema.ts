@@ -1,6 +1,7 @@
 import { z } from 'npm:zod@^3.22.4';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
+import { NostrMetadata } from '../interfaces/NostrMetadata.ts';
 import {
   NostrRelayCLOSED,
   NostrRelayEOSE,
@@ -10,6 +11,18 @@ import {
   NostrRelayOK,
 } from '../interfaces/NostrRelayMsg.ts';
 
+/**
+ * A suite of [zod](https://github.com/colinhacks/zod) schemas for Nostr.
+ *
+ * ```ts
+ * import { NSchema as n } from 'nspec';
+ *
+ * const event: NostrEvent = n.event().parse(eventData);
+ * const metadata: NostrMetadata = n.json().pipe(n.metadata()).parse(event.content);
+ * const msg: NostrRelayMsg = n.relayMsg().parse(e.data);
+ * const nsec: `nsec1${string}` = n.bech32('nsec').parse(token);
+ * ```
+ */
 class NSchema {
   /** Schema to validate Nostr hex IDs such as event IDs and pubkeys. */
   static id(): z.ZodString {
@@ -73,6 +86,19 @@ class NSchema {
       NSchema.relayEOSE(),
       NSchema.relayNOTICE(),
     ]);
+  }
+
+  /** Kind 0 content schema. */
+  static metadata(): z.ZodType<NostrMetadata> {
+    return z.object({
+      name: z.string().optional().catch(undefined),
+      about: z.string().optional().catch(undefined),
+      picture: z.string().optional().catch(undefined),
+      banner: z.string().optional().catch(undefined),
+      nip05: z.string().optional().catch(undefined),
+      lud06: z.string().optional().catch(undefined),
+      lud16: z.string().optional().catch(undefined),
+    }).passthrough() as z.ZodType<NostrMetadata>;
   }
 
   /**

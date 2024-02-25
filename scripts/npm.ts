@@ -21,6 +21,10 @@ await build({
       url: 'https://gitlab.com/soapbox-pub/NSpec/-/issues',
     },
   },
+  scriptModule: false,
+  compilerOptions: {
+    lib: ['ES2021', 'DOM'],
+  },
   postBuild() {
     Deno.copyFileSync('LICENSE', 'npm/LICENSE');
     Deno.copyFileSync('README.md', 'npm/README.md');

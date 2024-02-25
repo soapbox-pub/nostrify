@@ -19,7 +19,7 @@ export interface NStoreOpts {
   /** Signal to stop the request. */
   signal?: AbortSignal;
   /** Relays to use, if applicable. `[]` means "no relays". `undefined` means "all relays". */
-  relays?: string[];
+  relays?: WebSocket['url'][];
   /** Overall event limit, if applicable. */
   limit?: number;
 }

@@ -6,18 +6,27 @@ import { NostrEvent } from '../interfaces/NostrEvent.ts';
  * NSet is an implementation of the theory that a Nostr Storage is actually just a Set.
  * Events are Nostr's only data type, and they are immutable, making the Set interface ideal.
  *
- * Since the Set interface is synchronous, it can't actually implement `NStore`.
- * But it is possible to implement both `NStore` and `NSet` in a single class (eg `NCache`).
+ * ```ts
+ * const events = new NSet();
  *
- * Adding events with `NSet.add(event: NostrEvent)`:
+ * // Events can be added like a regular `Set`:
+ * events.add(event1);
+ * events.add(event2);
  *
- * - Events are stored by `id`.
- * - Replaceable events are replaced within the set. Older versions of replaceable events can't be added.
- * - Kind `5` events will delete their targets from the set. Those events can't be added, so long as the deletion event remains in the set.
+ * // Can be iterated:
+ * for (const event of events) {
+ *   if (matchFilters(filters, event)) {
+ *     console.log(event);
+ *   }
+ * }
+ * ```
  *
- * Any `Map` instance can be passed into `new NSet()`, making it compatible with [lru-cache](https://www.npmjs.com/package/lru-cache), among others.
+ * `NSet` will handle kind `5` deletions, removing events from the set.
+ * Replaceable (and parameterized) events will keep only the newest version.
+ * However, verification of `id` and `sig` is NOT performed.
  *
- * Event validation is NOT performed. Callers MUST verify signatures before adding events to the set.
+ * Any `Map` instance can be passed into `new NSet()`, making it compatible with
+ * [lru-cache](https://www.npmjs.com/package/lru-cache), among others.
  */
 class NSet implements Set<NostrEvent> {
   protected cache: Map<string, NostrEvent>;

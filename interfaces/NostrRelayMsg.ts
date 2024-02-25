@@ -12,6 +12,8 @@ export type NostrRelayCLOSED = ['CLOSED', subscriptionId: string, reason: string
 export type NostrRelayNOTICE = ['NOTICE', message: string];
 /** NIP-45 `COUNT`, used to send counts requested by clients. */
 export type NostrRelayCOUNT = ['COUNT', subscriptionId: string, { count: number; approximate?: boolean }];
+/** NIP-42 `AUTH`, used to authenticate clients with the relay. */
+export type NostrRelayAUTH = ['AUTH', challenge: string];
 
 /** NIP-01 message from a relay to client. */
 export type NostrRelayMsg =
@@ -20,4 +22,5 @@ export type NostrRelayMsg =
   | NostrRelayEOSE
   | NostrRelayCLOSED
   | NostrRelayNOTICE
-  | NostrRelayCOUNT;
+  | NostrRelayCOUNT
+  | NostrRelayAUTH;

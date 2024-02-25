@@ -3,6 +3,7 @@ import { z } from 'npm:zod@^3.22.4';
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NostrMetadata } from '../interfaces/NostrMetadata.ts';
 import {
+  NostrRelayAUTH,
   NostrRelayCLOSED,
   NostrRelayEOSE,
   NostrRelayEVENT,
@@ -78,6 +79,11 @@ class NSchema {
     return z.tuple([z.literal('CLOSED'), z.string(), z.string()]);
   }
 
+  /** NIP-42 `AUTH` message from relay to client. */
+  static relayAUTH(): z.ZodType<NostrRelayAUTH> {
+    return z.tuple([z.literal('AUTH'), z.string()]);
+  }
+
   /** NIP-01 message from relay to client. */
   static relayMsg(): z.ZodType<NostrRelayMsg> {
     return z.union([
@@ -85,6 +91,8 @@ class NSchema {
       NSchema.relayOK(),
       NSchema.relayEOSE(),
       NSchema.relayNOTICE(),
+      NSchema.relayCLOSED(),
+      NSchema.relayAUTH(),
     ]);
   }
 

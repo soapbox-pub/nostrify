@@ -1,3 +1,4 @@
+import { matchFilters, verifyEvent } from 'npm:nostr-tools@^2.3.1';
 import { ExponentialBackoff, Websocket, WebsocketBuilder } from 'npm:websocket-ts@^2.1.5';
 
 import { NostrClientMsg, NostrClientREQ } from '../interfaces/NostrClientMsg.ts';
@@ -78,8 +79,15 @@ export class NiceRelay implements NRelay {
 
     try {
       for await (const msg of msgs) {
+        if (msg[0] === 'EOSE') yield msg;
         if (msg[0] === 'CLOSED') break;
-        yield msg;
+        if (msg[0] === 'EVENT') {
+          if (matchFilters(filters, msg[2]) && verifyEvent(msg[2])) {
+            yield msg;
+          } else {
+            continue;
+          }
+        }
       }
     } finally {
       this.send(['CLOSE', subscriptionId]);

@@ -1,5 +1,12 @@
 import { matchFilters, verifyEvent } from 'npm:nostr-tools@^2.3.1';
-import { ArrayQueue, ExponentialBackoff, Websocket, WebsocketBuilder, WebsocketEvent } from 'npm:websocket-ts@^2.1.5';
+import {
+  ArrayQueue,
+  Backoff,
+  ExponentialBackoff,
+  Websocket,
+  WebsocketBuilder,
+  WebsocketEvent,
+} from 'npm:websocket-ts@^2.1.5';
 
 import { NostrClientMsg, NostrClientREQ } from '../interfaces/NostrClientMsg.ts';
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
@@ -28,21 +35,22 @@ type EventMap = {
 export interface NRelayOpts {
   /** Respond to `AUTH` challenges by producing a signed kind `22242` event. */
   auth?(challenge: string): Promise<NostrEvent>;
+  /** Configure reconnection strategy, or set to `false` to disable. Default: `new ExponentialBackoff(1000)`. */
+  backoff?: Backoff | false;
 }
 
 export class NRelay implements _NRelay {
   readonly socket: Websocket;
 
   private subscriptions = new Map<string, NostrClientREQ>();
-  private auth?: NRelayOpts['auth'];
   private ee = new EventTarget();
 
-  constructor(url: string, opts?: NRelayOpts) {
-    this.auth = opts?.auth;
+  constructor(url: string, opts: NRelayOpts = {}) {
+    const { auth, backoff = new ExponentialBackoff(1000) } = opts;
 
     this.socket = new WebsocketBuilder(url)
       .withBuffer(new ArrayQueue())
-      .withBackoff(new ExponentialBackoff(1000))
+      .withBackoff(backoff === false ? undefined : backoff)
       .onOpen(() => {
         for (const req of this.subscriptions.values()) {
           this.send(req);
@@ -71,7 +79,7 @@ export class NRelay implements _NRelay {
             this.ee.dispatchEvent(new CustomEvent(`count:${msg[1]}`, { detail: msg }));
             break;
           case 'AUTH':
-            this.auth?.(msg[1]).then((event) => this.send(['AUTH', event])).catch(() => {});
+            auth?.(msg[1]).then((event) => this.send(['AUTH', event])).catch(() => {});
         }
       })
       .build();

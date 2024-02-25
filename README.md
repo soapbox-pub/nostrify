@@ -178,6 +178,7 @@ All options are optional.
 
 - `auth` - A function like `(challenge: string) => Promise<NostrEvent>`. If provided, it will be called whenever the relay sends an `AUTH` message, and then it will send the resulting event back to the relay in an `AUTH` message. If not provided, auth is ignored.
 - `backoff` - A [`Backoff`](https://github.com/jjxxs/websocket-ts/blob/v2.1.5/src/backoff/backoff.ts) object for reconnection attempts, or `false` to disable automatic reconnect. Default is `new ExponentialBackoff(1000)`.
+- `verifyEvent` - Custom event verification function. Default is `nostrTools.verifyEvent`.
 
 ### `NPool` class
 

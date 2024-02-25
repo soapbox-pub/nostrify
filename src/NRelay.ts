@@ -1,4 +1,4 @@
-import { matchFilters, verifyEvent } from 'npm:nostr-tools@^2.3.1';
+import { matchFilters, verifyEvent as _verifyEvent } from 'npm:nostr-tools@^2.3.1';
 import {
   ArrayQueue,
   Backoff,
@@ -37,6 +37,8 @@ export interface NRelayOpts {
   auth?(challenge: string): Promise<NostrEvent>;
   /** Configure reconnection strategy, or set to `false` to disable. Default: `new ExponentialBackoff(1000)`. */
   backoff?: Backoff | false;
+  /** Ensure the event is valid before returning it. Default: `nostrTools.verifyEvent`. */
+  verifyEvent?(event: NostrEvent): boolean;
 }
 
 export class NRelay implements _NRelay {
@@ -46,7 +48,7 @@ export class NRelay implements _NRelay {
   private ee = new EventTarget();
 
   constructor(url: string, opts: NRelayOpts = {}) {
-    const { auth, backoff = new ExponentialBackoff(1000) } = opts;
+    const { auth, backoff = new ExponentialBackoff(1000), verifyEvent = _verifyEvent } = opts;
 
     this.socket = new WebsocketBuilder(url)
       .withBuffer(new ArrayQueue())
@@ -64,9 +66,8 @@ export class NRelay implements _NRelay {
           case 'EVENT':
           case 'EOSE':
           case 'CLOSED':
-            if (msg[0] === 'CLOSED') {
-              this.subscriptions.delete(msg[1]);
-            }
+            if (msg[0] === 'EVENT' && !verifyEvent(msg[2])) break;
+            if (msg[0] === 'CLOSED') this.subscriptions.delete(msg[1]);
             this.ee.dispatchEvent(new CustomEvent(`sub:${msg[1]}`, { detail: msg }));
             break;
           case 'OK':
@@ -119,7 +120,7 @@ export class NRelay implements _NRelay {
         if (msg[0] === 'EOSE') yield msg;
         if (msg[0] === 'CLOSED') break;
         if (msg[0] === 'EVENT') {
-          if (matchFilters(filters, msg[2]) && verifyEvent(msg[2])) {
+          if (matchFilters(filters, msg[2])) {
             yield msg;
           } else {
             continue;

@@ -66,6 +66,19 @@ export class NiceRelay implements NRelay {
       .build();
   }
 
+  protected send(msg: NostrClientMsg): void {
+    switch (msg[0]) {
+      case 'REQ':
+        this.subscriptions.set(msg[1], msg);
+        break;
+      case 'CLOSE':
+        this.subscriptions.delete(msg[1]);
+        break;
+    }
+
+    return this.socket.send(JSON.stringify(msg));
+  }
+
   async *req(
     filters: NostrFilter[],
     opts: NReqOpts = {},
@@ -94,18 +107,6 @@ export class NiceRelay implements NRelay {
     }
   }
 
-  async event(event: NostrEvent, opts?: NStoreOpts): Promise<void> {
-    const result = this.#once(`ok:${event.id}`, opts?.signal);
-
-    this.send(['EVENT', event]);
-
-    const [, , ok, reason] = await result;
-
-    if (!ok) {
-      throw new Error(reason);
-    }
-  }
-
   async query(filters: NostrFilter[], opts?: NStoreOpts): Promise<NostrEvent[]> {
     const events: NostrEvent[] = [];
 
@@ -116,6 +117,18 @@ export class NiceRelay implements NRelay {
     }
 
     return events;
+  }
+
+  async event(event: NostrEvent, opts?: NStoreOpts): Promise<void> {
+    const result = this.#once(`ok:${event.id}`, opts?.signal);
+
+    this.send(['EVENT', event]);
+
+    const [, , ok, reason] = await result;
+
+    if (!ok) {
+      throw new Error(reason);
+    }
   }
 
   async count(filters: NostrFilter[], opts?: NStoreOpts): Promise<{ count: number; approximate?: boolean }> {
@@ -154,18 +167,5 @@ export class NiceRelay implements NRelay {
 
   protected abortError() {
     return new DOMException('The signal has been aborted', 'AbortError');
-  }
-
-  protected send(msg: NostrClientMsg): void {
-    switch (msg[0]) {
-      case 'REQ':
-        this.subscriptions.set(msg[1], msg);
-        break;
-      case 'CLOSE':
-        this.subscriptions.delete(msg[1]);
-        break;
-    }
-
-    return this.socket.send(JSON.stringify(msg));
   }
 }

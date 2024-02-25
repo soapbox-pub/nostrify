@@ -25,13 +25,21 @@ type EventMap = {
   notice: NostrRelayNOTICE;
 };
 
+export interface NRelayOpts {
+  /** Respond to `AUTH` challenges by producing a signed kind `22242` event. */
+  auth?(challenge: string): Promise<NostrEvent>;
+}
+
 export class NRelay implements _NRelay {
   readonly socket: Websocket;
 
   private subscriptions = new Map<string, NostrClientREQ>();
+  private auth?: NRelayOpts['auth'];
   private ee = new EventTarget();
 
-  constructor(url: string) {
+  constructor(url: string, opts?: NRelayOpts) {
+    this.auth = opts?.auth;
+
     this.socket = new WebsocketBuilder(url)
       .withBuffer(new ArrayQueue())
       .withBackoff(new ExponentialBackoff(1000))
@@ -62,6 +70,8 @@ export class NRelay implements _NRelay {
           case 'COUNT':
             this.ee.dispatchEvent(new CustomEvent(`count:${msg[1]}`, { detail: msg }));
             break;
+          case 'AUTH':
+            this.auth?.(msg[1]).then((event) => this.send(['AUTH', event])).catch(() => {});
         }
       })
       .build();

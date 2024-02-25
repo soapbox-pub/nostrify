@@ -95,7 +95,7 @@ export class NiceRelay implements NRelay {
   }
 
   async event(event: NostrEvent, opts?: NStoreOpts): Promise<void> {
-    const result = this.#once<NostrRelayOK>(`ok:${event.id}`, opts?.signal);
+    const result = this.#once(`ok:${event.id}`, opts?.signal);
 
     this.send(['EVENT', event]);
 
@@ -120,7 +120,7 @@ export class NiceRelay implements NRelay {
 
   async count(filters: NostrFilter[], opts?: NStoreOpts): Promise<{ count: number; approximate?: boolean }> {
     const subscriptionId = crypto.randomUUID();
-    const result = this.#once<NostrRelayCOUNT>(`count:${subscriptionId}`, opts?.signal);
+    const result = this.#once(`count:${subscriptionId}`, opts?.signal);
 
     this.send(['COUNT', subscriptionId, ...filters]);
 
@@ -128,28 +128,11 @@ export class NiceRelay implements NRelay {
     return count;
   }
 
-  #once<T>(key: string, signal?: AbortSignal): Promise<T> {
-    if (signal?.aborted) return Promise.reject(this.abortError());
-
-    return new Promise((resolve, reject) => {
-      const cleanup = () => {
-        signal?.removeEventListener('abort', onAbort);
-        this.ee.removeEventListener(key, onEvent);
-      };
-
-      const onAbort = () => {
-        cleanup();
-        reject(this.abortError());
-      };
-
-      const onEvent = (msg: unknown) => {
-        cleanup();
-        resolve(msg as T);
-      };
-
-      signal?.addEventListener('abort', onAbort);
-      this.ee.addEventListener(key, onEvent, { once: true });
-    });
+  async #once<K extends keyof EventMap>(key: K, signal?: AbortSignal): Promise<EventMap[K]> {
+    for await (const msg of this.#on(key, signal)) {
+      return msg;
+    }
+    throw new Error('Unreachable');
   }
 
   async *#on<K extends keyof EventMap>(key: K, signal?: AbortSignal): AsyncGenerator<EventMap[K]> {

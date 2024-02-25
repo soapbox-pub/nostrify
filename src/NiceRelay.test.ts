@@ -1,4 +1,5 @@
 import { assertEquals } from 'https://deno.land/std@0.212.0/assert/mod.ts';
+import { finalizeEvent, generateSecretKey } from 'npm:nostr-tools@^2.3.1';
 import { WebsocketEvent } from 'npm:websocket-ts@^2.1.5';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
@@ -29,6 +30,24 @@ Deno.test('NiceRelay.req', async () => {
   }
 
   assertEquals(events.length, 1);
+
+  relay.socket.close();
+  await new Promise((resolve) => relay.socket.addEventListener(WebsocketEvent.close, resolve));
+});
+
+Deno.test('NiceRelay.event', async () => {
+  const relay = new NiceRelay('wss://relay.mostr.pub');
+
+  await new Promise((resolve) => relay.socket.addEventListener(WebsocketEvent.open, resolve));
+
+  const event: NostrEvent = finalizeEvent({
+    kind: 1,
+    content: 'This is an automated test from NSpec: https://gitlab.com/soapbox-pub/NSpec',
+    tags: [],
+    created_at: Math.floor(Date.now() / 1000),
+  }, generateSecretKey());
+
+  await relay.event(event);
 
   relay.socket.close();
   await new Promise((resolve) => relay.socket.addEventListener(WebsocketEvent.close, resolve));

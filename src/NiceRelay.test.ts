@@ -19,17 +19,16 @@ Deno.test('NiceRelay.query', async () => {
 Deno.test('NiceRelay.req', async () => {
   const relay = new NiceRelay('wss://relay.mostr.pub');
 
-  const sub = relay.req([{ kinds: [1], limit: 3 }]);
-
   const events: NostrEvent[] = [];
 
-  for await (const msg of sub) {
+  for await (const msg of relay.req([{ kinds: [1], limit: 3 }])) {
     if (msg[0] === 'EVENT') {
       events.push(msg[2]);
-    } else {
       break;
     }
   }
+
+  assertEquals(events.length, 1);
 
   relay.socket.close();
   await new Promise((resolve) => relay.socket.addEventListener(WebsocketEvent.close, resolve));

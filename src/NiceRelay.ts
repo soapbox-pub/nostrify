@@ -27,7 +27,7 @@ type NiceRelayEventMap = DefaultEventMap & {
 
 export class NiceRelay implements NRelay {
   socket: Websocket;
-  subscriptions: NostrClientREQ[] = [];
+  subscriptions = new Map<string, NostrClientREQ>();
 
   #ee = new EventEmitter<NiceRelayEventMap>();
 
@@ -35,7 +35,7 @@ export class NiceRelay implements NRelay {
     this.socket = new WebsocketBuilder(url)
       .withBackoff(new ExponentialBackoff(1000))
       .onOpen(() => {
-        for (const req of this.subscriptions) {
+        for (const req of this.subscriptions.values()) {
           this.send(req);
         }
       })
@@ -48,7 +48,7 @@ export class NiceRelay implements NRelay {
           case 'EOSE':
           case 'CLOSED':
             if (msg[0] === 'CLOSED') {
-              this.removeSubscription(msg[1]);
+              this.subscriptions.delete(msg[1]);
             }
             this.#ee.emit(`sub:${msg[1]}`, msg);
             break;
@@ -75,16 +75,15 @@ export class NiceRelay implements NRelay {
     const msgs = this.#on<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>(`sub:${subscriptionId}`, signal);
     const req: NostrClientREQ = ['REQ', subscriptionId, ...filters];
 
-    this.subscriptions.push(req);
     this.send(req);
 
-    for await (const msg of msgs) {
-      if (msg[0] === 'CLOSED') break;
-      try {
+    try {
+      for await (const msg of msgs) {
+        if (msg[0] === 'CLOSED') break;
         yield msg;
-      } finally {
-        this.closeSubscription(subscriptionId);
       }
+    } finally {
+      this.send(['CLOSE', subscriptionId]);
     }
   }
 
@@ -152,30 +151,15 @@ export class NiceRelay implements NRelay {
     const machina = new Machina<T>(signal);
     const onMsg = (msg: T) => machina.push(msg);
 
-    const cleanup = () => {
-      signal?.removeEventListener('abort', cleanup);
-      this.#ee.off(key, onMsg);
-    };
-
-    signal?.addEventListener('abort', cleanup);
     this.#ee.on(key, onMsg);
 
-    for await (const msg of machina) {
-      try {
+    try {
+      for await (const msg of machina) {
         yield msg;
-      } finally {
-        cleanup();
       }
+    } finally {
+      this.#ee.off(key, onMsg);
     }
-  }
-
-  protected removeSubscription(subscriptionId: string): void {
-    this.subscriptions = this.subscriptions.filter((req) => req[1] !== subscriptionId);
-  }
-
-  protected closeSubscription(subscriptionId: string): void {
-    this.removeSubscription(subscriptionId);
-    this.send(['CLOSE', subscriptionId]);
   }
 
   protected abortError() {
@@ -183,6 +167,15 @@ export class NiceRelay implements NRelay {
   }
 
   protected send(msg: NostrClientMsg): void {
+    switch (msg[0]) {
+      case 'REQ':
+        this.subscriptions.set(msg[1], msg);
+        break;
+      case 'CLOSE':
+        this.subscriptions.delete(msg[1]);
+        break;
+    }
+
     return this.socket.send(JSON.stringify(msg));
   }
 }

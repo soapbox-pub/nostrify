@@ -38,8 +38,6 @@ Deno.test('NiceRelay.req', async () => {
 Deno.test('NiceRelay.event', async () => {
   const relay = new NiceRelay('wss://relay.mostr.pub');
 
-  await new Promise((resolve) => relay.socket.addEventListener(WebsocketEvent.open, resolve));
-
   const event: NostrEvent = finalizeEvent({
     kind: 1,
     content: 'This is an automated test from NSpec: https://gitlab.com/soapbox-pub/NSpec',

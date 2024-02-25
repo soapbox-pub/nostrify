@@ -1,5 +1,5 @@
 import { matchFilters, verifyEvent } from 'npm:nostr-tools@^2.3.1';
-import { ExponentialBackoff, Websocket, WebsocketBuilder } from 'npm:websocket-ts@^2.1.5';
+import { ArrayQueue, ExponentialBackoff, Websocket, WebsocketBuilder } from 'npm:websocket-ts@^2.1.5';
 
 import { NostrClientMsg, NostrClientREQ } from '../interfaces/NostrClientMsg.ts';
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
@@ -33,6 +33,7 @@ export class NiceRelay implements NRelay {
 
   constructor(url: string) {
     this.socket = new WebsocketBuilder(url)
+      .withBuffer(new ArrayQueue())
       .withBackoff(new ExponentialBackoff(1000))
       .onOpen(() => {
         for (const req of this.subscriptions.values()) {
@@ -74,9 +75,14 @@ export class NiceRelay implements NRelay {
       case 'CLOSE':
         this.subscriptions.delete(msg[1]);
         break;
+      case 'EVENT':
+      case 'COUNT':
+        return this.socket.send(JSON.stringify(msg));
     }
 
-    return this.socket.send(JSON.stringify(msg));
+    if (this.socket.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify(msg));
+    }
   }
 
   async *req(

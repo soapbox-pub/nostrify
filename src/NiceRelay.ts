@@ -1,5 +1,5 @@
 import { matchFilters, verifyEvent } from 'npm:nostr-tools@^2.3.1';
-import { ArrayQueue, ExponentialBackoff, Websocket, WebsocketBuilder } from 'npm:websocket-ts@^2.1.5';
+import { ArrayQueue, ExponentialBackoff, Websocket, WebsocketBuilder, WebsocketEvent } from 'npm:websocket-ts@^2.1.5';
 
 import { NostrClientMsg, NostrClientREQ } from '../interfaces/NostrClientMsg.ts';
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
@@ -173,5 +173,13 @@ export class NiceRelay implements NRelay {
 
   protected abortError() {
     return new DOMException('The signal has been aborted', 'AbortError');
+  }
+
+  async close(): Promise<void> {
+    if (this.socket.readyState === WebSocket.CLOSED) return;
+    await new Promise((resolve) => {
+      this.socket.addEventListener(WebsocketEvent.close, resolve, { once: true });
+      this.socket.close();
+    });
   }
 }

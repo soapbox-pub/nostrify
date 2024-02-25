@@ -1,6 +1,5 @@
 import { assertEquals } from 'https://deno.land/std@0.212.0/assert/mod.ts';
 import { finalizeEvent, generateSecretKey } from 'npm:nostr-tools@^2.3.1';
-import { WebsocketEvent } from 'npm:websocket-ts@^2.1.5';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 
@@ -13,8 +12,7 @@ Deno.test('NiceRelay.query', async () => {
 
   assertEquals(events.length, 3);
 
-  relay.socket.close();
-  await new Promise((resolve) => relay.socket.addEventListener(WebsocketEvent.close, resolve));
+  await relay.close();
 });
 
 Deno.test('NiceRelay.req', async () => {
@@ -31,8 +29,7 @@ Deno.test('NiceRelay.req', async () => {
 
   assertEquals(events.length, 1);
 
-  relay.socket.close();
-  await new Promise((resolve) => relay.socket.addEventListener(WebsocketEvent.close, resolve));
+  await relay.close();
 });
 
 Deno.test('NiceRelay.event', async () => {
@@ -47,6 +44,5 @@ Deno.test('NiceRelay.event', async () => {
 
   await relay.event(event);
 
-  relay.socket.close();
-  await new Promise((resolve) => relay.socket.addEventListener(WebsocketEvent.close, resolve));
+  await relay.close();
 });

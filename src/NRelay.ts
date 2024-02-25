@@ -12,7 +12,7 @@ import {
   NostrRelayNOTICE,
   NostrRelayOK,
 } from '../interfaces/NostrRelayMsg.ts';
-import { NRelay, NReqOpts } from '../interfaces/NRelay.ts';
+import { NRelay as _NRelay, NReqOpts } from '../interfaces/NRelay.ts';
 import { NStoreOpts } from '../interfaces/NStore.ts';
 
 import { Machina } from './Machina.ts';
@@ -25,7 +25,7 @@ type EventMap = {
   notice: NostrRelayNOTICE;
 };
 
-export class NiceRelay implements NRelay {
+export class NRelay implements _NRelay {
   readonly socket: Websocket;
 
   private subscriptions = new Map<string, NostrClientREQ>();

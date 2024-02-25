@@ -11,4 +11,6 @@ export interface NReqOpts extends NStoreOpts {
 export interface NRelay extends NStore {
   /** Subscribe to events matching the given filters. Returns an iterator of raw NIP-01 relay messages. */
   req(filters: NostrFilter[], opts?: NReqOpts): AsyncGenerator<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>;
+  /** Closes the relay. */
+  close(): Promise<void>;
 }

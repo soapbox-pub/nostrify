@@ -125,9 +125,59 @@ However, verification of `id` and `sig` is NOT performed.
 Any `Map` instance can be passed into `new NSet()`, making it compatible with
 [lru-cache](https://www.npmjs.com/package/lru-cache), among others.
 
+## Relays
+
+Relays are an extended form of Storage with real-time streaming capabilities.
+
+### `NRelay` interface
+
+`NRelay` implements all the methods of `NStore`, including a `req` method for streaming events.
+
+```ts
+interface NRelay extends NStore {
+  /** Subscribe to events matching the given filters. Returns an iterator of raw NIP-01 relay messages. */
+  req(filters: NostrFilter[], opts?: NReqOpts): AsyncGenerator<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>;
+}
+```
+
+The `req` method returns raw NIP-01 relay messages, but only those pertaining to subscriptions: `EVENT`, `EOSE`, and `CLOSED`.
+
+Other messages such as `COUNT` and `OK` are handled internally by `NStore` methods:
+
+- `NRelay.event` - sends an `EVENT` and waits for an `OK`. If the `OK` is false, an error is thrown with the reason as its message.
+- `NRelay.query` - calls `NRelay.req` internally, closing the subscription automatically on `EOSE`.
+- `NRelay.count` - sends a `COUNT` and waits for the response `COUNT`.
+- `NRelay.remove` - not applicable.
+
+Other notes:
+
+- `AUTH` is not part of the interface, and should be handled by the implementation using an option in the constructor (see the `NRelay` class below).
+- Using a `break` statement in the `req` loop will close the subscription automatically, sending a `CLOSE` message to the relay. This works thanks to special treatment of `try...finally` blocks by AsyncGenerators.
+- Passing an `AbortSignal` into the `req` method will also close the subscription automatically when the signal aborts, sending a `CLOSE` message.
+
 ### `NRelay` class
 
-TODO
+The main `NRelay` implementation is a class of the same name.
+Instantiate it with a WebSocket URL, and then loop over the messages:
+
+```ts
+const relay = new NRelay('wss://relay.mostr.pub');
+
+for await (const msg of relay.req([{ kinds: [1] }])) {
+  if (msg[0] === 'EVENT') console.log(msg[2]);
+  if (msg[0] === 'EOSE') break; // Sends a `CLOSE` message to the relay.
+}
+```
+
+If the WebSocket disconnects, it will reconnect automatically thanks to the wonderful [websocket-ts](https://github.com/jjxxs/websocket-ts) library.
+Upon reconnection, it will automatically re-subscribe to all subscriptions.
+
+#### `NRelayOpts` interface
+
+All options are optional.
+
+- `auth` - A function like `(challenge: string) => Promise<NostrEvent>`. If provided, it will be called whenever the relay sends an `AUTH` message, and then it will send the resulting event back to the relay in an `AUTH` message. If not provided, auth is ignored.
+- `backoff` - A [`Backoff`](https://github.com/jjxxs/websocket-ts/blob/v2.1.5/src/backoff/backoff.ts) object for reconnection attempts, or `false` to disable automatic reconnect. Default is `new ExponentialBackoff(1000)`.
 
 ### `NPool` class
 

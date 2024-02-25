@@ -141,13 +141,6 @@ export class NiceRelay implements NRelay {
     return count;
   }
 
-  async #once<K extends keyof EventMap>(key: K, signal?: AbortSignal): Promise<EventMap[K]> {
-    for await (const msg of this.#on(key, signal)) {
-      return msg;
-    }
-    throw new Error('Unreachable');
-  }
-
   async *#on<K extends keyof EventMap>(key: K, signal?: AbortSignal): AsyncGenerator<EventMap[K]> {
     if (signal?.aborted) throw this.abortError();
 
@@ -163,6 +156,13 @@ export class NiceRelay implements NRelay {
     } finally {
       this.ee.removeEventListener(key, onMsg);
     }
+  }
+
+  async #once<K extends keyof EventMap>(key: K, signal?: AbortSignal): Promise<EventMap[K]> {
+    for await (const msg of this.#on(key, signal)) {
+      return msg;
+    }
+    throw new Error('Unreachable');
   }
 
   protected abortError() {

@@ -1,4 +1,4 @@
-import { assertEquals } from 'https://deno.land/std@0.212.0/assert/mod.ts';
+import { assertEquals, assertRejects } from 'https://deno.land/std@0.212.0/assert/mod.ts';
 
 import { Machina } from './Machina.ts';
 
@@ -14,7 +14,7 @@ Deno.test('push, iterate, & close', async () => {
     results.push(msg);
 
     if (results.length === 3) {
-      machina.close();
+      break;
     }
   }
 
@@ -27,12 +27,22 @@ Deno.test('close & reopen', async () => {
   machina.push(777);
   for await (const msg of machina) {
     assertEquals(msg, 777);
-    machina.close();
+    break;
   }
 
   machina.push(888);
   for await (const msg of machina) {
     assertEquals(msg, 888);
-    machina.close();
+    break;
   }
+});
+
+Deno.test('aborts with signal', async () => {
+  const machina = new Machina<number>(AbortSignal.timeout(100));
+
+  await assertRejects(async () => {
+    for await (const _msg of machina) {
+      //
+    }
+  });
 });

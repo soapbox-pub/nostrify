@@ -21,31 +21,26 @@
  * machina.push('hello!');
  * machina.push('whats up?');
  * machina.push('greetings');
- *
- * // Stop the generator
- * machina.close();
  * ```
  */
 export class Machina<T> {
-  #open = true;
   #queue: T[] = [];
   #resolve: (() => void) | undefined;
+  #aborted = false;
 
   constructor(signal?: AbortSignal) {
     if (signal?.aborted) {
-      this.close();
+      this.abort();
     } else {
-      signal?.addEventListener('abort', () => this.close(), { once: true });
+      signal?.addEventListener('abort', () => this.abort(), { once: true });
     }
   }
 
   /** Get messages as an AsyncGenerator. */
   async *[Symbol.asyncIterator](): AsyncGenerator<T> {
-    this.#open = true;
-
-    while (this.#open) {
+    while (!this.#aborted) {
       if (this.#queue.length) {
-        yield this.#queue.shift()!;
+        yield this.#queue.shift() as T;
         continue;
       }
 
@@ -53,6 +48,8 @@ export class Machina<T> {
         this.#resolve = _resolve;
       });
     }
+
+    throw new DOMException('The signal has been aborted', 'AbortError');
   }
 
   /** Push a message into the Machina instance, making it available to the consumer of `stream()`. */
@@ -61,9 +58,9 @@ export class Machina<T> {
     this.#resolve?.();
   }
 
-  /** Closes the Machina instance, ending the stream. Calling `stream()` again causes it to be re-opened. */
-  close(): void {
-    this.#open = false;
+  /** Stops streaming and throws an error to the consumer. */
+  private abort(): void {
+    this.#aborted = true;
     this.#resolve?.();
   }
 }

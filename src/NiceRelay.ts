@@ -1,5 +1,5 @@
 import { EventEmitter } from 'npm:tseep@^1.2.1';
-import { ArrayQueue, ExponentialBackoff, Websocket, WebsocketBuilder } from 'npm:websocket-ts@^2.1.5';
+import { ExponentialBackoff, Websocket, WebsocketBuilder } from 'npm:websocket-ts@^2.1.5';
 
 import { NostrClientMsg, NostrClientREQ } from '../interfaces/NostrClientMsg.ts';
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
@@ -15,7 +15,7 @@ import { NRelay, NReqOpts } from '../interfaces/NRelay.ts';
 import { NStoreOpts } from '../interfaces/NStore.ts';
 
 import { Machina } from './Machina.ts';
-import { NSchema } from './NSchema.ts';
+import { NSchema as n } from './NSchema.ts';
 
 export class NiceRelay implements NRelay {
   socket: Websocket;
@@ -25,7 +25,6 @@ export class NiceRelay implements NRelay {
 
   constructor(url: string) {
     this.socket = new WebsocketBuilder(url)
-      .withBuffer(new ArrayQueue())
       .withBackoff(new ExponentialBackoff(1000))
       .onOpen(() => {
         for (const req of this.subscriptions) {
@@ -33,13 +32,15 @@ export class NiceRelay implements NRelay {
         }
       })
       .onMessage((_ws, ev) => {
-        const msg = NSchema.relayMsg().parse(ev.data);
+        const result = n.json().pipe(n.relayMsg()).safeParse(ev.data);
+        if (!result.success) return;
+        const msg = result.data;
         switch (msg[0]) {
           case 'EVENT':
           case 'EOSE':
           case 'CLOSED':
             if (msg[0] === 'CLOSED') {
-              this.subscriptions = this.subscriptions.filter((req) => req[1] !== msg[1]);
+              this.removeSubscription(msg[1]);
             }
             this.#ee.emit(`sub:${msg[1]}`, msg);
             break;
@@ -60,18 +61,22 @@ export class NiceRelay implements NRelay {
   async *req(
     filters: NostrFilter[],
     opts: NReqOpts = {},
-  ): AsyncIterable<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
+  ): AsyncGenerator<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
     const { subscriptionId = crypto.randomUUID(), signal } = opts;
 
-    const sub = this.#on<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>(`sub:${subscriptionId}`, signal);
+    const msgs = this.#on<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>(`sub:${subscriptionId}`, signal);
     const req: NostrClientREQ = ['REQ', subscriptionId, ...filters];
 
     this.subscriptions.push(req);
     this.send(req);
 
-    for await (const msg of sub) {
-      if (msg[0] === 'CLOSED') sub.close();
-      yield msg;
+    for await (const msg of msgs) {
+      if (msg[0] === 'CLOSED') break;
+      try {
+        yield msg;
+      } finally {
+        this.closeSubscription(subscriptionId);
+      }
     }
   }
 
@@ -133,27 +138,36 @@ export class NiceRelay implements NRelay {
     });
   }
 
-  #on<T>(key: string, signal?: AbortSignal): AsyncIterable<T> & { close: () => void } {
+  async *#on<T>(key: string, signal?: AbortSignal): AsyncGenerator<T> {
     if (signal?.aborted) throw this.abortError();
 
     const machina = new Machina<T>(signal);
+    const onMsg = (msg: T) => machina.push(msg);
 
     const cleanup = () => {
       signal?.removeEventListener('abort', cleanup);
       this.#ee.off(key, onMsg);
-      machina.close();
     };
 
     signal?.addEventListener('abort', cleanup);
-
-    const onMsg = (msg: T) => machina.push(msg);
-
     this.#ee.on(key, onMsg);
 
-    return {
-      [Symbol.asyncIterator]: () => machina[Symbol.asyncIterator](),
-      close: cleanup,
-    };
+    for await (const msg of machina) {
+      try {
+        yield msg;
+      } finally {
+        cleanup();
+      }
+    }
+  }
+
+  protected removeSubscription(subscriptionId: string): void {
+    this.subscriptions = this.subscriptions.filter((req) => req[1] !== subscriptionId);
+  }
+
+  protected closeSubscription(subscriptionId: string): void {
+    this.removeSubscription(subscriptionId);
+    this.send(['CLOSE', subscriptionId]);
   }
 
   protected abortError() {

@@ -1,4 +1,4 @@
-import { EventEmitter } from 'npm:tseep@^1.2.1';
+import { DefaultEventMap, EventEmitter } from 'npm:tseep@^1.2.1';
 import { ExponentialBackoff, Websocket, WebsocketBuilder } from 'npm:websocket-ts@^2.1.5';
 
 import { NostrClientMsg, NostrClientREQ } from '../interfaces/NostrClientMsg.ts';
@@ -9,6 +9,7 @@ import {
   NostrRelayCOUNT,
   NostrRelayEOSE,
   NostrRelayEVENT,
+  NostrRelayNOTICE,
   NostrRelayOK,
 } from '../interfaces/NostrRelayMsg.ts';
 import { NRelay, NReqOpts } from '../interfaces/NRelay.ts';
@@ -17,11 +18,18 @@ import { NStoreOpts } from '../interfaces/NStore.ts';
 import { Machina } from './Machina.ts';
 import { NSchema as n } from './NSchema.ts';
 
+type NiceRelayEventMap = DefaultEventMap & {
+  [k: `sub:${string}`]: (msg: NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED) => void;
+  [k: `ok:${string}`]: (msg: NostrRelayOK) => void;
+  notice: (msg: NostrRelayNOTICE) => void;
+  [k: `count:${string}`]: (msg: NostrRelayCOUNT) => void;
+};
+
 export class NiceRelay implements NRelay {
   socket: Websocket;
   subscriptions: NostrClientREQ[] = [];
 
-  #ee: EventEmitter = new EventEmitter();
+  #ee = new EventEmitter<NiceRelayEventMap>();
 
   constructor(url: string) {
     this.socket = new WebsocketBuilder(url)

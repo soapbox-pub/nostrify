@@ -1,14 +1,12 @@
 import { NostrFilter } from './NostrFilter.ts';
 import { NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT } from './NostrRelayMsg.ts';
-import { NStore, NStoreOpts } from './NStore.ts';
-
-export interface NReqOpts extends NStoreOpts {
-  /** ID to use for the `REQ` to the relay. */
-  subscriptionId?: string;
-}
+import { NStore } from './NStore.ts';
 
 /** Nostr event store with support for relay subscriptions. */
 export interface NRelay extends NStore {
   /** Subscribe to events matching the given filters. Returns an iterator of raw NIP-01 relay messages. */
-  req(filters: NostrFilter[], opts?: NReqOpts): AsyncGenerator<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>;
+  req(
+    filters: NostrFilter[],
+    opts?: { signal?: AbortSignal },
+  ): AsyncGenerator<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>;
 }

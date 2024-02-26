@@ -19,8 +19,7 @@ import {
   NostrRelayNOTICE,
   NostrRelayOK,
 } from '../interfaces/NostrRelayMsg.ts';
-import { NRelay, NReqOpts } from '../interfaces/NRelay.ts';
-import { NStoreOpts } from '../interfaces/NStore.ts';
+import { NRelay } from '../interfaces/NRelay.ts';
 
 import { Machina } from './Machina.ts';
 import { NSchema as n } from './NSchema.ts';
@@ -106,9 +105,10 @@ export class NRelay1 implements NRelay {
 
   async *req(
     filters: NostrFilter[],
-    opts: NReqOpts = {},
+    opts: { signal?: AbortSignal } = {},
   ): AsyncGenerator<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
-    const { subscriptionId = crypto.randomUUID(), signal } = opts;
+    const { signal } = opts;
+    const subscriptionId = crypto.randomUUID();
 
     const msgs = this.#on(`sub:${subscriptionId}`, signal);
     const req: NostrClientREQ = ['REQ', subscriptionId, ...filters];
@@ -132,7 +132,7 @@ export class NRelay1 implements NRelay {
     }
   }
 
-  async query(filters: NostrFilter[], opts?: NStoreOpts): Promise<NostrEvent[]> {
+  async query(filters: NostrFilter[], opts?: { signal?: AbortSignal }): Promise<NostrEvent[]> {
     const events: NostrEvent[] = [];
 
     for await (const msg of this.req(filters, opts)) {
@@ -144,7 +144,7 @@ export class NRelay1 implements NRelay {
     return events;
   }
 
-  async event(event: NostrEvent, opts?: NStoreOpts): Promise<void> {
+  async event(event: NostrEvent, opts?: { signal?: AbortSignal }): Promise<void> {
     const result = this.#once(`ok:${event.id}`, opts?.signal);
 
     this.send(['EVENT', event]);
@@ -156,7 +156,10 @@ export class NRelay1 implements NRelay {
     }
   }
 
-  async count(filters: NostrFilter[], opts?: NStoreOpts): Promise<{ count: number; approximate?: boolean }> {
+  async count(
+    filters: NostrFilter[],
+    opts?: { signal?: AbortSignal },
+  ): Promise<{ count: number; approximate?: boolean }> {
     const subscriptionId = crypto.randomUUID();
     const result = this.#once(`count:${subscriptionId}`, opts?.signal);
 

@@ -28,5 +28,5 @@ export type {
 } from './interfaces/NostrRelayMsg.ts';
 export type { NostrSigner } from './interfaces/NostrSigner.ts';
 export type { NProfilePointer } from './interfaces/NProfilePointer.ts';
-export type { NRelay, NReqOpts } from './interfaces/NRelay.ts';
-export type { NStore, NStoreOpts } from './interfaces/NStore.ts';
+export type { NRelay } from './interfaces/NRelay.ts';
+export type { NStore } from './interfaces/NStore.ts';

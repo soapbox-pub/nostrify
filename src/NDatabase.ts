@@ -1,7 +1,7 @@
 import { Kysely, sql } from 'npm:kysely@^0.27.2';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
-import { NStore, NStoreOpts } from '../interfaces/NStore.ts';
+import { NStore } from '../interfaces/NStore.ts';
 import { NostrFilter } from '../interfaces/NostrFilter.ts';
 
 import { NKinds } from './NKinds.ts';
@@ -91,7 +91,7 @@ export class NDatabase implements NStore {
   }
 
   /** Insert an event (and its tags) into the database. */
-  async event(event: NostrEvent, _opts?: NStoreOpts): Promise<void> {
+  async event(event: NostrEvent): Promise<void> {
     return await this.db.transaction().execute(async (trx) => {
       /** Insert the event into the database. */
       const addEvent = async () => {
@@ -233,7 +233,7 @@ export class NDatabase implements NStore {
   }
 
   /** Get events for filters from the database. */
-  async query(filters: NostrFilter[], opts: NStoreOpts = {}): Promise<NostrEvent[]> {
+  async query(filters: NostrFilter[], opts: { signal?: AbortSignal; limit?: number } = {}): Promise<NostrEvent[]> {
     let query = this.getEventsQuery(filters);
 
     if (typeof opts.limit === 'number') {
@@ -269,12 +269,12 @@ export class NDatabase implements NStore {
   }
 
   /** Delete events based on filters from the database. */
-  async remove(filters: NostrFilter[], _opts?: NStoreOpts): Promise<void> {
+  async remove(filters: NostrFilter[]): Promise<void> {
     await this.db.transaction().execute((trx) => this.deleteEventsTrx(trx, filters));
   }
 
   /** Get number of events that would be returned by filters. */
-  async count(filters: NostrFilter[], _opts: NStoreOpts = {}): Promise<{ count: number; approximate: false }> {
+  async count(filters: NostrFilter[]): Promise<{ count: number; approximate: false }> {
     const query = this.getEventsQuery(filters);
 
     const [{ count }] = await query

@@ -155,13 +155,13 @@ Other notes:
 - Using a `break` statement in the `req` loop will close the subscription automatically, sending a `CLOSE` message to the relay. This works thanks to special treatment of `try...finally` blocks by AsyncGenerators.
 - Passing an `AbortSignal` into the `req` method will also close the subscription automatically when the signal aborts, sending a `CLOSE` message.
 
-### `NRelay` class
+### `NRelay1` class
 
-The main `NRelay` implementation is a class of the same name.
+The main `NRelay` implementation for connecting to one relay.
 Instantiate it with a WebSocket URL, and then loop over the messages:
 
 ```ts
-const relay = new NRelay('wss://relay.mostr.pub');
+const relay = new NRelay1('wss://relay.mostr.pub');
 
 for await (const msg of relay.req([{ kinds: [1] }])) {
   if (msg[0] === 'EVENT') console.log(msg[2]);
@@ -172,7 +172,7 @@ for await (const msg of relay.req([{ kinds: [1] }])) {
 If the WebSocket disconnects, it will reconnect automatically thanks to the wonderful [websocket-ts](https://github.com/jjxxs/websocket-ts) library.
 Upon reconnection, it will automatically re-subscribe to all subscriptions.
 
-#### `NRelayOpts` interface
+#### `NRelay1Opts` interface
 
 All options are optional.
 

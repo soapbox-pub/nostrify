@@ -19,7 +19,7 @@ import {
   NostrRelayNOTICE,
   NostrRelayOK,
 } from '../interfaces/NostrRelayMsg.ts';
-import { NRelay as _NRelay, NReqOpts } from '../interfaces/NRelay.ts';
+import { NRelay, NReqOpts } from '../interfaces/NRelay.ts';
 import { NStoreOpts } from '../interfaces/NStore.ts';
 
 import { Machina } from './Machina.ts';
@@ -32,7 +32,7 @@ type EventMap = {
   notice: NostrRelayNOTICE;
 };
 
-export interface NRelayOpts {
+export interface NRelay1Opts {
   /** Respond to `AUTH` challenges by producing a signed kind `22242` event. */
   auth?(challenge: string): Promise<NostrEvent>;
   /** Configure reconnection strategy, or set to `false` to disable. Default: `new ExponentialBackoff(1000)`. */
@@ -41,13 +41,13 @@ export interface NRelayOpts {
   verifyEvent?(event: NostrEvent): boolean;
 }
 
-export class NRelay implements _NRelay {
+export class NRelay1 implements NRelay {
   readonly socket: Websocket;
 
   private subscriptions = new Map<string, NostrClientREQ>();
   private ee = new EventTarget();
 
-  constructor(url: string, opts: NRelayOpts = {}) {
+  constructor(url: string, opts: NRelay1Opts = {}) {
     const { auth, backoff = new ExponentialBackoff(1000), verifyEvent = _verifyEvent } = opts;
 
     this.socket = new WebsocketBuilder(url)

@@ -3,10 +3,10 @@ import { finalizeEvent, generateSecretKey } from 'npm:nostr-tools@^2.3.1';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 
-import { NRelay } from './NRelay.ts';
+import { NRelay1 } from './NRelay1.ts';
 
-Deno.test('NiceRelay.query', async () => {
-  const relay = new NRelay('wss://relay.mostr.pub');
+Deno.test('NRelay1.query', async () => {
+  const relay = new NRelay1('wss://relay.mostr.pub');
 
   const events = await relay.query([{ kinds: [1], limit: 3 }]);
 
@@ -15,8 +15,8 @@ Deno.test('NiceRelay.query', async () => {
   await relay.close();
 });
 
-Deno.test('NiceRelay.req', async () => {
-  const relay = new NRelay('wss://relay.mostr.pub');
+Deno.test('NRelay1.req', async () => {
+  const relay = new NRelay1('wss://relay.mostr.pub');
 
   const events: NostrEvent[] = [];
 
@@ -32,8 +32,8 @@ Deno.test('NiceRelay.req', async () => {
   await relay.close();
 });
 
-Deno.test('NiceRelay.event', async () => {
-  const relay = new NRelay('wss://relay.mostr.pub');
+Deno.test('NRelay1.event', async () => {
+  const relay = new NRelay1('wss://relay.mostr.pub');
 
   const event: NostrEvent = finalizeEvent({
     kind: 1,

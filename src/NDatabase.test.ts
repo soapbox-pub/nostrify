@@ -83,6 +83,30 @@ Deno.test('NDatabase.remove', async () => {
   assertEquals(await db.query([{ kinds: [1] }]), []);
 });
 
+Deno.test('NDatabase.event with a deleted event', async () => {
+  const db = await createDB();
+
+  await db.event(event1);
+
+  assertEquals(await db.query([{ kinds: [1] }]), [event1]);
+
+  await db.event({
+    kind: 5,
+    pubkey: event1.pubkey,
+    tags: [['e', event1.id]],
+    created_at: 0,
+    content: '',
+    id: '',
+    sig: '',
+  });
+
+  assertEquals(await db.query([{ kinds: [1] }]), []);
+
+  await assertRejects(() => db.event(event1));
+
+  assertEquals(await db.query([{ kinds: [1] }]), []);
+});
+
 Deno.test('NDatabase.event with replaceable event', async () => {
   const db = await createDB();
   assertEquals((await db.count([{ kinds: [0], authors: [event0.pubkey] }])).count, 0);

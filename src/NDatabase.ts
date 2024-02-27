@@ -92,6 +92,13 @@ export class NDatabase implements NStore {
 
   /** Insert an event (and its tags) into the database. */
   async event(event: NostrEvent): Promise<void> {
+    const [deletion] = await this.query([
+      { kinds: [5], authors: [event.pubkey], '#e': [event.id], limit: 1 },
+    ]);
+    if (deletion) {
+      throw new Error('Cannot add a deleted event');
+    }
+
     return await this.db.transaction().execute(async (trx) => {
       /** Insert the event into the database. */
       const addEvent = async () => {
@@ -120,6 +127,12 @@ export class NDatabase implements NStore {
           .values(rows)
           .execute();
       };
+
+      if (event.kind === 5) {
+        await this.deleteEventsTrx(trx, [{
+          ids: event.tags.filter(([name]) => name === 'e')?.[1],
+        }]);
+      }
 
       if (NKinds.replaceable(event.kind)) {
         await this.deleteReplaced(

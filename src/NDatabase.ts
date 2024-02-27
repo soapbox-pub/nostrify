@@ -208,11 +208,12 @@ export class NDatabase implements NStore {
         .where('nostr_fts.content', 'match', JSON.stringify(filter.search));
     }
 
+    const joinedQuery = query.leftJoin('nostr_tags', 'nostr_tags.event_id', 'nostr_events.id');
+
     for (const [key, value] of Object.entries(filter)) {
       if (key.startsWith('#') && Array.isArray(value)) {
         const name = key.replace(/^#/, '');
-        query = query
-          .leftJoin('nostr_tags', 'nostr_tags.event_id', 'nostr_events.id')
+        query = joinedQuery
           .where('nostr_tags.name', '=', name)
           .where('nostr_tags.value', 'in', value);
       }

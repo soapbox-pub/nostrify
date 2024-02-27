@@ -54,6 +54,17 @@ Deno.test('NDatabase.query', async () => {
   );
 });
 
+Deno.test("NDatabase.query with multiple tags doesn't crash", async () => {
+  const db = await createDB();
+
+  await db.query([{
+    kinds: [1985],
+    authors: ['c87e0d90c7e521967a6975439ba20d9052c2b6680d8c4c80fc2943e2c726d98c'],
+    '#L': ['nip05'],
+    '#l': ['alex@gleasonator.com'],
+  }]);
+});
+
 Deno.test('NDatabase.query with search', async () => {
   const db = await createDB({ fts: true });
 

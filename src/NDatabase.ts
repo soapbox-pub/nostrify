@@ -78,7 +78,7 @@ export class NDatabase implements NStore {
     this.searchText = opts?.searchText ?? NDatabase.searchText;
   }
 
-  /** Default tag conditions. */
+  /** Default tag indexes. Tag indexes enable queries by the tag, eg indexing `d` would enable the filter: `{ '#d': ['123'] }` */
   static tagIndexes: Record<string, NTagIndex> = {
     'd': ({ event, count }) => count === 0 && NKinds.parameterizedReplaceable(event.kind),
     'e': ({ count, value }) => (count < 15) && n.id().safeParse(value).success,

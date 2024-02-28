@@ -83,7 +83,7 @@ export class NDatabase implements NStore {
 
   /** Default tag index function. */
   static indexTags(event: NostrEvent): string[][] {
-    return event.tags.filter(([name]) => name.length === 1);
+    return event.tags.filter(([name, value]) => name.length === 1 && value && value.length < 200);
   }
 
   /** Default search content builder. */

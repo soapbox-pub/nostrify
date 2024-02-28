@@ -5,10 +5,6 @@ import { NStore } from '../interfaces/NStore.ts';
 import { NostrFilter } from '../interfaces/NostrFilter.ts';
 
 import { NKinds } from './NKinds.ts';
-import { NSchema as n } from './NSchema.ts';
-
-/** Function to decide whether or not to index a tag. */
-export type NTagIndex = ({ event, count, value }: { event: NostrEvent; count: number; value: string }) => boolean;
 
 /** Kysely database schema for Nostr. */
 export interface NDatabaseSchema {
@@ -35,10 +31,17 @@ export interface NDatabaseSchema {
 export interface NDatabaseOpts {
   /** Whether or not to use FTS. */
   fts?: boolean;
-  /** Conditions for when to index certain tags. */
-  tagIndexes?: Record<string, NTagIndex>;
-  /** Build a search index from the event. Only applicable if `fts` is `true`. */
-  searchText?(event: NostrEvent): string;
+  /**
+   * Function that returns which tags to index so tag queries like `{ "#p": ["123"] }` will work.
+   * By default, all single-letter tags are indexed.
+   */
+  indexTags?(event: NostrEvent): string[][];
+  /**
+   * Build a search index from the event.
+   * By default, only kinds 0 and 1 events are indexed for search, and the search text is the event content with tag values appended to it.
+   * Only applicable if `fts` is `true`.
+   */
+  searchText?(event: NostrEvent): string | undefined;
 }
 
 /**
@@ -68,26 +71,26 @@ export interface NDatabaseOpts {
 export class NDatabase implements NStore {
   private db: Kysely<NDatabaseSchema>;
   private fts: boolean;
-  private tagIndexes: Record<string, NTagIndex>;
-  private searchText: (event: NostrEvent) => string;
+  private indexTags: (event: NostrEvent) => string[][];
+  private searchText: (event: NostrEvent) => string | undefined;
 
   constructor(db: Kysely<any>, opts?: NDatabaseOpts) {
     this.db = db as Kysely<NDatabaseSchema>;
     this.fts = opts?.fts ?? false;
-    this.tagIndexes = opts?.tagIndexes ?? NDatabase.tagIndexes;
+    this.indexTags = opts?.indexTags ?? NDatabase.indexTags;
     this.searchText = opts?.searchText ?? NDatabase.searchText;
   }
 
-  /** Default tag indexes. Tag indexes enable queries by the tag, eg indexing `d` would enable the filter: `{ '#d': ['123'] }` */
-  static tagIndexes: Record<string, NTagIndex> = {
-    'd': ({ event, count }) => count === 0 && NKinds.parameterizedReplaceable(event.kind),
-    'e': ({ count, value }) => (count < 15) && n.id().safeParse(value).success,
-    'p': ({ event, count, value }) => (count < 15 || event.kind === 3) && n.id().safeParse(value).success,
-  };
+  /** Default tag index function. */
+  static indexTags(event: NostrEvent): string[][] {
+    return event.tags.filter(([name]) => name.length === 1);
+  }
 
   /** Default search content builder. */
-  static searchText(event: NostrEvent): string {
-    return `${event.content} ${event.tags.map(([_name, value]) => value).join(' ')}`.substring(0, 1000);
+  static searchText(event: NostrEvent): string | undefined {
+    if (event.kind === 0 || event.kind === 1) {
+      return `${event.content} ${event.tags.map(([_name, value]) => value).join(' ')}`.substring(0, 1000);
+    }
   }
 
   /** Insert an event (and its tags) into the database. */
@@ -102,7 +105,7 @@ export class NDatabase implements NStore {
       ]);
       await this.insertEvent(trx, event);
       await Promise.all([
-        this.indexTags(trx, event),
+        this.insertTags(trx, event),
         this.indexSearch(trx, event),
       ]);
     }).catch((error) => {
@@ -165,9 +168,9 @@ export class NDatabase implements NStore {
       .execute();
   }
 
-  /** Index event tags depending on the conditions defined above. */
-  protected async indexTags(trx: Kysely<NDatabaseSchema>, event: NostrEvent) {
-    const tags = this.filterIndexableTags(event);
+  /** Insert event tags depending on the event and settings. */
+  protected async insertTags(trx: Kysely<NDatabaseSchema>, event: NostrEvent) {
+    const tags = this.indexTags(event);
     const rows = tags.map(([name, value]) => ({ event_id: event.id, name, value }));
 
     if (!tags.length) return;
@@ -314,39 +317,6 @@ export class NDatabase implements NStore {
       count: Number(count),
       approximate: false,
     };
-  }
-
-  /** Return only the tags that should be indexed. */
-  protected filterIndexableTags(event: NostrEvent): string[][] {
-    const tagCounts: Record<string, number> = {};
-
-    function getCount(name: string) {
-      return tagCounts[name] || 0;
-    }
-
-    function incrementCount(name: string) {
-      tagCounts[name] = getCount(name) + 1;
-    }
-
-    function checkIndex(name: string, value: string, index: NTagIndex) {
-      return index({
-        event,
-        count: getCount(name),
-        value,
-      });
-    }
-
-    return event.tags.reduce<string[][]>((results, tag) => {
-      const [name, value] = tag;
-      const index = this.tagIndexes[name] as NTagIndex | undefined;
-
-      if (value && index && value.length < 200 && checkIndex(name, value, index)) {
-        results.push(tag);
-      }
-
-      incrementCount(name);
-      return results;
-    }, []);
   }
 
   /** Migrate the database schema. */

@@ -92,76 +92,18 @@ export class NDatabase implements NStore {
 
   /** Insert an event (and its tags) into the database. */
   async event(event: NostrEvent): Promise<void> {
-    const [deletion] = await this.query([
-      { kinds: [5], authors: [event.pubkey], '#e': [event.id], limit: 1 },
-    ]);
-    if (deletion) {
+    if (await this.isDeleted(event)) {
       throw new Error('Cannot add a deleted event');
     }
-
     return await this.db.transaction().execute(async (trx) => {
-      /** Insert the event into the database. */
-      const addEvent = async () => {
-        await trx.insertInto('nostr_events')
-          .values({ ...event, tags: JSON.stringify(event.tags) })
-          .execute();
-      };
-
-      /** Add search data to the FTS table. */
-      const indexSearch = async () => {
-        if (!this.fts) return;
-        const content = this.searchText(event);
-        if (!content) return;
-        await trx.insertInto('nostr_fts')
-          .values({ event_id: event.id, content })
-          .execute();
-      };
-
-      /** Index event tags depending on the conditions defined above. */
-      const indexTags = async () => {
-        const tags = this.filterIndexableTags(event);
-        const rows = tags.map(([name, value]) => ({ event_id: event.id, name, value }));
-
-        if (!tags.length) return;
-        await trx.insertInto('nostr_tags')
-          .values(rows)
-          .execute();
-      };
-
-      if (event.kind === 5) {
-        await this.deleteEventsTrx(trx, [{
-          ids: event.tags.filter(([name]) => name === 'e')?.[1],
-        }]);
-      }
-
-      if (NKinds.replaceable(event.kind)) {
-        await this.deleteReplaced(
-          trx,
-          event,
-          { kinds: [event.kind], authors: [event.pubkey] },
-          (event, prevEvent) => event.created_at > prevEvent.created_at,
-          'Cannot replace an event with an older event',
-        );
-      }
-
-      if (NKinds.parameterizedReplaceable(event.kind)) {
-        const d = event.tags.find(([tag]) => tag === 'd')?.[1];
-        if (d) {
-          await this.deleteReplaced(
-            trx,
-            event,
-            { kinds: [event.kind], authors: [event.pubkey], '#d': [d] },
-            (event, prevEvent) => event.created_at > prevEvent.created_at,
-            'Cannot replace an event with an older event',
-          );
-        }
-      }
-
-      // Run the queries.
       await Promise.all([
-        addEvent(),
-        indexTags(),
-        indexSearch(),
+        this.deleteEvents(trx, event),
+        this.replaceEvents(trx, event),
+      ]);
+      await this.insertEvent(trx, event);
+      await Promise.all([
+        this.indexTags(trx, event),
+        this.indexSearch(trx, event),
       ]);
     }).catch((error) => {
       // Don't throw for duplicate events.
@@ -173,6 +115,78 @@ export class NDatabase implements NStore {
     });
   }
 
+  /** Check if an event has been deleted. */
+  protected async isDeleted(event: NostrEvent): Promise<boolean> {
+    const { count } = await this.count([
+      { kinds: [5], authors: [event.pubkey], '#e': [event.id], limit: 1 },
+    ]);
+    return count > 0;
+  }
+
+  /** Delete events referenced by kind 5. */
+  protected async deleteEvents(trx: Kysely<NDatabaseSchema>, event: NostrEvent) {
+    if (event.kind === 5) {
+      await this.deleteEventsTrx(trx, [{
+        ids: event.tags.filter(([name]) => name === 'e')?.[1],
+      }]);
+    }
+  }
+
+  /** Replace events in NIP-01 replaceable ranges with the same kind and pubkey. */
+  protected async replaceEvents(trx: Kysely<NDatabaseSchema>, event: NostrEvent) {
+    if (NKinds.replaceable(event.kind)) {
+      await this.deleteReplaced(
+        trx,
+        event,
+        { kinds: [event.kind], authors: [event.pubkey] },
+        (event, prevEvent) => event.created_at > prevEvent.created_at,
+        'Cannot replace an event with an older event',
+      );
+    }
+
+    if (NKinds.parameterizedReplaceable(event.kind)) {
+      const d = event.tags.find(([tag]) => tag === 'd')?.[1];
+      if (d) {
+        await this.deleteReplaced(
+          trx,
+          event,
+          { kinds: [event.kind], authors: [event.pubkey], '#d': [d] },
+          (event, prevEvent) => event.created_at > prevEvent.created_at,
+          'Cannot replace an event with an older event',
+        );
+      }
+    }
+  }
+
+  /** Insert the event into the database. */
+  protected async insertEvent(trx: Kysely<NDatabaseSchema>, event: NostrEvent) {
+    await trx.insertInto('nostr_events')
+      .values({ ...event, tags: JSON.stringify(event.tags) })
+      .execute();
+  }
+
+  /** Index event tags depending on the conditions defined above. */
+  protected async indexTags(trx: Kysely<NDatabaseSchema>, event: NostrEvent) {
+    const tags = this.filterIndexableTags(event);
+    const rows = tags.map(([name, value]) => ({ event_id: event.id, name, value }));
+
+    if (!tags.length) return;
+    await trx.insertInto('nostr_tags')
+      .values(rows)
+      .execute();
+  }
+
+  /** Add search data to the FTS table. */
+  protected async indexSearch(trx: Kysely<NDatabaseSchema>, event: NostrEvent) {
+    if (!this.fts) return;
+    const content = this.searchText(event);
+    if (!content) return;
+    await trx.insertInto('nostr_fts')
+      .values({ event_id: event.id, content })
+      .execute();
+  }
+
+  /** Delete events that are replaced by the new event. */
   protected async deleteReplaced(
     trx: Kysely<NDatabaseSchema>,
     event: NostrEvent,

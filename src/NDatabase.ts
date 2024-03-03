@@ -345,9 +345,20 @@ export class NDatabase implements NStore {
 
     await schema.createIndex('nostr_events_kind').on('nostr_events').ifNotExists().column('kind').execute();
     await schema.createIndex('nostr_events_pubkey').on('nostr_events').ifNotExists().column('pubkey').execute();
-    await schema.createIndex('nostr_tags_name').on('nostr_tags').ifNotExists().column('name').execute();
-    await schema.createIndex('nostr_tags_value').on('nostr_tags').ifNotExists().column('value').execute();
+    await schema
+      .createIndex('nostr_events_kind_pubkey_created_at')
+      .on('nostr_events')
+      .ifNotExists()
+      .columns(['kind', 'pubkey', 'created_at'])
+      .execute();
+
     await schema.createIndex('nostr_tags_event_id').on('nostr_tags').ifNotExists().column('event_id').execute();
+    await schema
+      .createIndex('nostr_tags_tag_value')
+      .on('nostr_tags')
+      .ifNotExists()
+      .columns(['name', 'value'])
+      .execute();
 
     if (this.fts) {
       await sql`CREATE VIRTUAL TABLE nostr_fts USING fts5(event_id, content)`.execute(this.db);

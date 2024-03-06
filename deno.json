@@ -1,6 +1,9 @@
 {
-  "$schema": "https://deno.land/x/deno@v1.32.3/cli/schemas/config-file.v1.json",
+  "$schema": "https://deno.land/x/deno@v1.41.0/cli/schemas/config-file.v1.json",
   "lock": false,
+  "name": "@soapbox/nspec",
+  "version": "0.6.0",
+  "exports": "./mod.ts",
   "tasks": {
     "test": "deno test --allow-net",
     "check": "deno check mod.ts",

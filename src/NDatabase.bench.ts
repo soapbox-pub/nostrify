@@ -22,7 +22,7 @@ Deno.bench('NDatabase.event', async () => {
 });
 
 Deno.bench('NDatabase.event with many tags', async () => {
-  const tags: string[][] = new Array(100)
+  const tags: string[][] = new Array(300)
     .fill('')
     .map(() => ['p', '570a9c85c7dd56eca0d8c7f258d7fc178f1b2bb3aab4136ba674dc4879eee88a']);
 

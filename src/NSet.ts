@@ -35,7 +35,7 @@ class NSet implements Set<NostrEvent> {
     this.cache = map ?? new Map();
   }
 
-  get size() {
+  get size(): number {
     return this.cache.size;
   }
 
@@ -104,12 +104,12 @@ class NSet implements Set<NostrEvent> {
   [Symbol.toStringTag]: string = 'NSet';
 
   /** Event kind is **replaceable**, which means that, for each combination of `pubkey` and `kind`, only the latest event is expected to (SHOULD) be stored by relays, older versions are expected to be discarded. */
-  protected static isReplaceable(kind: number) {
+  protected static isReplaceable(kind: number): boolean {
     return [0, 3].includes(kind) || (10000 <= kind && kind < 20000);
   }
 
   /** Event kind is **parameterized replaceable**, which means that, for each combination of `pubkey`, `kind` and the `d` tag, only the latest event is expected to be stored by relays, older versions are expected to be discarded. */
-  protected static isParameterizedReplaceable(kind: number) {
+  protected static isParameterizedReplaceable(kind: number): boolean {
     return 30000 <= kind && kind < 40000;
   }
 

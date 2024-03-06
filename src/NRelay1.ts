@@ -193,7 +193,7 @@ export class NRelay1 implements NRelay {
     throw new Error('Unreachable');
   }
 
-  protected abortError() {
+  protected abortError(): DOMException {
     return new DOMException('The signal has been aborted', 'AbortError');
   }
 

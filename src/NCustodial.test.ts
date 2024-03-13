@@ -6,18 +6,23 @@ const seed = new TextEncoder().encode('41m/FT2MOYBAJfIphFOTRTu2prGz/m9cdxS0lcYfe
 const signers = new NCustodial(seed);
 
 Deno.test('getPublicKey', async () => {
+  const alex = await signers.get('alex');
+  const fiatjaf = await signers.get('fiatjaf');
+
   assertEquals(
-    await signers.get('alex').getPublicKey(),
+    await alex.getPublicKey(),
     'ef8fb05de6bcb4795380dad56bf00644f16176f8acd6a4c2c600ee6f5a634390',
   );
   assertEquals(
-    await signers.get('fiatjaf').getPublicKey(),
+    await fiatjaf.getPublicKey(),
     'fae2098a3ca1a7c083f757a04a1a8841696541ebc20fb01a50362a8a467123fe',
   );
 });
 
 Deno.test('signEvent', async () => {
-  const event = await signers.get('alex').signEvent({
+  const signer = await signers.get('alex');
+
+  const event = await signer.signEvent({
     kind: 1,
     content: 'hello world',
     tags: [],

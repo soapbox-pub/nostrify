@@ -1,9 +1,7 @@
-import { HDKey } from 'npm:@scure/bip32@^1.3.3';
-
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NostrSigner } from '../interfaces/NostrSigner.ts';
 
-import { NSecSigner } from './NSecSigner.ts';
+import { NSeedSigner } from './NSeedSigner.ts';
 
 /** `NHDSigner` options. */
 export interface NDSignerOpts {
@@ -31,15 +29,15 @@ export interface NDSignerOpts {
  * ```
  */
 export class NDSigner implements NostrSigner {
-  private signer: Promise<NSecSigner>;
+  private signer: Promise<NSeedSigner>;
   private user: string;
   #seed: Uint8Array;
 
-  constructor({ user, seed, account = 0 }: NDSignerOpts) {
+  constructor({ user, seed, account }: NDSignerOpts) {
     this.user = user;
     this.#seed = seed;
 
-    this.signer = new Promise<NSecSigner>((resolve, reject) => {
+    this.signer = new Promise<NSeedSigner>((resolve, reject) => {
       crypto.subtle.importKey(
         'raw',
         this.#seed,
@@ -53,12 +51,7 @@ export class NDSigner implements NostrSigner {
         })
         .then((signature) => {
           const seed = new Uint8Array(signature);
-          const path = `m/44'/1237'/${account}'/0/0`;
-          const { privateKey } = HDKey.fromMasterSeed(seed).derive(path);
-          if (!privateKey) {
-            throw new Error('Failed to derive private key');
-          }
-          resolve(new NSecSigner(privateKey));
+          resolve(new NSeedSigner(seed, account));
         })
         .catch(reject);
     });

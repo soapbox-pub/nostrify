@@ -3,21 +3,21 @@ import { assert, assertEquals } from 'https://deno.land/std@0.212.0/assert/mod.t
 import { NCustodial } from './NCustodial.ts';
 
 const seed = new TextEncoder().encode('41m/FT2MOYBAJfIphFOTRTu2prGz/m9cdxS0lcYfetbszzy1BbVxAIQpV6vkTv2U');
-const signer = new NCustodial(seed);
+const signers = new NCustodial(seed);
 
-Deno.test('NCustodial.getPublicKey', async () => {
+Deno.test('getPublicKey', async () => {
   assertEquals(
-    await signer.get('alex').getPublicKey(),
+    await signers.get('alex').getPublicKey(),
     'ef8fb05de6bcb4795380dad56bf00644f16176f8acd6a4c2c600ee6f5a634390',
   );
   assertEquals(
-    await signer.get('fiatjaf').getPublicKey(),
+    await signers.get('fiatjaf').getPublicKey(),
     'fae2098a3ca1a7c083f757a04a1a8841696541ebc20fb01a50362a8a467123fe',
   );
 });
 
-Deno.test('NCustodial.signEvent', async () => {
-  const event = await signer.get('alex').signEvent({
+Deno.test('signEvent', async () => {
+  const event = await signers.get('alex').signEvent({
     kind: 1,
     content: 'hello world',
     tags: [],

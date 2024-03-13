@@ -3,14 +3,6 @@ import { NostrSigner } from '../interfaces/NostrSigner.ts';
 
 import { NSeedSigner } from './NSeedSigner.ts';
 
-/** `NCustodial` options. */
-export interface NCustodialOpts {
-  /** User ID of the user to sign for. */
-  user: string;
-  /** Account to use for this user (default: `0`). */
-  account?: number;
-}
-
 /**
  * Signer manager for multiple users.
  * Pass a shared secret into it, then it will generate keys for your users determinstically.

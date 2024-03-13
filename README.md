@@ -271,8 +271,11 @@ const seed = new TextEncoder().encode(SECRET_KEY);
 
 const signers = new NCustodial(seed);
 
-signers.get('alex').getPublicKey();
-signers.get('fiatjaf').signEvent(t);
+const alex = await signers.get('alex');
+const fiatjaf = await signers.get('fiatjaf');
+
+alex.getPublicKey();
+fiatjaf.signEvent(t);
 ```
 
 ### `NConnectSigner` class

@@ -11,8 +11,11 @@ import { NSeedSigner } from './NSeedSigner.ts';
  *
  * const signers = new NCustodial(seed);
  *
- * signers.get('alex').getPublicKey();
- * signers.get('fiatjaf').signEvent(t);
+ * const alex = await signers.get('alex');
+ * const fiatjaf = await signers.get('fiatjaf');
+ *
+ * alex.getPublicKey();
+ * fiatjaf.signEvent(t);
  * ```
  */
 export class NCustodial {

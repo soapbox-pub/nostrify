@@ -1,7 +1,6 @@
-import { HDKey } from 'npm:@scure/bip32@^1.3.3';
 import { mnemonicToSeedSync } from 'npm:@scure/bip39@^1.2.2';
 
-import { NSecSigner } from './NSecSigner.ts';
+import { NSeedSigner } from './NSeedSigner.ts';
 
 export interface NPhraseSignerOpts {
   account?: number;
@@ -21,18 +20,11 @@ export interface NPhraseSignerOpts {
  * const event = await signer.signEvent({ content: 'Hello, world!', kind: 1, ... });
 ```
  */
-export class NPhraseSigner extends NSecSigner {
+export class NPhraseSigner extends NSeedSigner {
   constructor(mnemonic: string, opts: NPhraseSignerOpts = {}) {
-    const { account = 0, passphrase } = opts;
-
+    const { account, passphrase } = opts;
     const seed = mnemonicToSeedSync(mnemonic, passphrase);
-    const path = `m/44'/1237'/${account}'/0/0`;
 
-    const { privateKey } = HDKey.fromMasterSeed(seed).derive(path);
-    if (!privateKey) {
-      throw new Error('Could not derive private key');
-    }
-
-    super(privateKey);
+    super(seed, account);
   }
 }

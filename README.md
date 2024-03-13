@@ -259,7 +259,7 @@ signer.getPublicKey();
 signer.signEvent(t);
 ```
 
-### `NDSigner` class
+### `NCustodial` class
 
 Signer manager for multiple users.
 Pass a shared secret into it, then it will generate keys for your users determinstically.
@@ -269,7 +269,7 @@ Useful for custodial auth where you only want to manage one secret for the entir
 const SECRET_KEY = Deno.env.get('SECRET_KEY'); // generate with `openssl rand -base64 48`
 const seed = new TextEncoder().encode(SECRET_KEY);
 
-const signers = new NDSigner(seed);
+const signers = new NCustodial(seed);
 
 signers.get('alex').getPublicKey();
 signers.get('fiatjaf').signEvent(t);

@@ -3,8 +3,8 @@ import { NostrSigner } from '../interfaces/NostrSigner.ts';
 
 import { NSeedSigner } from './NSeedSigner.ts';
 
-/** `NHDSigner` options. */
-export interface NDSignerOpts {
+/** `NCustodial` options. */
+export interface NCustodialOpts {
   /** User ID of the user to sign for. */
   user: string;
   /** Account to use for this user (default: `0`). */
@@ -20,13 +20,13 @@ export interface NDSignerOpts {
  * const SECRET_KEY = Deno.env.get('SECRET_KEY'); // generate with `openssl rand -base64 48`
  * const seed = new TextEncoder().encode(SECRET_KEY);
  *
- * const signers = new NDSigner(seed);
+ * const signers = new NCustodial(seed);
  *
  * signers.get('alex').getPublicKey();
  * signers.get('fiatjaf').signEvent(t);
  * ```
  */
-export class NDSigner {
+export class NCustodial {
   #seed: Uint8Array;
 
   constructor(seed: Uint8Array) {
@@ -53,7 +53,7 @@ export class NDSigner {
   }
 }
 
-/** This is all just so we can call `await NDSigner.get('alex').getPublicKey()` instead of `await (await NDSigner.get('alex')).getPublicKey()`. */
+/** This is all just so we can call `await NCustodial.get('alex').getPublicKey()` instead of `await (await NCustodial.get('alex')).getPublicKey()`. */
 class NAsyncSigner implements NostrSigner {
   private signer: Promise<NostrSigner>;
 

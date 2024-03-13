@@ -1,11 +1,11 @@
 import { assert, assertEquals } from 'https://deno.land/std@0.212.0/assert/mod.ts';
 
-import { NDSigner } from './NDSigner.ts';
+import { NCustodial } from './NCustodial.ts';
 
 const seed = new TextEncoder().encode('41m/FT2MOYBAJfIphFOTRTu2prGz/m9cdxS0lcYfetbszzy1BbVxAIQpV6vkTv2U');
-const signer = new NDSigner(seed);
+const signer = new NCustodial(seed);
 
-Deno.test('NDSigner.getPublicKey', async () => {
+Deno.test('NCustodial.getPublicKey', async () => {
   assertEquals(
     await signer.get('alex').getPublicKey(),
     'ef8fb05de6bcb4795380dad56bf00644f16176f8acd6a4c2c600ee6f5a634390',
@@ -16,7 +16,7 @@ Deno.test('NDSigner.getPublicKey', async () => {
   );
 });
 
-Deno.test('NDSigner.signEvent', async () => {
+Deno.test('NCustodial.signEvent', async () => {
   const event = await signer.get('alex').signEvent({
     kind: 1,
     content: 'hello world',

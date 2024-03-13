@@ -261,18 +261,18 @@ signer.signEvent(t);
 
 ### `NDSigner` class
 
-Deterministic signer class.
-Takes a unique user ID (typically from your database) and generates a unique key from it.
-You must also provide a seed.
+Signer manager for multiple users.
+Pass a shared secret into it, then it will generate keys for your users determinstically.
+Useful for custodial auth where you only want to manage one secret for the entire application.
 
 ```ts
-const signer = new NDSigner({
-  seed: new TextEncoder().encode('41m/FT2MOYBAJfIphFOTRTu2prGz/m9cdxS0lcYfetbszzy1BbVxAIQpV6vkTv2U'), // generate with `openssl rand -base64 48`
-  user: '1234', // Unique user ID
-});
+const SECRET_KEY = Deno.env.get('SECRET_KEY'); // generate with `openssl rand -base64 48`
+const seed = new TextEncoder().encode(SECRET_KEY);
 
-signer.getPublicKey();
-signer.signEvent(t);
+const signers = new NDSigner(seed);
+
+signers.get('alex').getPublicKey();
+signers.get('fiatjaf').signEvent(t);
 ```
 
 ### `NConnectSigner` class

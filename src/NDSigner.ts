@@ -7,54 +7,58 @@ import { NSeedSigner } from './NSeedSigner.ts';
 export interface NDSignerOpts {
   /** User ID of the user to sign for. */
   user: string;
-  /** Shared secret for the signer. */
-  seed: Uint8Array;
   /** Account to use for this user (default: `0`). */
   account?: number;
 }
 
 /**
- * Deterministic signer class.
- * Takes a unique user ID (typically from your database) and generates a unique key from it.
- * You must also provide a seed.
+ * Signer manager for multiple users.
+ * Pass a shared secret into it, then it will generate keys for your users determinstically.
+ * Useful for custodial auth where you only want to manage one secret for the entire application.
  *
  * ```ts
- * const signer = new NDSigner({
- *   seed: new TextEncoder().encode('41m/FT2MOYBAJfIphFOTRTu2prGz/m9cdxS0lcYfetbszzy1BbVxAIQpV6vkTv2U'), // generate with `openssl rand -base64 48`
- *   user: '1234', // Unique user ID
- * });
+ * const SECRET_KEY = Deno.env.get('SECRET_KEY'); // generate with `openssl rand -base64 48`
+ * const seed = new TextEncoder().encode(SECRET_KEY);
  *
- * signer.getPublicKey();
- * signer.signEvent(t);
+ * const signers = new NDSigner(seed);
+ *
+ * signers.get('alex').getPublicKey();
+ * signers.get('fiatjaf').signEvent(t);
  * ```
  */
-export class NDSigner implements NostrSigner {
-  private signer: Promise<NSeedSigner>;
-  private user: string;
+export class NDSigner {
   #seed: Uint8Array;
 
-  constructor({ user, seed, account }: NDSignerOpts) {
-    this.user = user;
+  constructor(seed: Uint8Array) {
     this.#seed = seed;
+  }
 
-    this.signer = new Promise<NSeedSigner>((resolve, reject) => {
-      crypto.subtle.importKey(
+  /** Get a signer for the given user. */
+  get(user: string, account = 0): NostrSigner {
+    return new NAsyncSigner(async () => {
+      const cryptoKey = await crypto.subtle.importKey(
         'raw',
         this.#seed,
         { name: 'HMAC', hash: { name: 'SHA-256' } },
         false,
         ['sign'],
-      )
-        .then((cryptoKey) => {
-          const data = new TextEncoder().encode(this.user);
-          return crypto.subtle.sign('HMAC', cryptoKey, data);
-        })
-        .then((signature) => {
-          const seed = new Uint8Array(signature);
-          resolve(new NSeedSigner(seed, account));
-        })
-        .catch(reject);
+      );
+
+      const data = new TextEncoder().encode(user);
+      const hash = await crypto.subtle.sign('HMAC', cryptoKey, data);
+      const seed = new Uint8Array(hash);
+
+      return new NSeedSigner(seed, account);
     });
+  }
+}
+
+/** This is all just so we can call `await NDSigner.get('alex').getPublicKey()` instead of `await (await NDSigner.get('alex')).getPublicKey()`. */
+class NAsyncSigner implements NostrSigner {
+  private signer: Promise<NostrSigner>;
+
+  constructor(getSigner: () => Promise<NostrSigner>) {
+    this.signer = getSigner();
   }
 
   async getPublicKey(): Promise<string> {
@@ -70,24 +74,24 @@ export class NDSigner implements NostrSigner {
   readonly nip04 = {
     encrypt: async (pubkey: string, plaintext: string): Promise<string> => {
       const signer = await this.signer;
-      return signer.nip04.encrypt(pubkey, plaintext);
+      return signer.nip04!.encrypt(pubkey, plaintext);
     },
 
     decrypt: async (pubkey: string, ciphertext: string): Promise<string> => {
       const signer = await this.signer;
-      return signer.nip04.decrypt(pubkey, ciphertext);
+      return signer.nip04!.decrypt(pubkey, ciphertext);
     },
   };
 
   readonly nip44 = {
     encrypt: async (pubkey: string, plaintext: string): Promise<string> => {
       const signer = await this.signer;
-      return signer.nip44.encrypt(pubkey, plaintext);
+      return signer.nip44!.encrypt(pubkey, plaintext);
     },
 
     decrypt: async (pubkey: string, ciphertext: string): Promise<string> => {
       const signer = await this.signer;
-      return signer.nip44.decrypt(pubkey, ciphertext);
+      return signer.nip44!.decrypt(pubkey, ciphertext);
     },
   };
 }

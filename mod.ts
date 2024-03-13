@@ -3,6 +3,7 @@ export { NCache } from './src/NCache.ts';
 export { NDSigner } from './src/NDSigner.ts';
 export { NIP05 } from './src/NIP05.ts';
 export { NKinds } from './src/NKinds.ts';
+export { NPhraseSigner } from './src/NPhraseSigner.ts';
 export { NRelay1 } from './src/NRelay1.ts';
 export { NSchema } from './src/NSchema.ts';
 export { NSecSigner } from './src/NSecSigner.ts';

@@ -235,16 +235,28 @@ const event = await signer.signEvent({ kind: 1, content: 'Hello, world!', tags: 
 
 ### `NSeedSigner` class
 
-Similar to `NSecSigner`, but it accepts a BIP-39 mnemonic seed phrase which it uses to derive the secret key according to [NIP-06](https://github.com/nostr-protocol/nips/blob/master/06.md).
+Accepts an HD seed which it uses to derive the secret key according to [NIP-06](https://github.com/nostr-protocol/nips/blob/master/06.md).
+This method is useful for supporting multiple accounts for the same user, or for sharing a Nostr account with a Bitcoin wallet.
 
 ```ts
-const signer = new NSeedSigner('abandon baby cabbage dad ...', {
+const signer = new NSeedSigner(seed, 0);
+
+signer.getPublicKey();
+signer.signEvent(t);
+```
+
+### `NPhraseSigner` class
+
+Similar to `NSeedSigner`, but accepts a BIP-39 mnemonic phrase which it converts into a seed before usage.
+
+```ts
+const signer = new NPhraseSigner('abandon baby cabbage dad ...', {
   account: 0, // Optional account number. Default is 0.
   passphrase: 'very special mother', // Optional passphrase. Default is no passphrase.
 });
 
-const pubkey = await signer.getPublicKey();
-const event = await signer.signEvent({ content: 'Hello, world!', kind: 1, ... });
+signer.getPublicKey();
+signer.signEvent(t);
 ```
 
 ### `NDSigner` class

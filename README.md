@@ -247,6 +247,22 @@ const pubkey = await signer.getPublicKey();
 const event = await signer.signEvent({ content: 'Hello, world!', kind: 1, ... });
 ```
 
+### `NDSigner` class
+
+Deterministic signer class.
+Takes a unique user ID (typically from your database) and generates a unique key from it.
+You must also provide a seed.
+
+```ts
+const signer = new NDSigner({
+  seed: new TextEncoder().encode('41m/FT2MOYBAJfIphFOTRTu2prGz/m9cdxS0lcYfetbszzy1BbVxAIQpV6vkTv2U'), // generate with `openssl rand -base64 48`
+  user: '1234', // Unique user ID
+});
+
+signer.getPublicKey();
+signer.signEvent(t);
+```
+
 ### `NConnectSigner` class
 
 TODO

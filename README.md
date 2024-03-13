@@ -259,6 +259,25 @@ signer.getPublicKey();
 signer.signEvent(t);
 ```
 
+### `NCustodial` class
+
+Signer manager for multiple users.
+Pass a shared secret into it, then it will generate keys for your users determinstically.
+Useful for custodial auth where you only want to manage one secret for the entire application.
+
+```ts
+const SECRET_KEY = Deno.env.get('SECRET_KEY'); // generate with `openssl rand -base64 48`
+const seed = new TextEncoder().encode(SECRET_KEY);
+
+const signers = new NCustodial(seed);
+
+const alex = await signers.get('alex');
+const fiatjaf = await signers.get('fiatjaf');
+
+alex.getPublicKey();
+fiatjaf.signEvent(t);
+```
+
 ### `NConnectSigner` class
 
 TODO

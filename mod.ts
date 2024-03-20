@@ -2,6 +2,7 @@ export { LNURL } from './src/LNURL.ts';
 export { NCache } from './src/NCache.ts';
 export { NCustodial } from './src/NCustodial.ts';
 export { NIP05 } from './src/NIP05.ts';
+export { NIP50 } from './src/NIP50.ts';
 export { NKinds } from './src/NKinds.ts';
 export { NPhraseSigner } from './src/NPhraseSigner.ts';
 export { NRelay1 } from './src/NRelay1.ts';

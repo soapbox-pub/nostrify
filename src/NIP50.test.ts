@@ -23,6 +23,9 @@ Deno.test('NIP50.parseInput', () => {
     'domain:',
     'yolo',
   ]);
+  assertEquals(NIP50.parseInput('domain:localhost:8000'), [
+    { key: 'domain', value: 'localhost:8000' },
+  ]);
   assertEquals(
     NIP50.parseInput('name:John "New York" age:30 hobbies:programming'),
     [

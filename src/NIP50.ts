@@ -10,8 +10,8 @@ export class NIP50 {
 
     while ((match = regex.exec(input)) !== null) {
       if (match[1]) {
-        const [key, value] = match[1].split(':');
-        tokens.push({ key, value });
+        const [key, ...values] = match[1].split(':');
+        tokens.push({ key, value: values.join(':') });
       } else if (match[2]) {
         tokens.push(match[2].replace(/"/g, ''));
       } else if (match[3]) {

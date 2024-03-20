@@ -19,6 +19,10 @@ Deno.test('NIP50.parseInput', () => {
   assertEquals(NIP50.parseInput('domain:gleasonator.dev '), [
     { key: 'domain', value: 'gleasonator.dev' },
   ]);
+  assertEquals(NIP50.parseInput('domain: yolo'), [
+    'domain:',
+    'yolo',
+  ]);
   assertEquals(
     NIP50.parseInput('name:John "New York" age:30 hobbies:programming'),
     [

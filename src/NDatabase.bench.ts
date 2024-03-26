@@ -21,12 +21,14 @@ Deno.bench('NDatabase.event', async () => {
   );
 });
 
-Deno.bench('NDatabase.event with many tags', async () => {
+Deno.bench('NDatabase.event with many tags', async (b) => {
   const tags: string[][] = new Array(300)
     .fill('')
     .map(() => ['p', '570a9c85c7dd56eca0d8c7f258d7fc178f1b2bb3aab4136ba674dc4879eee88a']);
 
-  return await db.event(
+  b.start();
+
+  await db.event(
     { id: `${++id}`, kind: 1, pubkey: 'abc', content: '', created_at: 0, sig: '', tags },
   );
 });

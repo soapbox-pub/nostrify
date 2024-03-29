@@ -5,7 +5,7 @@
   "version": "0.8.1",
   "exports": "./mod.ts",
   "tasks": {
-    "test": "deno test --allow-net",
+    "test": "deno test -A",
     "check": "deno check mod.ts",
     "npm": "deno run -A scripts/npm.ts"
   },

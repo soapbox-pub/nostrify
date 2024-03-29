@@ -15,6 +15,9 @@ export const LmdbKeys = {
   byTimestamp(timestamp: number) {
     return timestamp.toString().padStart(19, '0');
   },
+  forTag(prefix: string, timestamp: number) {
+    return `${prefix}${timestamp.toString().padStart(19)}`;
+  },
   from(kind: 'pubkey' | 'kind' | 'pubkey-kind' | 'timestamp', key: string) {
     const timestamp = parseInt(key.slice(-19));
 

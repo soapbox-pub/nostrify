@@ -2,10 +2,37 @@
 import { NKinds, NostrEvent, NostrFilter, NStore } from '../mod.ts';
 import lmdb from 'npm:lmdb@3.0.0';
 
-interface NKvDbEventEntry {
-  prev: string;
-  next: string | null;
-  data: NostrEvent;
+export const LmdbKeys = {
+  byPubkey(timestamp: number, pubkey: string) {
+    return `${pubkey}${timestamp.toString().padStart(19, '0')}`;
+  },
+  byKind(timestamp: number, kind: number) {
+    return `${kind.toString().padStart(5, '0')}${timestamp.toString().padStart(19, '0')}`;
+  },
+  byPubkeyAndKind(timestamp: number, pubkey: string, kind: number) {
+    return `${pubkey}${kind.toString().padStart(5, '0')}${timestamp.toString().padStart(19, '0')}`
+  },
+  byTimestamp(timestamp: number) {
+    return timestamp.toString().padStart(19, '0');
+  },
+  from(kind: 'pubkey' | 'kind' | 'pubkey-kind' | 'timestamp', key: string) {
+    const timestamp = parseInt(key.slice(-19));
+
+    switch (kind) {
+      case 'pubkey':
+        return { timestamp, pubkey: key.slice(0, 64) }
+      case 'pubkey-kind':
+        return {
+          timestamp,
+          kind: parseInt(key.slice(64, -19)),
+          pubkey: key.slice(0, 64)
+        }
+      case 'kind':
+        return { timestamp, kind: parseInt(key.slice(0, -19)) }
+      default:
+        return { timestamp };
+    }
+  }
 }
 
 export class NKvDatabase implements NStore {

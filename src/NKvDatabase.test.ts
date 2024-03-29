@@ -1,8 +1,44 @@
 import { assertEquals, assertRejects } from 'https://deno.land/std@0.212.0/assert/mod.ts';
 import { NKvDatabase } from './NKvDatabase.ts';
+import { LmdbKeys } from './NKvDatabase.ts';
 
 import event0 from '../fixtures/event-0.json' with { type: 'json' };
 import event1 from '../fixtures/event-1.json' with { type: 'json' };
+
+const samplePubkey = 'c87e0d90c7e521967a6975439ba20d9052c2b6680d8c4c80fc2943e2c726d98c';
+const sampleKind = 1985;
+const sampleTimestamp = 1691091734;
+
+Deno.test("LmdbKeys.byPubkey and LmdbKeys.from('pubkey', ...)", () => {
+    const key = LmdbKeys.byPubkey(sampleTimestamp, samplePubkey);
+    const { timestamp, pubkey } = LmdbKeys.from('pubkey', key);
+    assertEquals(timestamp, sampleTimestamp);
+    assertEquals(samplePubkey, pubkey);
+})
+
+Deno.test("LmdbKeys.byPubkeyAndKind and LmdbKeys.from('pubkey-kind', ...)", () => {
+    const key = LmdbKeys.byPubkeyAndKind(sampleTimestamp, samplePubkey, sampleKind);
+    const { timestamp, pubkey, kind } = LmdbKeys.from('pubkey-kind', key);
+
+    assertEquals(timestamp, sampleTimestamp);
+    assertEquals(samplePubkey, pubkey);
+    assertEquals(sampleKind, kind);
+})
+
+Deno.test("LmdbKeys.byKind and LmdbKeys.from('kind', ...)", () => {
+    const key = LmdbKeys.byKind(sampleTimestamp, sampleKind);
+    const { timestamp, kind } = LmdbKeys.from('kind', key);
+
+    assertEquals(timestamp, sampleTimestamp);
+    assertEquals(kind, sampleKind);
+})
+
+Deno.test("LmdbKeys.byTimestamp and LmdbKeys.from('timestamp', ...)", () => {
+    const key = LmdbKeys.byTimestamp(sampleTimestamp);
+    const { timestamp } = LmdbKeys.from('kind', key);
+
+    assertEquals(timestamp, sampleTimestamp);
+})
 
 /** Create in-memory database for testing. */
 const createDB = async () => {
@@ -16,17 +52,16 @@ const createDB = async () => {
     return db;
 };
 
-Deno.test('NDatabase.count', async () => {
+Deno.test('NKvDatabase.count', async () => {
     const db = await createDB();
     assertEquals((await db.count([{ kinds: [1] }])).count, 0);
     await db.event(event1);
     assertEquals((await db.count([{ kinds: [1] }])).count, 1);
 });
 
-Deno.test('NDatabase.query', async () => {
+Deno.test('NKvDatabase.query', async () => {
     const db = await createDB();
     await db.event(event1);
-
     assertEquals(await db.query([{ kinds: [1] }]), [event1]);
     assertEquals(await db.query([{ kinds: [3] }]), []);
     assertEquals(await db.query([{ since: 1691091000 }]), [event1]);
@@ -37,7 +72,7 @@ Deno.test('NDatabase.query', async () => {
     );
 });
 
-Deno.test("NDatabase.query with multiple tags doesn't crash", async () => {
+Deno.test("NKvDatabase.query with multiple tags doesn't crash", async () => {
     const db = await createDB();
 
     await db.query([{
@@ -48,7 +83,7 @@ Deno.test("NDatabase.query with multiple tags doesn't crash", async () => {
     }]);
 });
 
-Deno.test('NDatabase.remove', async () => {
+Deno.test('NKvDatabase.remove', async () => {
     const db = await createDB();
     await db.event(event1);
     assertEquals(await db.query([{ kinds: [1] }]), [event1]);
@@ -56,7 +91,7 @@ Deno.test('NDatabase.remove', async () => {
     assertEquals(await db.query([{ kinds: [1] }]), []);
 });
 
-Deno.test('NDatabase.event with a deleted event', async () => {
+Deno.test('NKvDatabase.event with a deleted event', async () => {
     const db = await createDB();
 
     await db.event(event1);
@@ -80,7 +115,7 @@ Deno.test('NDatabase.event with a deleted event', async () => {
     assertEquals(await db.query([{ kinds: [1] }]), []);
 });
 
-Deno.test('NDatabase.event with replaceable event', async () => {
+Deno.test('NKvDatabase.event with replaceable event', async () => {
     const db = await createDB();
     assertEquals((await db.count([{ kinds: [0], authors: [event0.pubkey] }])).count, 0);
 
@@ -93,7 +128,7 @@ Deno.test('NDatabase.event with replaceable event', async () => {
     assertEquals(await db.query([{ kinds: [0] }]), [changeEvent]);
 });
 
-Deno.test('NDatabase.event with parameterized replaceable event', async () => {
+Deno.test('NKvDatabase.event with parameterized replaceable event', async () => {
     const db = await createDB();
 
     const event0 = { id: '1', kind: 30000, pubkey: 'abc', content: '', created_at: 0, sig: '', tags: [['d', 'a']] };

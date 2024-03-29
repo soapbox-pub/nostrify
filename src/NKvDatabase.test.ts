@@ -42,12 +42,8 @@ Deno.test("LmdbKeys.byTimestamp and LmdbKeys.from('timestamp', ...)", () => {
 
 /** Create in-memory database for testing. */
 const createDB = async () => {
-    try {
-        await Deno.remove('./testing.lmdb');
-    }
-    catch (e) {
-        console.error(e);
-    }
+    try { await Deno.remove('./testing.lmdb') } catch (_) { /* don't care */ };
+    try { await Deno.remove('./testing.lmdb-lock') } catch (_) { /* don't care */ };
     const db = new NKvDatabase('./testing.lmdb');
     return db;
 };
@@ -59,17 +55,32 @@ Deno.test('NKvDatabase.count', async () => {
     assertEquals((await db.count([{ kinds: [1] }])).count, 1);
 });
 
-Deno.test('NKvDatabase.query', async () => {
+Deno.test('NKvDatabase.query', async (t) => {
     const db = await createDB();
     await db.event(event1);
-    assertEquals(await db.query([{ kinds: [1] }]), [event1]);
-    assertEquals(await db.query([{ kinds: [3] }]), []);
-    assertEquals(await db.query([{ since: 1691091000 }]), [event1]);
-    assertEquals(await db.query([{ until: 1691091000 }]), []);
-    assertEquals(
-        await db.query([{ '#proxy': ['https://gleasonator.com/objects/8f6fac53-4f66-4c6e-ac7d-92e5e78c3e79'] }]),
-        [event1],
-    );
+
+    await t.step('should find by kind', async () => {
+        assertEquals(await db.query([{ kinds: [1] }]), [event1]);
+    })
+
+    await t.step('should not find nonexistent by kind', async () => {
+        assertEquals(await db.query([{ kinds: [3] }]), []);
+    })
+
+    await t.step('should find by since', async () => {
+        assertEquals(await db.query([{ since: 1691091363 }]), [event1]);
+    })
+
+    await t.step('should not find by until if not exists', async () => {
+        assertEquals(await db.query([{ until: 1691091364 }]), []);
+    })
+
+    await t.step('should find by tag', async () => {
+        assertEquals(
+            await db.query([{ '#proxy': ['https://gleasonator.com/objects/8f6fac53-4f66-4c6e-ac7d-92e5e78c3e79'] }]),
+            [event1],
+        );
+    })
 });
 
 Deno.test("NKvDatabase.query with multiple tags doesn't crash", async () => {

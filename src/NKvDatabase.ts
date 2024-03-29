@@ -10,7 +10,7 @@ export const LmdbKeys = {
     return `${kind.toString().padStart(5, '0')}${timestamp.toString().padStart(19, '0')}`;
   },
   byPubkeyAndKind(timestamp: number, pubkey: string, kind: number) {
-    return `${pubkey}${kind.toString().padStart(5, '0')}${timestamp.toString().padStart(19, '0')}`
+    return `${pubkey}${kind.toString().padStart(5, '0')}${timestamp.toString().padStart(19, '0')}`;
   },
   byTimestamp(timestamp: number) {
     return timestamp.toString().padStart(19, '0');
@@ -23,20 +23,20 @@ export const LmdbKeys = {
 
     switch (kind) {
       case 'pubkey':
-        return { timestamp, pubkey: key.slice(0, 64) }
+        return { timestamp, pubkey: key.slice(0, 64) };
       case 'pubkey-kind':
         return {
           timestamp,
           kind: parseInt(key.slice(64, -19)),
-          pubkey: key.slice(0, 64)
-        }
+          pubkey: key.slice(0, 64),
+        };
       case 'kind':
-        return { timestamp, kind: parseInt(key.slice(0, -19)) }
+        return { timestamp, kind: parseInt(key.slice(0, -19)) };
       default:
         return { timestamp };
     }
-  }
-}
+  },
+};
 
 type NDbIndexType = 'root' | 'idIndex' | 'pubkeyIndex' | 'kindIndex' | 'pubkeyKindIndex' | 'timeIndex' | 'tagsIndex';
 const HEX32_REGEX = /^[0-9A-Fa-f]{64}$/;
@@ -49,10 +49,10 @@ const parseAddrTag = (val: string) => {
   if (!HEX32_REGEX.test(s[1])) return null;
 
   return { kind, pkb: s[1], rest: s[2] };
-}
+};
 
 export class NKvDatabase implements NStore {
-  dbs: Record<NDbIndexType, lmdb.Database>
+  dbs: Record<NDbIndexType, lmdb.Database>;
 
   /**
    * Create a new NKvDatabase, backed by LMDB.
@@ -67,7 +67,7 @@ export class NKvDatabase implements NStore {
       pubkeyIndex: db.openDB({ name: 'pubkeyIndex', dupSort: true, encoding: 'ordered-binary' }),
       pubkeyKindIndex: db.openDB({ name: 'pubkeyKindIndex', dupSort: true, encoding: 'ordered-binary' }),
       timeIndex: db.openDB({ name: 'timeIndex', dupSort: true, encoding: 'ordered-binary' }),
-      tagsIndex: db.openDB({ name: 'tagsIndex', dupSort: true, encoding: 'ordered-binary' })
+      tagsIndex: db.openDB({ name: 'tagsIndex', dupSort: true, encoding: 'ordered-binary' }),
     };
   }
 
@@ -90,11 +90,10 @@ export class NKvDatabase implements NStore {
 
       if (tag[0] === 'a') {
         const parsed = parseAddrTag(tag[1]);
-        if (!parsed) throw new Error("Invalid tag prefix for tag " + JSON.stringify(tag));
+        if (!parsed) throw new Error('Invalid tag prefix for tag ' + JSON.stringify(tag));
         const prefix = parsed.pkb + parsed.kind.toString().padStart(5, '0') + parsed.rest;
         tagPuts.push([LmdbKeys.forTag(prefix, event.created_at), idx]);
-      }
-      else {
+      } else {
         tagPuts.push([LmdbKeys.forTag(tag[1], event.created_at), idx]);
       }
     });
@@ -103,7 +102,7 @@ export class NKvDatabase implements NStore {
       this.dbs.root.put('last_event', idx);
       this.dbs.root.put(idx, event);
       this.dbs.root.put(event.id, idx);
-      tagPuts.map(put => this.dbs.tagsIndex.put(put[0], put[1]));
+      tagPuts.map((put) => this.dbs.tagsIndex.put(put[0], put[1]));
       this.dbs.pubkeyIndex.put(LmdbKeys.byPubkey(event.created_at, event.pubkey), idx);
       this.dbs.kindIndex.put(LmdbKeys.byKind(event.created_at, event.kind), idx);
       this.dbs.pubkeyKindIndex.put(LmdbKeys.byPubkeyAndKind(event.created_at, event.pubkey, event.kind), idx);
@@ -134,38 +133,38 @@ export class NKvDatabase implements NStore {
     const indices: number[] = [];
 
     if (ids?.length) {
-      const gotten = ids.map(id => this.dbs.root.get(id));
+      const gotten = ids.map((id) => this.dbs.root.get(id));
       indices.push(...gotten);
-    }
-    else if (authors?.length) {
+    } else if (authors?.length) {
       const isPubkeyKind = !!(kinds?.length);
-      const ranges = isPubkeyKind ? authors.map(
-        author => kinds.map(kind => ({
-          start: LmdbKeys.byPubkeyAndKind(s, author, kind),
-          end: LmdbKeys.byPubkeyAndKind(u, author, kind)
-        }))).flat()
-        : authors.map(author => ({
+      const ranges = isPubkeyKind
+        ? authors.map(
+          (author) =>
+            kinds.map((kind) => ({
+              start: LmdbKeys.byPubkeyAndKind(s, author, kind),
+              end: LmdbKeys.byPubkeyAndKind(u, author, kind),
+            })),
+        ).flat()
+        : authors.map((author) => ({
           start: LmdbKeys.byPubkey(s, author),
-          end: LmdbKeys.byPubkey(u, author)
+          end: LmdbKeys.byPubkey(u, author),
         }));
 
       for (const range of ranges) {
         this.dbs[isPubkeyKind ? 'pubkeyKindIndex' : 'pubkeyIndex']
           .getRange(range)
-          .forEach(itm => indices.push(itm.value));
+          .forEach((itm) => indices.push(itm.value));
       }
-    }
-    else if (kinds?.length) {
-      const ranges = kinds.map(kind => ({ start: LmdbKeys.byKind(s, kind), end: LmdbKeys.byKind(u, kind) }));
+    } else if (kinds?.length) {
+      const ranges = kinds.map((kind) => ({ start: LmdbKeys.byKind(s, kind), end: LmdbKeys.byKind(u, kind) }));
       for (const range of ranges) {
         this.dbs.kindIndex.getRange(range)
-          .forEach(itm => indices.push(itm.value));
+          .forEach((itm) => indices.push(itm.value));
       }
-    }
-    else {
+    } else {
       this.dbs.timeIndex
         .getRange({ start: LmdbKeys.byTimestamp(s), end: LmdbKeys.byTimestamp(u) })
-        .forEach(v => indices.push(v.value));
+        .forEach((v) => indices.push(v.value));
     }
 
     const results = Array.from(new Set(indices));
@@ -179,7 +178,7 @@ export class NKvDatabase implements NStore {
    * @param filters The list of filters
    */
   resolveFilters(filters: NostrFilter[]) {
-    return filters.map(filter => this.resolveFilter(filter)).flat();
+    return filters.map((filter) => this.resolveFilter(filter)).flat();
   }
 
   async query(filters: NostrFilter[], opts: { signal?: AbortSignal; limit?: number } = {}) {

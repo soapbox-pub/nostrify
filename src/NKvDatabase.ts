@@ -1,5 +1,7 @@
-import { NostrEvent, NostrFilter, NStore } from '../mod.ts';
 import lmdb from 'npm:lmdb@3.0.3';
+import { NostrEvent } from '../interfaces/NostrEvent.ts';
+import { NostrFilter } from '../interfaces/NostrFilter.ts';
+import { NStore } from '../interfaces/NStore.ts';
 
 type ParseableKey = 'pubkey' | 'kind' | 'pubkey-kind' | 'timestamp';
 export const LmdbKeys = {
@@ -52,7 +54,7 @@ const parseAddrTag = (val: string) => {
 };
 
 export class NKvDatabase implements NStore {
-  dbs: Record<NDbIndexType, lmdb.Database>;
+  private dbs: Record<NDbIndexType, lmdb.Database>;
 
   /**
    * Create a new NKvDatabase, backed by LMDB.

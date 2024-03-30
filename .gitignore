@@ -1,1 +1,3 @@
 /npm
+*.lmdb
+*.lmdb-lock

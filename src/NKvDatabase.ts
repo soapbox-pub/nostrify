@@ -40,7 +40,7 @@ export const LmdbKeys = {
   },
 };
 
-type NDbIndexType = 'root' | 'idIndex' | 'pubkeyIndex' | 'kindIndex' | 'pubkeyKindIndex' | 'timeIndex' | 'tagsAddrIndex' | 'tags32Index' | 'tagsIndex';
+type NDbIndexType = 'root' | 'pubkeyIndex' | 'kindIndex' | 'pubkeyKindIndex' | 'timeIndex' | 'tagsAddrIndex' | 'tags32Index' | 'tagsIndex';
 const HEX64_REGEX = /^[0-9A-Fa-f]{64}$/;
 
 const parseAddrTag = (val: string) => {
@@ -52,6 +52,47 @@ const parseAddrTag = (val: string) => {
 
   return { kind, pkb: s[1], rest: s[2] };
 };
+
+interface NKvIndexKeys {
+  pubkeyIndex: string,
+  kindIndex: string,
+  pubkeyKindIndex: string,
+  timeIndex: string,
+};
+
+const getIndexKeysForEvent = (event: NostrEvent): NKvIndexKeys => {
+  return {
+    pubkeyIndex: LmdbKeys.byPubkey(event.created_at, event.pubkey),
+    kindIndex: LmdbKeys.byKind(event.created_at, event.kind),
+    pubkeyKindIndex: LmdbKeys.byPubkeyAndKind(event.created_at, event.pubkey, event.kind),
+    timeIndex: LmdbKeys.byTimestamp(event.created_at),
+  }
+}
+
+const indexTags = (event: NostrEvent, idx: number) => {
+  const tagPuts: { index: NDbIndexType, key: lmdb.Key, idx: number }[] = [];
+
+  event.tags.forEach((tag, i) => {
+    if (tag.length < 2 || tag[0].length !== 1 || tag[1]?.length === 0 || tag[1]?.length > 100) {
+      return; // cant be indexed, forget it
+    }
+    const firstTag = event.tags.findIndex((t) => t.length >= 2 && t[1] == tag[1]);
+    if (firstTag !== i) return; // skip duplicate tags
+
+    if (tag[0] === 'a') {
+      const parsed = parseAddrTag(tag[1]);
+      if (!parsed) throw new Error('Invalid tag prefix for tag ' + JSON.stringify(tag));
+      tagPuts.push({ index: 'tagsAddrIndex', key: LmdbKeys.forTag(addrPrefix(parsed), event.created_at), idx });
+    } else if (HEX64_REGEX.test(tag[1])) {
+      tagPuts.push({ index: 'tags32Index', key: LmdbKeys.forTag(tag[1], event.created_at), idx });
+    }
+    else {
+      tagPuts.push({ index: 'tagsIndex', key: LmdbKeys.forTag(tag[1], event.created_at), idx });
+    }
+  })
+
+  return tagPuts;
+}
 
 const addrPrefix = (parsed: { pkb: string, kind: number, rest: string }) => parsed.pkb + parsed.kind.toString().padStart(5, '0') + parsed.rest;
 
@@ -66,7 +107,6 @@ export class NKvDatabase implements NStore {
     const db = lmdb.open({ path });
     this.dbs = {
       root: db,
-      idIndex: db.openDB({ name: 'idIndex', dupSort: true, encoding: 'ordered-binary' }),
       kindIndex: db.openDB({ name: 'kindIndex', dupSort: true, encoding: 'ordered-binary' }),
       pubkeyIndex: db.openDB({ name: 'pubkeyIndex', dupSort: true, encoding: 'ordered-binary' }),
       pubkeyKindIndex: db.openDB({ name: 'pubkeyKindIndex', dupSort: true, encoding: 'ordered-binary' }),
@@ -85,40 +125,16 @@ export class NKvDatabase implements NStore {
   event(event: NostrEvent) {
     const lastIdx = this.#get<number>('root', 'last_event') || -1;
     const idx = lastIdx + 1;
-    const tagPuts: {
-      index: NDbIndexType,
-      key: lmdb.Key,
-      idx: number
-    }[] = [];
-
-    event.tags.forEach((tag, i) => {
-      if (tag.length < 2 || tag[0].length !== 1 || tag[1]?.length === 0 || tag[1]?.length > 100) {
-        return; // cant be indexed, forget it
-      }
-      const firstTag = event.tags.findIndex((t) => t.length >= 2 && t[1] == tag[1]);
-      if (firstTag !== i) return; // skip duplicate tags
-
-      if (tag[0] === 'a') {
-        const parsed = parseAddrTag(tag[1]);
-        if (!parsed) throw new Error('Invalid tag prefix for tag ' + JSON.stringify(tag));
-        tagPuts.push({ index: 'tagsAddrIndex', key: LmdbKeys.forTag(addrPrefix(parsed), event.created_at), idx });
-      } else if (HEX64_REGEX.test(tag[1])) {
-        tagPuts.push({ index: 'tags32Index', key: LmdbKeys.forTag(tag[1], event.created_at), idx });
-      }
-      else {
-        tagPuts.push({ index: 'tagsIndex', key: LmdbKeys.forTag(tag[1], event.created_at), idx });
-      }
-    });
 
     return Promise.resolve(this.dbs.root.transactionSync(() => {
       this.dbs.root.put('last_event', idx);
       this.dbs.root.put(idx, event);
       this.dbs.root.put(event.id, idx);
-      tagPuts.map((put) => this.dbs[put.index].put(put.key, put.idx));
-      this.dbs.pubkeyIndex.put(LmdbKeys.byPubkey(event.created_at, event.pubkey), idx);
-      this.dbs.kindIndex.put(LmdbKeys.byKind(event.created_at, event.kind), idx);
-      this.dbs.pubkeyKindIndex.put(LmdbKeys.byPubkeyAndKind(event.created_at, event.pubkey, event.kind), idx);
-      this.dbs.timeIndex.put(LmdbKeys.byTimestamp(event.created_at), idx);
+      indexTags(event, idx).forEach((put) => this.dbs[put.index].put(put.key, put.idx));
+
+      const keys = getIndexKeysForEvent(event);
+      const indices: (keyof NKvIndexKeys)[] = ['pubkeyIndex', 'kindIndex', 'pubkeyKindIndex', 'timeIndex'];
+      indices.forEach(index => this.dbs[index].put(keys[index], idx));
     }));
   }
 
@@ -219,9 +235,9 @@ export class NKvDatabase implements NStore {
     return filters.map((filter) => this.resolveFilter(filter)).flat();
   }
 
-  async query(filters: NostrFilter[], opts: { signal?: AbortSignal; limit?: number } = {}) {
+  query(filters: NostrFilter[], opts: { signal?: AbortSignal; limit?: number } = {}) {
     const indices = this.resolveFilters(filters).slice(0, opts.limit);
-    return indices.map(idx => this.dbs.root.get(idx));
+    return Promise.resolve(indices.map(idx => this.dbs.root.get(idx)).filter(Boolean));
   }
 
   count(filters: NostrFilter[]): Promise<{ count: number; approximate?: boolean | undefined }> {
@@ -230,7 +246,16 @@ export class NKvDatabase implements NStore {
   }
 
   remove(filters: NostrFilter[]): Promise<void> {
-    const _ = this.resolveFilters(filters);
-    throw new Error('Method not implemented.');
+    const indices = this.resolveFilters(filters);
+    indices.map(idx => ({ idx, body: this.dbs.root.get(idx) }))
+      .forEach(event => {
+        this.dbs.root.transactionSync(() => {
+          indexTags(event.body, event.idx).forEach((put) => this.dbs[put.index].remove(put.key));
+          const keys = getIndexKeysForEvent(event.body);
+          const indices: (keyof NKvIndexKeys)[] = ['pubkeyIndex', 'kindIndex', 'pubkeyKindIndex', 'timeIndex'];
+          indices.forEach(index => this.dbs[index].remove(keys[index]));
+        })
+      });
+    return Promise.resolve();
   }
 }

@@ -4,6 +4,7 @@ import { LmdbKeys } from './NKvDatabase.ts';
 
 import event0 from '../fixtures/event-0.json' with { type: 'json' };
 import event1 from '../fixtures/event-1.json' with { type: 'json' };
+import PR_EVENTS from '../fixtures/parameterized-replaceable-events.json' with { type: 'json' };
 
 const samplePubkey = 'c87e0d90c7e521967a6975439ba20d9052c2b6680d8c4c80fc2943e2c726d98c';
 const sampleKind = 1985;
@@ -142,22 +143,28 @@ Deno.test('NKvDatabase.event with replaceable event', async () => {
   assertEquals(await db.query([{ kinds: [0] }]), [changeEvent]);
 });
 
-Deno.test('NKvDatabase.event with parameterized replaceable event', async () => {
+Deno.test('NKvDatabase.event with parameterized replaceable event', async (t) => {
   const db = await createDB();
 
-  const event0 = { id: '1', kind: 30000, pubkey: 'abc', content: '', created_at: 0, sig: '', tags: [['d', 'a']] };
-  const event1 = { id: '2', kind: 30000, pubkey: 'abc', content: '', created_at: 1, sig: '', tags: [['d', 'a']] };
-  const event2 = { id: '3', kind: 30000, pubkey: 'abc', content: '', created_at: 2, sig: '', tags: [['d', 'a']] };
+  const [event0, event1, event2] = PR_EVENTS;
 
-  await db.event(event0);
-  assertEquals(await db.query([{ ids: [event0.id] }]), [event0]);
+  await t.step('should insert replaceable event', async () => {
+    await db.event(event0);
+    assertEquals(await db.query([{ ids: [event0.id] }]), [event0]);
+  })
 
-  await db.event(event1);
-  assertEquals(await db.query([{ ids: [event0.id] }]), []);
-  assertEquals(await db.query([{ ids: [event1.id] }]), [event1]);
+  await t.step('should delete old event when inserting new event', async () => {
+    await db.event(event1);
+    assertEquals(await db.query([{ ids: [event0.id] }]), []);
+  })
 
-  await db.event(event2);
-  assertEquals(await db.query([{ ids: [event0.id] }]), []);
-  assertEquals(await db.query([{ ids: [event1.id] }]), []);
-  assertEquals(await db.query([{ ids: [event2.id] }]), [event2]);
+  await t.step('new event should be inserted correctly', async () => {
+    assertEquals(await db.query([{ ids: [event1.id] }]), [event1]);
+  })
+
+  await t.step('repeat with a third event', async () => {
+    await db.event(event2);
+    assertEquals(await db.query([{ ids: [event0.id, event1.id] }]), []);
+    assertEquals(await db.query([{ ids: [event2.id] }]), [event2]);
+  })
 });

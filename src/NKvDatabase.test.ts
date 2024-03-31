@@ -9,35 +9,34 @@ const samplePubkey = 'c87e0d90c7e521967a6975439ba20d9052c2b6680d8c4c80fc2943e2c7
 const sampleKind = 1985;
 const sampleTimestamp = 1691091734;
 
-Deno.test("LmdbKeys.byPubkey and LmdbKeys.from('pubkey', ...)", () => {
-  const key = LmdbKeys.byPubkey(sampleTimestamp, samplePubkey);
-  const { timestamp, pubkey } = LmdbKeys.from('pubkey', key);
-  assertEquals(timestamp, sampleTimestamp);
-  assertEquals(samplePubkey, pubkey);
-});
+Deno.test("Tests for LmdbKeys", async (t) => {
+  await t.step("byPubkey and from('pubkey')", () => {
+    const key = LmdbKeys.byPubkey(sampleTimestamp, samplePubkey);
+    const { timestamp, pubkey } = LmdbKeys.from('pubkey', key);
+    assertEquals(timestamp, sampleTimestamp);
+    assertEquals(samplePubkey, pubkey);
+  });
 
-Deno.test("LmdbKeys.byPubkeyAndKind and LmdbKeys.from('pubkey-kind', ...)", () => {
-  const key = LmdbKeys.byPubkeyAndKind(sampleTimestamp, samplePubkey, sampleKind);
-  const { timestamp, pubkey, kind } = LmdbKeys.from('pubkey-kind', key);
+  await t.step("byPubkeyAndKind and from('pubkey-kind')", () => {
+    const key = LmdbKeys.byPubkeyAndKind(sampleTimestamp, samplePubkey, sampleKind);
+    const { timestamp, pubkey, kind } = LmdbKeys.from('pubkey-kind', key);
+    assertEquals(timestamp, sampleTimestamp);
+    assertEquals(samplePubkey, pubkey);
+    assertEquals(sampleKind, kind);
+  });
 
-  assertEquals(timestamp, sampleTimestamp);
-  assertEquals(samplePubkey, pubkey);
-  assertEquals(sampleKind, kind);
-});
+  await t.step("byKind and from('kind')", () => {
+    const key = LmdbKeys.byKind(sampleTimestamp, sampleKind);
+    const { timestamp, kind } = LmdbKeys.from('kind', key);
+    assertEquals(timestamp, sampleTimestamp);
+    assertEquals(kind, sampleKind);
+  });
 
-Deno.test("LmdbKeys.byKind and LmdbKeys.from('kind', ...)", () => {
-  const key = LmdbKeys.byKind(sampleTimestamp, sampleKind);
-  const { timestamp, kind } = LmdbKeys.from('kind', key);
-
-  assertEquals(timestamp, sampleTimestamp);
-  assertEquals(kind, sampleKind);
-});
-
-Deno.test("LmdbKeys.byTimestamp and LmdbKeys.from('timestamp', ...)", () => {
-  const key = LmdbKeys.byTimestamp(sampleTimestamp);
-  const { timestamp } = LmdbKeys.from('kind', key);
-
-  assertEquals(timestamp, sampleTimestamp);
+  await t.step("byTimestamp and from('timestamp')", () => {
+    const key = LmdbKeys.byTimestamp(sampleTimestamp);
+    const { timestamp } = LmdbKeys.from('timestamp', key);
+    assertEquals(timestamp, sampleTimestamp);
+  });
 });
 
 /** Create in-memory database for testing. */

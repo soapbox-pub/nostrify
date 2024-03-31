@@ -18,7 +18,7 @@ export const LmdbKeys = {
     return timestamp.toString().padStart(19, '0');
   },
   forTag(prefix: string, timestamp: number) {
-    return `${prefix}${timestamp.toString().padStart(19)}`;
+    return `${prefix}${timestamp.toString().padStart(19, '0')}`;
   },
   from(kind: ParseableKey, key: string) {
     const timestamp = parseInt(key.slice(-19));
@@ -40,18 +40,20 @@ export const LmdbKeys = {
   },
 };
 
-type NDbIndexType = 'root' | 'idIndex' | 'pubkeyIndex' | 'kindIndex' | 'pubkeyKindIndex' | 'timeIndex' | 'tagsIndex';
-const HEX32_REGEX = /^[0-9A-Fa-f]{64}$/;
+type NDbIndexType = 'root' | 'idIndex' | 'pubkeyIndex' | 'kindIndex' | 'pubkeyKindIndex' | 'timeIndex' | 'tagsAddrIndex' | 'tags32Index' | 'tagsIndex';
+const HEX64_REGEX = /^[0-9A-Fa-f]{64}$/;
 
 const parseAddrTag = (val: string) => {
   const s = val.split(':');
   if (s.length !== 3) return null;
   const kind = parseInt(val[0]);
   if (isNaN(kind)) return null;
-  if (!HEX32_REGEX.test(s[1])) return null;
+  if (!HEX64_REGEX.test(s[1])) return null;
 
   return { kind, pkb: s[1], rest: s[2] };
 };
+
+const addrPrefix = (parsed: { pkb: string, kind: number, rest: string }) => parsed.pkb + parsed.kind.toString().padStart(5, '0') + parsed.rest;
 
 export class NKvDatabase implements NStore {
   private dbs: Record<NDbIndexType, lmdb.Database>;
@@ -70,6 +72,8 @@ export class NKvDatabase implements NStore {
       pubkeyKindIndex: db.openDB({ name: 'pubkeyKindIndex', dupSort: true, encoding: 'ordered-binary' }),
       timeIndex: db.openDB({ name: 'timeIndex', dupSort: true, encoding: 'ordered-binary' }),
       tagsIndex: db.openDB({ name: 'tagsIndex', dupSort: true, encoding: 'ordered-binary' }),
+      tags32Index: db.openDB({ name: 'tags32Index', dupSort: true, encoding: 'ordered-binary' }),
+      tagsAddrIndex: db.openDB({ name: 'tagsAddrIndex', dupSort: true, encoding: 'ordered-binary' }),
     };
   }
 
@@ -81,22 +85,28 @@ export class NKvDatabase implements NStore {
   event(event: NostrEvent) {
     const lastIdx = this.#get<number>('root', 'last_event') || -1;
     const idx = lastIdx + 1;
-    const tagPuts: [lmdb.Key, any][] = [];
+    const tagPuts: {
+      index: NDbIndexType,
+      key: lmdb.Key,
+      idx: number
+    }[] = [];
 
     event.tags.forEach((tag, i) => {
       if (tag.length < 2 || tag[0].length !== 1 || tag[1]?.length === 0 || tag[1]?.length > 100) {
         return; // cant be indexed, forget it
       }
-      const firstTag = 1 || event.tags.findIndex((t) => t.length >= 2 && t[1] == tag[1]);
+      const firstTag = event.tags.findIndex((t) => t.length >= 2 && t[1] == tag[1]);
       if (firstTag !== i) return; // skip duplicate tags
 
       if (tag[0] === 'a') {
         const parsed = parseAddrTag(tag[1]);
         if (!parsed) throw new Error('Invalid tag prefix for tag ' + JSON.stringify(tag));
-        const prefix = parsed.pkb + parsed.kind.toString().padStart(5, '0') + parsed.rest;
-        tagPuts.push([LmdbKeys.forTag(prefix, event.created_at), idx]);
-      } else {
-        tagPuts.push([LmdbKeys.forTag(tag[1], event.created_at), idx]);
+        tagPuts.push({ index: 'tagsAddrIndex', key: LmdbKeys.forTag(addrPrefix(parsed), event.created_at), idx });
+      } else if (HEX64_REGEX.test(tag[1])) {
+        tagPuts.push({ index: 'tags32Index', key: LmdbKeys.forTag(tag[1], event.created_at), idx });
+      }
+      else {
+        tagPuts.push({ index: 'tagsIndex', key: LmdbKeys.forTag(tag[1], event.created_at), idx });
       }
     });
 
@@ -104,7 +114,7 @@ export class NKvDatabase implements NStore {
       this.dbs.root.put('last_event', idx);
       this.dbs.root.put(idx, event);
       this.dbs.root.put(event.id, idx);
-      tagPuts.map((put) => this.dbs.tagsIndex.put(put[0], put[1]));
+      tagPuts.map((put) => this.dbs[put.index].put(put.key, put.idx));
       this.dbs.pubkeyIndex.put(LmdbKeys.byPubkey(event.created_at, event.pubkey), idx);
       this.dbs.kindIndex.put(LmdbKeys.byKind(event.created_at, event.kind), idx);
       this.dbs.pubkeyKindIndex.put(LmdbKeys.byPubkeyAndKind(event.created_at, event.pubkey, event.kind), idx);
@@ -128,11 +138,37 @@ export class NKvDatabase implements NStore {
 
     const tags = [];
     for (const k in rest) {
-      if (k.startsWith('#')) tags.push([k.slice(1), rest[k as any]]);
-      console.log('test');
+      if (k.startsWith('#')) {
+        const key = k as `#${string}`;
+        const tagName = k.slice(1);
+        const firstRestValue = rest[key]![0];
+        let start = LmdbKeys.forTag(firstRestValue, s);
+        let end = LmdbKeys.forTag(firstRestValue, u);
+        let index: NDbIndexType = 'tagsIndex';
+
+        if (tagName === 'a' && rest[key] && rest[key]?.length) {
+          const parsed = parseAddrTag(firstRestValue);
+          if (!parsed) throw new Error('Error parsing address tag.');
+          start = LmdbKeys.forTag(addrPrefix(parsed), s);
+          end = LmdbKeys.forTag(addrPrefix(parsed), u);
+          index = 'tagsAddrIndex';
+        }
+        else if (HEX64_REGEX.test(firstRestValue)) {
+          index = 'tags32Index';
+        }
+
+        tags.push({ index, start, end });
+      }
     }
 
     const indices: number[] = [];
+
+    tags.forEach(({ start, index, end }) =>
+
+      this.dbs[index]
+        .getRange({ start, end })
+        .forEach(entry => indices.push(entry.value))
+    )
 
     if (ids?.length) {
       const gotten = ids.map((id) => this.dbs.root.get(id));
@@ -185,11 +221,7 @@ export class NKvDatabase implements NStore {
 
   async query(filters: NostrFilter[], opts: { signal?: AbortSignal; limit?: number } = {}) {
     const indices = this.resolveFilters(filters).slice(0, opts.limit);
-    const results: NostrEvent[] = [];
-    for (const result of await this.dbs.root.getMany(indices)) {
-      results.push(result);
-    }
-    return results;
+    return indices.map(idx => this.dbs.root.get(idx));
   }
 
   count(filters: NostrFilter[]): Promise<{ count: number; approximate?: boolean | undefined }> {

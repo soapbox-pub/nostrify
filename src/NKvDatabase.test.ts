@@ -81,7 +81,7 @@ Deno.test('NKvDatabase.query', async (t) => {
 
   await t.step('should find by tag', async () => {
     assertEquals(
-      await db.query([{ '#proxy': ['https://gleasonator.com/objects/8f6fac53-4f66-4c6e-ac7d-92e5e78c3e79'] }]),
+      await db.query([{ '#t': ['t for testing'] }]),
       [event1],
     );
   });

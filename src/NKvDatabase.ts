@@ -126,6 +126,21 @@ export class NKvDatabase implements NStore {
     const lastIdx = this.#get<number>('root', 'last_event') || -1;
     const idx = lastIdx + 1;
 
+    if (event.kind === 5) {
+      this.remove([{
+        ids: event.tags
+          .filter(tag => tag[0] === 'e')
+          .map(tag => tag[1])
+          .filter(id => {
+            const evt = this.dbs.root.get(id);
+            return (evt && evt.pubkey === event.pubkey);
+          })
+      }]);
+    }
+
+    const doesKind5Exist = this.resolveFilter({ kinds: [5], '#e': [event.id] });
+    if (doesKind5Exist.length) return Promise.reject(new Error('Error: This event has been deleted.'));
+
     return Promise.resolve(this.dbs.root.transactionSync(() => {
       this.dbs.root.put('last_event', idx);
       this.dbs.root.put(idx, event);
@@ -180,10 +195,15 @@ export class NKvDatabase implements NStore {
     const indices: number[] = [];
 
     tags.forEach(({ start, index, end }) =>
-
       this.dbs[index]
         .getRange({ start, end })
-        .forEach(entry => indices.push(entry.value))
+        .forEach(entry => {
+          if (!(kinds?.length) && !(authors?.length)) indices.push(entry.value);
+          const evt = this.dbs.root.get(entry.value);
+          if (kinds?.length && !kinds.includes(evt.kind)) return;
+          if (authors?.length && !authors.includes(evt.author)) return;
+          indices.push(entry.value);
+        })
     )
 
     if (ids?.length) {

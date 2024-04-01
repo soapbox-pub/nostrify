@@ -2,11 +2,26 @@ import { finalizeEvent, generateSecretKey } from 'npm:nostr-tools@^2.3.1';
 import { NKvDatabase } from './NKvDatabase.ts';
 import events from '../fixtures/events.json' with { type: 'json' };
 
+try {
+  await Deno.remove('./benchdb.lmdb');
+}
+catch (e) {
+  console.error(e);
+}
 const db = new NKvDatabase('./benchdb.lmdb');
 
 // Seed database with 1000 events.
 for (const event of events) {
-  await db.event(event);
+  try {
+    await db.event(event);
+  }
+  catch (e) {
+    console.log('==== EVENT ====');
+    console.log(event);
+    console.log('==== ERROR ====')
+    console.log(e);
+    Deno.exit(1);
+  }
 }
 
 Deno.bench('NKvDatabase.event', async (b) => {

@@ -1,3 +1,4 @@
+import { Stickynotes } from 'https://gitlab.com/soapbox-pub/stickynotes/-/raw/v0.2.0/mod.ts';
 import lmdb from 'npm:lmdb@3.0.3';
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NostrFilter } from '../interfaces/NostrFilter.ts';
@@ -99,6 +100,7 @@ const addrPrefix = (parsed: { pkb: string, kind: number, rest: string }) => pars
 
 export class NKvDatabase implements NStore {
   private dbs: Record<NDbIndexType, lmdb.Database>;
+  private console = new Stickynotes('NKvDatabase');
 
   /**
    * Create a new NKvDatabase, backed by LMDB.
@@ -124,6 +126,8 @@ export class NKvDatabase implements NStore {
   }
 
   event(event: NostrEvent) {
+    this.console.debug('event', event.id);
+
     const lastIdx = this.#get<number>('root', 'last_event') || -1;
     const idx = lastIdx + 1;
 

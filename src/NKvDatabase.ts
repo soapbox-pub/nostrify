@@ -75,6 +75,7 @@ const indexTags = (event: NostrEvent, idx: number) => {
   const tagPuts: { index: NDbIndexType, key: lmdb.Key, idx: number }[] = [];
 
   event.tags.forEach((tag, i) => {
+    // change for multi-character tags
     if (tag.length < 2 || tag[0].length !== 1 || tag[1]?.length === 0 || tag[1]?.length > 100) {
       return; // cant be indexed, forget it
     }
@@ -121,14 +122,14 @@ export class NKvDatabase implements NStore {
   }
 
   /* todo type this properly */
-  #get<T>(from: NDbIndexType, key: any) {
+  private get<T>(from: NDbIndexType, key: any) {
     return this.dbs[from].get(key) as T;
   }
 
-  event(event: NostrEvent) {
+  async event(event: NostrEvent) {
     this.console.debug('event', event.id);
 
-    const lastIdx = this.#get<number>('root', 'last_event') || -1;
+    const lastIdx = this.get<number>('root', 'last_event') || -1;
     const idx = lastIdx + 1;
 
     if (event.kind === 5) {
@@ -155,25 +156,27 @@ export class NKvDatabase implements NStore {
       }
     }
     else if (NKinds.parameterizedReplaceable(event.kind)) {
-      const dTagVal = event.tags.filter(tag => tag[0] === 'd')[0][1];
-      const existing = this.resolveFilter({ authors: [event.pubkey], kinds: [event.kind], "#d": [dTagVal] });
-      if (existing.length) {
-        const evt = this.dbs.root.get(existing[0]);
-        if (evt.created_at >= event.created_at) {
-          return Promise.reject(new Error("Replacing event cannot be older than the event it replaces."));
-        }
-        else {
-          this.removeByIdx(existing[0]);
+      const dTagVal = event.tags.find(tag => tag[0] === 'd')?.[1];
+      if (dTagVal) {
+        const existing = this.resolveFilter({ authors: [event.pubkey], kinds: [event.kind], "#d": [dTagVal] });
+        if (existing.length) {
+          const evt = this.dbs.root.get(existing[0]);
+          if (evt.created_at >= event.created_at) {
+            return Promise.reject(new Error("Replacing event cannot be older than the event it replaces."));
+          }
+          else {
+            this.removeByIdx(existing[0]);
+          }
         }
       }
     }
 
     const doesKind5Exist = this.resolveFilter({ kinds: [5], '#e': [event.id] });
     if (doesKind5Exist.length) {
-      return Promise.reject(new Error('This event was deleted by a kind 5 event.'));
+      throw new Error('This event was deleted by a kind 5 event.');
     }
 
-    return new Promise<void>((resolve) => this.dbs.root.transactionSync(() => {
+    this.dbs.root.transactionSync(() => {
       this.dbs.root.put('last_event', idx);
       this.dbs.root.put(idx, event);
       this.dbs.root.put(event.id, idx);
@@ -182,9 +185,9 @@ export class NKvDatabase implements NStore {
       const keys = getIndexKeysForEvent(event);
       const indices: (keyof NKvIndexKeys)[] = ['pubkeyIndex', 'kindIndex', 'pubkeyKindIndex', 'timeIndex'];
       indices.forEach(index => this.dbs[index].put(keys[index], idx));
+    });
 
-      resolve();
-    }));
+    await this.dbs.root.flushed;
   }
 
   resolveFilter(filter: NostrFilter) {
@@ -197,7 +200,6 @@ export class NKvDatabase implements NStore {
 
     const { ids, authors, kinds, limit, since, until, search, ...rest } = filter;
     if (search) throw new Error("Search isn't implemented for NKvDatabase yet.");
-
     const s = since ?? 0;
     const u = until ?? Number.MAX_SAFE_INTEGER;
 
@@ -233,7 +235,10 @@ export class NKvDatabase implements NStore {
         this.dbs[index]
           .getRange({ start, end })
           .forEach(entry => {
-            if (!(kinds?.length) && !(authors?.length)) indices.push(entry.value);
+            if (!(kinds?.length) && !(authors?.length)) {
+              indices.push(entry.value);
+              return;
+            }
             const evt = this.dbs.root.get(entry.value);
             if (kinds?.length && !kinds.includes(evt.kind)) return;
             if (authors?.length && !authors.includes(evt.author)) return;
@@ -242,6 +247,7 @@ export class NKvDatabase implements NStore {
       )
 
       return indices;
+      // return Array.from(new Set(indices));
     }
 
     if (ids?.length) {
@@ -293,7 +299,7 @@ export class NKvDatabase implements NStore {
     return filters.map((filter) => this.resolveFilter(filter)).flat();
   }
 
-  query(filters: NostrFilter[], opts: { signal?: AbortSignal; limit?: number } = {}) {
+  async query(filters: NostrFilter[], opts: { signal?: AbortSignal; limit?: number } = {}) {
     const indices = this.resolveFilters(filters).slice(0, opts.limit);
     /*
     return await this.dbs.root.getMany(indices);

@@ -160,11 +160,13 @@ export class NKvDatabase implements NStore {
       if (dTagVal) {
         const existing = this.resolveFilter({ authors: [event.pubkey], kinds: [event.kind], "#d": [dTagVal] });
         if (existing.length) {
+          this.console.debug('dtagVal exists', existing[0]);
           const evt = this.dbs.root.get(existing[0]);
           if (evt.created_at >= event.created_at) {
             return Promise.reject(new Error("Replacing event cannot be older than the event it replaces."));
           }
           else {
+            this.console.debug('removing existing event', existing[0]);
             this.removeByIdx(existing[0]);
           }
         }
@@ -230,18 +232,21 @@ export class NKvDatabase implements NStore {
 
     const indices: number[] = [];
 
+    this.console.debug('tag indices', tags);
     if (tags.length) {
       tags.forEach(({ start, index, end }) =>
         this.dbs[index]
           .getRange({ start, end })
           .forEach(entry => {
+            this.console.debug(entry);
             if (!(kinds?.length) && !(authors?.length)) {
+              this.console.log('no kinds, no authors');
               indices.push(entry.value);
               return;
             }
-            const evt = this.dbs.root.get(entry.value);
+            const evt = this.get<NostrEvent>('root', entry.value);
             if (kinds?.length && !kinds.includes(evt.kind)) return;
-            if (authors?.length && !authors.includes(evt.author)) return;
+            if (authors?.length && !authors.includes(evt.pubkey)) return;
             indices.push(entry.value);
           })
       )
@@ -301,7 +306,7 @@ export class NKvDatabase implements NStore {
 
   async query(filters: NostrFilter[], opts: { signal?: AbortSignal; limit?: number } = {}) {
     const indices = this.resolveFilters(filters).slice(0, opts.limit);
-    /*
+    //*
     return await this.dbs.root.getMany(indices);
     /*/
     return Promise.resolve(indices.map(index => this.dbs.root.get(index)));

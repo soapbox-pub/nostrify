@@ -299,7 +299,7 @@ export class NKvDatabase implements NStore {
 
   async query(filters: NostrFilter[], opts: { signal?: AbortSignal; limit?: number } = {}) {
     const indices = this.resolveFilters(filters).slice(0, opts.limit);
-    /*
+    //*
     return (await this.dbs.root.getMany(indices)).filter(Boolean);
     /*/
     return Promise.resolve(indices.map(index => this.dbs.root.get(index)));

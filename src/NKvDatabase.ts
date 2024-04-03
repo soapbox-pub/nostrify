@@ -71,8 +71,8 @@ const getIndexKeysForEvent = (event: NostrEvent): NKvIndexKeys => {
   }
 }
 
-const indexTags = (event: NostrEvent, idx: number) => {
-  const tagPuts: { index: NDbIndexType, key: lmdb.Key, idx: number }[] = [];
+const indexTags = (event: NostrEvent) => {
+  const tagPuts: { index: NDbIndexType, key: lmdb.Key, id: string }[] = [];
 
   event.tags.forEach((tag, i) => {
     // change for multi-character tags
@@ -85,12 +85,12 @@ const indexTags = (event: NostrEvent, idx: number) => {
     if (tag[0] === 'a') {
       const parsed = parseAddrTag(tag[1]);
       if (!parsed) throw new Error('Invalid tag prefix for tag ' + JSON.stringify(tag));
-      tagPuts.push({ index: 'tagsAddrIndex', key: LmdbKeys.forTag(addrPrefix(parsed), event.created_at), idx });
+      tagPuts.push({ index: 'tagsAddrIndex', key: LmdbKeys.forTag(addrPrefix(parsed), event.created_at), id: event.id });
     } else if (HEX64_REGEX.test(tag[1])) {
-      tagPuts.push({ index: 'tags32Index', key: LmdbKeys.forTag(tag[1], event.created_at), idx });
+      tagPuts.push({ index: 'tags32Index', key: LmdbKeys.forTag(tag[1], event.created_at), id: event.id });
     }
     else {
-      tagPuts.push({ index: 'tagsIndex', key: LmdbKeys.forTag(tag[1], event.created_at), idx });
+      tagPuts.push({ index: 'tagsIndex', key: LmdbKeys.forTag(tag[1], event.created_at), id: event.id });
     }
   })
 
@@ -108,7 +108,7 @@ export class NKvDatabase implements NStore {
    * @param path The path at which the LMDB database should be stored.
    */
   constructor(path: string) {
-    const db = lmdb.open({ path });
+    const db = lmdb.open({ path, encoding: 'msgpack' });
     this.dbs = {
       root: db,
       kindIndex: db.openDB({ name: 'kindIndex', dupSort: true, encoding: 'ordered-binary' }),
@@ -129,9 +129,6 @@ export class NKvDatabase implements NStore {
   async event(event: NostrEvent) {
     this.console.debug('event', event.id);
 
-    const lastIdx = this.get<number>('root', 'last_event') || -1;
-    const idx = lastIdx + 1;
-
     if (event.kind === 5) {
       this.remove([{
         ids: event.tags
@@ -151,7 +148,7 @@ export class NKvDatabase implements NStore {
           return Promise.reject(new Error("Replacing event cannot be older than the event it replaces."));
         }
         else {
-          this.removeByIdx(existing[0]);
+          this.removeById(existing[0]);
         }
       }
     }
@@ -167,7 +164,7 @@ export class NKvDatabase implements NStore {
           }
           else {
             this.console.debug('removing existing event', existing[0]);
-            this.removeByIdx(existing[0]);
+            this.removeById(existing[0]);
           }
         }
       }
@@ -179,14 +176,12 @@ export class NKvDatabase implements NStore {
     }
 
     this.dbs.root.transactionSync(() => {
-      this.dbs.root.put('last_event', idx);
-      this.dbs.root.put(idx, event);
-      this.dbs.root.put(event.id, idx);
-      indexTags(event, idx).forEach((put) => this.dbs[put.index].put(put.key, put.idx));
+      this.dbs.root.put(event.id, event);
+      indexTags(event).forEach((put) => this.dbs[put.index].put(put.key, put.id));
 
       const keys = getIndexKeysForEvent(event);
       const indices: (keyof NKvIndexKeys)[] = ['pubkeyIndex', 'kindIndex', 'pubkeyKindIndex', 'timeIndex'];
-      indices.forEach(index => this.dbs[index].put(keys[index], idx));
+      indices.forEach(index => this.dbs[index].put(keys[index], event.id));
     });
 
     await this.dbs.root.flushed;
@@ -230,7 +225,7 @@ export class NKvDatabase implements NStore {
       }
     }
 
-    const indices: number[] = [];
+    const indices: string[] = [];
 
     this.console.debug('tag indices', tags);
     if (tags.length) {
@@ -252,12 +247,10 @@ export class NKvDatabase implements NStore {
       )
 
       return indices;
-      // return Array.from(new Set(indices));
     }
 
     if (ids?.length) {
-      const gotten = ids.map((id) => this.dbs.root.get(id));
-      indices.push(...gotten);
+      indices.push(...ids);
     } else if (authors?.length) {
       const isPubkeyKind = !!(kinds?.length);
       const ranges = isPubkeyKind
@@ -306,8 +299,8 @@ export class NKvDatabase implements NStore {
 
   async query(filters: NostrFilter[], opts: { signal?: AbortSignal; limit?: number } = {}) {
     const indices = this.resolveFilters(filters).slice(0, opts.limit);
-    //*
-    return await this.dbs.root.getMany(indices);
+    /*
+    return (await this.dbs.root.getMany(indices)).filter(Boolean);
     /*/
     return Promise.resolve(indices.map(index => this.dbs.root.get(index)));
     //*/
@@ -318,15 +311,14 @@ export class NKvDatabase implements NStore {
     return Promise.resolve({ count: indices.length });
   }
 
-  removeByIdx(idx: number) {
-    const body = this.dbs.root.get(idx);
+  removeById(id: string) {
+    const body = this.dbs.root.get(id);
     return new Promise<void>((resolve) => {
       this.dbs.root.transactionSync(() => {
-        indexTags(body, idx).forEach((put) => this.dbs[put.index].remove(put.key));
+        indexTags(body).forEach((put) => this.dbs[put.index].remove(put.key));
         const keys = getIndexKeysForEvent(body);
         const indices: (keyof NKvIndexKeys)[] = ['pubkeyIndex', 'kindIndex', 'pubkeyKindIndex', 'timeIndex'];
         indices.forEach(index => this.dbs[index].remove(keys[index]));
-        this.dbs.root.remove(idx);
         this.dbs.root.remove(body.id);
 
         resolve();
@@ -336,6 +328,6 @@ export class NKvDatabase implements NStore {
 
   remove(filters: NostrFilter[]): Promise<void> {
     const indices = this.resolveFilters(filters);
-    return Promise.resolve(indices.forEach(idx => this.removeByIdx(idx)));
+    return Promise.resolve(indices.forEach(id => this.removeById(id)));
   }
 }

@@ -4,8 +4,7 @@ import events from '../fixtures/events.json' with { type: 'json' };
 
 try {
   await Deno.remove('./benchdb.lmdb');
-}
-catch (e) {
+} catch (e) {
   console.error(e);
 }
 const db = new NKvDatabase('./benchdb.lmdb');
@@ -14,11 +13,10 @@ const db = new NKvDatabase('./benchdb.lmdb');
 for (const event of events) {
   try {
     await db.event(event);
-  }
-  catch (e) {
+  } catch (e) {
     console.log('==== EVENT ====');
     console.log(event);
-    console.log('==== ERROR ====')
+    console.log('==== ERROR ====');
     console.log(e);
     Deno.exit(1);
   }

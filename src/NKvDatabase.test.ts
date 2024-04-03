@@ -10,7 +10,7 @@ const samplePubkey = 'c87e0d90c7e521967a6975439ba20d9052c2b6680d8c4c80fc2943e2c7
 const sampleKind = 1985;
 const sampleTimestamp = 1691091734;
 
-Deno.test("Tests for LmdbKeys", async (t) => {
+Deno.test('Tests for LmdbKeys', async (t) => {
   await t.step("byPubkey and from('pubkey')", () => {
     const key = LmdbKeys.byPubkey(sampleTimestamp, samplePubkey);
     const { timestamp, pubkey } = LmdbKeys.from('pubkey', key);
@@ -151,20 +151,20 @@ Deno.test('NKvDatabase.event with parameterized replaceable event', async (t) =>
   await t.step('should insert replaceable event', async () => {
     await db.event(event0);
     assertEquals(await db.query([{ ids: [event0.id] }]), [event0]);
-  })
+  });
 
   await t.step('should delete old event when inserting new event', async () => {
     await db.event(event1);
     assertEquals(await db.query([{ ids: [event0.id] }]), []);
-  })
+  });
 
   await t.step('new event should be inserted correctly', async () => {
     assertEquals(await db.query([{ ids: [event1.id] }]), [event1]);
-  })
+  });
 
   await t.step('repeat with a third event', async () => {
     await db.event(event2);
     assertEquals(await db.query([{ ids: [event0.id, event1.id] }]), []);
     assertEquals(await db.query([{ ids: [event2.id] }]), [event2]);
-  })
+  });
 });

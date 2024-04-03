@@ -139,7 +139,7 @@ export class NKvDatabase implements NStore {
     return this.dbs[from].get(key) as T;
   }
 
-  async event(event: NostrEvent) {
+  async event(event: NostrEvent): Promise<void> {
     this.console.debug('event', event.id);
 
     if (event.kind === 5) {
@@ -148,14 +148,14 @@ export class NKvDatabase implements NStore {
           .filter((tag) => tag[0] === 'e')
           .map((tag) => tag[1])
           .filter((id) => {
-            const evt = this.dbs.root.get(id);
+            const evt = this.get<NostrEvent>('root', id);
             return (evt && evt.pubkey === event.pubkey);
           }),
       }]);
     } else if (NKinds.replaceable(event.kind)) {
       const existing = this.resolveFilter({ kinds: [event.kind], authors: [event.pubkey] });
       if (existing.length) {
-        const evt = this.dbs.root.get(existing[0]);
+        const evt = this.get<NostrEvent>('root', existing[0]);
         if (evt.created_at >= event.created_at) {
           return Promise.reject(new Error('Replacing event cannot be older than the event it replaces.'));
         } else {
@@ -168,7 +168,7 @@ export class NKvDatabase implements NStore {
         const existing = this.resolveFilter({ authors: [event.pubkey], kinds: [event.kind], '#d': [dTagVal] });
         if (existing.length) {
           this.console.debug('dtagVal exists', existing[0]);
-          const evt = this.dbs.root.get(existing[0]);
+          const evt = this.get<NostrEvent>('root', existing[0]);
           if (evt.created_at >= event.created_at) {
             return Promise.reject(new Error('Replacing event cannot be older than the event it replaces.'));
           } else {
@@ -305,7 +305,7 @@ export class NKvDatabase implements NStore {
     return filters.map((filter) => this.resolveFilter(filter)).flat();
   }
 
-  async query(filters: NostrFilter[], opts: { signal?: AbortSignal; limit?: number } = {}) {
+  async query(filters: NostrFilter[], opts: { signal?: AbortSignal; limit?: number } = {}): Promise<NostrEvent[]> {
     const indices = this.resolveFilters(filters).slice(0, opts.limit);
     //*
     return (await this.dbs.root.getMany(indices)).filter(Boolean);

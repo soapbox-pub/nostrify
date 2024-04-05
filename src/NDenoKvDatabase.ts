@@ -89,8 +89,6 @@ export class NDenoKvDatabase implements NStore {
       return;
     }
     else if (NKinds.replaceable(event.kind)) {
-      // process the replacement
-      //  reject if the new event is older than the existing one
     }
     else if (NKinds.parameterizedReplaceable(event.kind)) {
 
@@ -106,29 +104,40 @@ export class NDenoKvDatabase implements NStore {
       .set(Keys.byPubkeyAndKind(event.created_at, event.pubkey, event.kind), event.id)
       .set(Keys.byTimestamp(event.created_at), event.id);
 
-    await txn.commit();
-    /* check op result here */
+    if (!(await txn.commit()).ok) {
+      throw new Error(`There was an error storing event ${event.id}.`)
+    }
   }
-  async resolveFilter() {
+  async resolveFilter(filter: NostrFilter): Promise<string[]> {
     // 0. query based on tags if tags provided. then, filter by kind and author.
     // 1. query based on ids if ids provided.
     // 2. query based on authors if not empty, considering kinds.
     // 3. query based on kinds if not empty and authors empty.
     // 4. query based on timestamp if all empty.
+    const { ids, authors, kinds, limit, since, until, search, ...rest } = filter;
+    throw new Error('Method not implemented.');
   }
-  async resolveFilters() {
-
+  async resolveFilters(filters: NostrFilter[]): Promise<string[]> {
+    const results: string[] = [];
+    for (const filter of filters) {
+      results.push(...await this.resolveFilter(filter));
+    }
+    return results;
   }
   async query(filters: NostrFilter[]): Promise<NostrEvent[]> {
     if (!this.db) throw new Error('NDenoKvDatabase not initialized before calling query()!');
-    throw new Error('Method not implemented.');
+    const results = await this.resolveFilters(filters);
+    const events = await this.db.getMany<NostrEvent[]>(results.map(id => ['events', id]));
+    return events.map(entry => entry.value).filter(Boolean) as NostrEvent[];
   }
-  async count?(filters: NostrFilter[]): Promise<{ count: number; approximate?: boolean | undefined; }> {
+  async count(filters: NostrFilter[]): Promise<{ count: number; approximate?: boolean | undefined; }> {
     if (!this.db) throw new Error('NDenoKvDatabase not initialized before calling count()!');
-    throw new Error('Method not implemented.');
+    const results = await this.resolveFilters(filters);
+    return { count: results.length };
   }
-  async remove?(filters: NostrFilter[]): Promise<void> {
+  async remove(filters: NostrFilter[]): Promise<void> {
     if (!this.db) throw new Error('NDenoKvDatabase not initialized before calling remove()!');
+    const results = await this.resolveFilters(filters);
     throw new Error('Method not implemented.');
   }
 }

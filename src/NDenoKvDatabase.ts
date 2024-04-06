@@ -1,7 +1,6 @@
 import { NStore } from '../interfaces/NStore.ts';
 import { NostrEvent, NostrFilter } from '../mod.ts';
 import { NKinds } from './NKinds.ts';
-import { ulid } from "https://deno.land/x/ulid@v0.3.0/mod.ts";
 
 // TODO: implement signal support.
 const HEX64_REGEX = /^[0-9A-Fa-f]{64}$/;
@@ -41,27 +40,27 @@ const indexTags = (event: NostrEvent) => {
       prefix = [parsed.pkb, parsed.kind, parsed.rest];
     }
 
-    keys.push(Keys.byTag(event.created_at, index, ...prefix));
+    keys.push(Keys.byTag(event.id, event.created_at, index, ...prefix));
   });
 
   return keys;
 }
 
 const Keys = {
-  byPubkey(timestamp: number, pubkey: string) {
-    return ['by-pubkey', pubkey, timestamp, ulid()];
+  byPubkey(id: string, timestamp: number, pubkey: string) {
+    return ['by-pubkey', pubkey, timestamp, id];
   },
-  byKind(timestamp: number, kind: number) {
-    return ['by-kind', kind, timestamp, ulid()];
+  byKind(id: string, timestamp: number, kind: number) {
+    return ['by-kind', kind, timestamp, id];
   },
-  byPubkeyAndKind(timestamp: number, pubkey: string, kind: number) {
-    return ['by-pubkey-kind', pubkey, kind, timestamp, ulid()];
+  byPubkeyAndKind(id: string, timestamp: number, pubkey: string, kind: number) {
+    return ['by-pubkey-kind', pubkey, kind, timestamp, id];
   },
-  byTimestamp(timestamp: number) {
-    return ['by-timestamp', timestamp, ulid()];
+  byTimestamp(id: string, timestamp: number) {
+    return ['by-timestamp', timestamp, id];
   },
-  byTag(timestamp: number, index: string, ...rest: (number | string)[]) {
-    return ['by-tag', index, ...rest, timestamp, ulid()];
+  byTag(id: string, timestamp: number, index: string, ...rest: (number | string)[]) {
+    return ['by-tag', index, ...rest, timestamp, id];
   }
 }
 
@@ -99,24 +98,145 @@ export class NDenoKvDatabase implements NStore {
     const txn = this.db.atomic();
     indexTags(event).forEach((key) => txn.set(key, event.id));
     txn.set(['events', event.id], event)
-      .set(Keys.byKind(event.created_at, event.kind), event.id)
-      .set(Keys.byPubkey(event.created_at, event.pubkey), event.id)
-      .set(Keys.byPubkeyAndKind(event.created_at, event.pubkey, event.kind), event.id)
-      .set(Keys.byTimestamp(event.created_at), event.id);
+      .set(Keys.byKind(event.id, event.created_at, event.kind), event.id)
+      .set(Keys.byPubkey(event.id, event.created_at, event.pubkey), event.id)
+      .set(Keys.byPubkeyAndKind(event.id, event.created_at, event.pubkey, event.kind), event.id)
+      .set(Keys.byTimestamp(event.id, event.created_at), event.id);
 
-    if (!(await txn.commit()).ok) {
+    const res = await txn.commit();
+    if (!res.ok) {
       throw new Error(`There was an error storing event ${event.id}.`)
     }
   }
+
   async resolveFilter(filter: NostrFilter): Promise<string[]> {
-    // 0. query based on tags if tags provided. then, filter by kind and author.
-    // 1. query based on ids if ids provided.
-    // 2. query based on authors if not empty, considering kinds.
-    // 3. query based on kinds if not empty and authors empty.
-    // 4. query based on timestamp if all empty.
-    const { ids, authors, kinds, limit, since, until, search, ...rest } = filter;
-    throw new Error('Method not implemented.');
+    const { ids, authors, kinds, limit, since, until, search: _search, ...rest } = filter;
+    const s = since || 0;
+    const u = until || Number.MAX_SAFE_INTEGER;
+
+    const tags = [];
+    for (const k in rest) {
+      if (k.startsWith('#')) {
+        const key = k as `#${string}`;
+        const tagName = k.slice(1);
+        const firstRestValue = rest[key]![0];
+        let index = 'for-utf8-tags';
+        let prefix: (string | number)[] = [firstRestValue];
+
+        if (HEX64_REGEX.test(firstRestValue)) {
+          index = 'for-hex64-tags';
+        }
+        else if (tagName === 'a') {
+          index = 'for-address-tags';
+          const parsed = parseAddrTag(firstRestValue);
+          if (!parsed) throw new Error('Error parsing indexed address, this should never happen! File a bug with Ditto devs.');
+
+          prefix = [parsed.pkb, parsed.kind, parsed.rest];
+        }
+
+        tags.push({ start: ['by-tag', index, ...prefix, s], end: ['by-tag', index, ...prefix, s] });
+      }
+    }
+
+    const indices: string[] = [];
+
+    if (tags.length) {
+      await Promise.all(tags.map(async range => {
+        if (!kinds?.length && !authors?.length) {
+          if (!this.db) throw new Error('NDenoKvDatabase not initialized before calling resolveFilter()!');
+          for await (const entry of this.db.list<string>(range)) {
+            if (entry.value) indices.push(entry.value);
+          }
+
+          return;
+        }
+        else if (kinds?.length && !authors?.length) {
+          // i know it's really ugly to have this duplicated, but typescript hates it if i do the check once,
+          // for some reason.
+          if (!this.db) throw new Error('NDenoKvDatabase not initialized before calling resolveFilter()!');
+          for await (const entry of this.db?.list<string>(range)) {
+            if (entry.value) {
+              const evt = (await this.db?.get<NostrEvent>(['events', entry.value]))?.value;
+              if (evt && kinds.includes(evt.kind)) indices.push(entry.value);
+            }
+          }
+          return;
+        }
+        else if (!kinds?.length && authors?.length) {
+          if (!this.db) throw new Error('NDenoKvDatabase not initialized before calling resolveFilter()!');
+          for await (const entry of this.db?.list<string>(range)) {
+            if (entry.value) {
+              const evt = (await this.db?.get<NostrEvent>(['events', entry.value]))?.value;
+              if (evt && authors.includes(evt.pubkey)) indices.push(entry.value);
+            }
+          }
+        }
+        else {
+          if (!this.db) throw new Error('NDenoKvDatabase not initialized before calling resolveFilter()!');
+          for await (const entry of this.db?.list<string>(range)) {
+            if (entry.value) {
+              const evt = (await this.db?.get<NostrEvent>(['events', entry.value]))?.value;
+              if (evt && kinds!.includes(evt.kind) && authors!.includes(evt.pubkey)) indices.push(entry.value);
+            }
+          }
+        }
+      }))
+    }
+
+    if (ids?.length) {
+      return await Promise.all(ids.map(async (itm, i) => {
+        if (limit && i > limit - 1) return;
+        const evt = (await this.db?.get<NostrEvent>(['events', itm]))?.value;
+        if (evt && evt.created_at >= s && evt.created_at <= u) return itm;
+      }).filter(Boolean) as unknown as string[]);
+    }
+
+    const selectors: Deno.KvListSelector[] = [];
+
+    if (authors?.length) {
+      if (kinds?.length) {
+        authors.forEach(author => kinds.forEach(kind =>
+          selectors.push({
+            prefix: ['by-pubkey-kind', author, kind],
+            start: ['by-pubkey-kind', author, kind, s],
+            end: ['by-pubkey-kind', author, kind, u]
+          })
+        ))
+      }
+      else {
+        authors.forEach(author => selectors.push({
+          prefix: ['by-pubkey', author],
+          start: ['by-pubkey', author, s],
+          end: ['by-pubkey', author, u]
+        }))
+      }
+    }
+    else if (kinds?.length) {
+      kinds.forEach(kind => selectors.push({
+        prefix: ['by-kind', kind],
+        start: ['by-kind', kind, s],
+        end: ['by-kind', kind, u]
+      }))
+    }
+    else {
+      selectors.push({ prefix: ['by-timestamp'], start: ['by-timestamp', s], end: ['by-timestamp', u] })
+    }
+
+    const idx = 0;
+    await Promise.all(selectors.map(async selector => {
+      if (!this.db) throw new Error('NDenoKvDatabase not initialized before calling event()!');
+      for await (const entry of this.db?.list<string>(selector)) {
+        if (limit && idx > limit) {
+          return;
+        }
+
+        indices.push(entry.value);
+      }
+    }))
+
+    return indices;
   }
+
   async resolveFilters(filters: NostrFilter[]): Promise<string[]> {
     const results: string[] = [];
     for (const filter of filters) {
@@ -124,20 +244,41 @@ export class NDenoKvDatabase implements NStore {
     }
     return results;
   }
+
   async query(filters: NostrFilter[]): Promise<NostrEvent[]> {
     if (!this.db) throw new Error('NDenoKvDatabase not initialized before calling query()!');
     const results = await this.resolveFilters(filters);
     const events = await this.db.getMany<NostrEvent[]>(results.map(id => ['events', id]));
     return events.map(entry => entry.value).filter(Boolean) as NostrEvent[];
   }
+
   async count(filters: NostrFilter[]): Promise<{ count: number; approximate?: boolean | undefined; }> {
     if (!this.db) throw new Error('NDenoKvDatabase not initialized before calling count()!');
     const results = await this.resolveFilters(filters);
     return { count: results.length };
   }
-  async remove(filters: NostrFilter[]): Promise<void> {
+
+  async removeById(id: string) {
     if (!this.db) throw new Error('NDenoKvDatabase not initialized before calling remove()!');
+    const evt = await this.db.get<NostrEvent>(['events', id]);
+    if (!evt.value) throw new Error("Attempt to remove a value that didn't exist from the db.");
+    const txn = this.db.atomic();
+    indexTags(evt.value).forEach(k => txn.delete(k));
+
+    txn.delete(['events', id])
+      .delete(Keys.byKind(id, evt.value.created_at, evt.value.kind))
+      .delete(Keys.byPubkey(evt.value.id, evt.value.created_at, evt.value.pubkey))
+      .delete(Keys.byPubkeyAndKind(evt.value.id, evt.value.created_at, evt.value.pubkey, evt.value.kind))
+      .delete(Keys.byTimestamp(evt.value.id, evt.value.created_at));
+
+    const res = await txn.commit();
+    if (!res.ok) throw new Error('Delete failed!');
+  }
+
+  async remove(filters: NostrFilter[]): Promise<void> {
     const results = await this.resolveFilters(filters);
-    throw new Error('Method not implemented.');
+    for (const result of results) {
+      await this.removeById(result);
+    }
   }
 }

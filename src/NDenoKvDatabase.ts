@@ -289,6 +289,16 @@ export class NDenoKvDatabase implements NStore {
     if (!res.ok) throw new Error('Delete failed!');
   }
 
+  private async getEvtById(id: string): Promise<NostrEvent | null> {
+    const evtMaybe = await this.db.get<NostrEvent>(['events', id]);
+    if (evtMaybe.value) {
+      return evtMaybe.value;
+    }
+    else {
+      return null;
+    }
+  }
+
   async remove(filters: NostrFilter[]): Promise<void> {
     const results = await this.resolveFilters(filters);
     for (const result of results) {

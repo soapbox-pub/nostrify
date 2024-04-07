@@ -65,22 +65,13 @@ const Keys = {
 }
 
 export class NDenoKvDatabase implements NStore {
-  private inited = false;
-  private db: Deno.Kv | null = null;
-  private path?: string;
+  private db: Deno.Kv;
 
-  constructor(path?: string) {
-    this.path = path;
-  }
-
-  async init() {
-    if (this.inited) throw new Error('Attempt to initialize already initialised database');
-    this.inited = true;
-    this.db = await Deno.openKv(this.path);
+  constructor(db: Deno.Kv) {
+    this.db = db;
   }
 
   async event(event: NostrEvent): Promise<void> {
-    if (!this.db) throw new Error('NDenoKvDatabase not initialized before calling event()!');
     if (event.kind === 5) {
       // remove the events it tags if they belong to the sending user
     }
@@ -88,9 +79,25 @@ export class NDenoKvDatabase implements NStore {
       return;
     }
     else if (NKinds.replaceable(event.kind)) {
+      const existing = await this.resolveFilter({ kinds: [event.kind], authors: [event.pubkey] });
+      if (existing.length) {
+        const evt = (await this.db.get<NostrEvent>(['events', existing[0]])).value;
+        if (evt && evt.created_at >= event.created_at)
+          throw new Error('Replacing event cannot be older than the event it replaces.');
+        else this.removeById(existing[0]);
+      }
     }
     else if (NKinds.parameterizedReplaceable(event.kind)) {
-
+      const dTagVal = event.tags.find((tag) => tag[0] === 'd')?.[1];
+      if (dTagVal) {
+        const existing = await this.resolveFilter({ authors: [event.pubkey], kinds: [event.kind], '#d': [dTagVal] });
+        if (existing.length) {
+          const evt = (await this.db.get<NostrEvent>(['events', existing[0]])).value;
+          if (evt && evt.created_at >= event.created_at)
+            throw new Error('Replacing event cannot be older than the event it replaces.');
+          else this.removeById(existing[0]);
+        }
+      }
     }
 
     // check if a kind 5 exists for this event. if so, scream
@@ -143,7 +150,6 @@ export class NDenoKvDatabase implements NStore {
     if (tags.length) {
       await Promise.all(tags.map(async range => {
         if (!kinds?.length && !authors?.length) {
-          if (!this.db) throw new Error('NDenoKvDatabase not initialized before calling resolveFilter()!');
           for await (const entry of this.db.list<string>(range)) {
             if (entry.value) indices.push(entry.value);
           }
@@ -151,31 +157,26 @@ export class NDenoKvDatabase implements NStore {
           return;
         }
         else if (kinds?.length && !authors?.length) {
-          // i know it's really ugly to have this duplicated, but typescript hates it if i do the check once,
-          // for some reason.
-          if (!this.db) throw new Error('NDenoKvDatabase not initialized before calling resolveFilter()!');
-          for await (const entry of this.db?.list<string>(range)) {
+          for await (const entry of this.db.list<string>(range)) {
             if (entry.value) {
-              const evt = (await this.db?.get<NostrEvent>(['events', entry.value]))?.value;
+              const evt = (await this.db.get<NostrEvent>(['events', entry.value]))?.value;
               if (evt && kinds.includes(evt.kind)) indices.push(entry.value);
             }
           }
           return;
         }
         else if (!kinds?.length && authors?.length) {
-          if (!this.db) throw new Error('NDenoKvDatabase not initialized before calling resolveFilter()!');
-          for await (const entry of this.db?.list<string>(range)) {
+          for await (const entry of this.db.list<string>(range)) {
             if (entry.value) {
-              const evt = (await this.db?.get<NostrEvent>(['events', entry.value]))?.value;
+              const evt = (await this.db.get<NostrEvent>(['events', entry.value]))?.value;
               if (evt && authors.includes(evt.pubkey)) indices.push(entry.value);
             }
           }
         }
         else {
-          if (!this.db) throw new Error('NDenoKvDatabase not initialized before calling resolveFilter()!');
-          for await (const entry of this.db?.list<string>(range)) {
+          for await (const entry of this.db.list<string>(range)) {
             if (entry.value) {
-              const evt = (await this.db?.get<NostrEvent>(['events', entry.value]))?.value;
+              const evt = (await this.db.get<NostrEvent>(['events', entry.value]))?.value;
               if (evt && kinds!.includes(evt.kind) && authors!.includes(evt.pubkey)) indices.push(entry.value);
             }
           }
@@ -186,7 +187,7 @@ export class NDenoKvDatabase implements NStore {
     if (ids?.length) {
       return await Promise.all(ids.map(async (itm, i) => {
         if (limit && i > limit - 1) return;
-        const evt = (await this.db?.get<NostrEvent>(['events', itm]))?.value;
+        const evt = (await this.db.get<NostrEvent>(['events', itm]))?.value;
         if (evt && evt.created_at >= s && evt.created_at <= u) return itm;
       }).filter(Boolean) as unknown as string[]);
     }
@@ -224,8 +225,7 @@ export class NDenoKvDatabase implements NStore {
 
     const idx = 0;
     await Promise.all(selectors.map(async selector => {
-      if (!this.db) throw new Error('NDenoKvDatabase not initialized before calling event()!');
-      for await (const entry of this.db?.list<string>(selector)) {
+      for await (const entry of this.db.list<string>(selector)) {
         if (limit && idx > limit) {
           return;
         }
@@ -246,20 +246,17 @@ export class NDenoKvDatabase implements NStore {
   }
 
   async query(filters: NostrFilter[]): Promise<NostrEvent[]> {
-    if (!this.db) throw new Error('NDenoKvDatabase not initialized before calling query()!');
     const results = await this.resolveFilters(filters);
     const events = await this.db.getMany<NostrEvent[]>(results.map(id => ['events', id]));
     return events.map(entry => entry.value).filter(Boolean) as NostrEvent[];
   }
 
   async count(filters: NostrFilter[]): Promise<{ count: number; approximate?: boolean | undefined; }> {
-    if (!this.db) throw new Error('NDenoKvDatabase not initialized before calling count()!');
     const results = await this.resolveFilters(filters);
     return { count: results.length };
   }
 
   async removeById(id: string) {
-    if (!this.db) throw new Error('NDenoKvDatabase not initialized before calling remove()!');
     const evt = await this.db.get<NostrEvent>(['events', id]);
     if (!evt.value) throw new Error("Attempt to remove a value that didn't exist from the db.");
     const txn = this.db.atomic();

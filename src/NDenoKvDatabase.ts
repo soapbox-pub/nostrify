@@ -81,8 +81,8 @@ export class NDenoKvDatabase implements NStore {
     else if (NKinds.replaceable(event.kind)) {
       const existing = await this.resolveFilter({ kinds: [event.kind], authors: [event.pubkey] });
       if (existing.length) {
-        const evt = (await this.db.get<NostrEvent>(['events', existing[0]])).value;
-        if (evt && evt.created_at >= event.created_at)
+        const replaced = (await this.db.get<NostrEvent>(['events', existing[0]])).value;
+        if (replaced && replaced.created_at >= event.created_at)
           throw new Error('Replacing event cannot be older than the event it replaces.');
         else this.removeById(existing[0]);
       }
@@ -145,13 +145,13 @@ export class NDenoKvDatabase implements NStore {
       }
     }
 
-    const indices: string[] = [];
+    const indices: Set<string> = new Set();
 
     if (tags.length) {
       await Promise.all(tags.map(async range => {
         if (!kinds?.length && !authors?.length) {
           for await (const entry of this.db.list<string>(range)) {
-            if (entry.value) indices.push(entry.value);
+            if (entry.value) indices.add(entry.value);
           }
 
           return;
@@ -160,7 +160,7 @@ export class NDenoKvDatabase implements NStore {
           for await (const entry of this.db.list<string>(range)) {
             if (entry.value) {
               const evt = (await this.db.get<NostrEvent>(['events', entry.value]))?.value;
-              if (evt && kinds.includes(evt.kind)) indices.push(entry.value);
+              if (evt && kinds.includes(evt.kind)) indices.add(entry.value);
             }
           }
           return;
@@ -169,7 +169,7 @@ export class NDenoKvDatabase implements NStore {
           for await (const entry of this.db.list<string>(range)) {
             if (entry.value) {
               const evt = (await this.db.get<NostrEvent>(['events', entry.value]))?.value;
-              if (evt && authors.includes(evt.pubkey)) indices.push(entry.value);
+              if (evt && authors.includes(evt.pubkey)) indices.add(entry.value);
             }
           }
         }
@@ -177,7 +177,7 @@ export class NDenoKvDatabase implements NStore {
           for await (const entry of this.db.list<string>(range)) {
             if (entry.value) {
               const evt = (await this.db.get<NostrEvent>(['events', entry.value]))?.value;
-              if (evt && kinds!.includes(evt.kind) && authors!.includes(evt.pubkey)) indices.push(entry.value);
+              if (evt && kinds!.includes(evt.kind) && authors!.includes(evt.pubkey)) indices.add(entry.value);
             }
           }
         }
@@ -198,7 +198,6 @@ export class NDenoKvDatabase implements NStore {
       if (kinds?.length) {
         authors.forEach(author => kinds.forEach(kind =>
           selectors.push({
-            prefix: ['by-pubkey-kind', author, kind],
             start: ['by-pubkey-kind', author, kind, s],
             end: ['by-pubkey-kind', author, kind, u]
           })
@@ -206,7 +205,6 @@ export class NDenoKvDatabase implements NStore {
       }
       else {
         authors.forEach(author => selectors.push({
-          prefix: ['by-pubkey', author],
           start: ['by-pubkey', author, s],
           end: ['by-pubkey', author, u]
         }))
@@ -214,13 +212,12 @@ export class NDenoKvDatabase implements NStore {
     }
     else if (kinds?.length) {
       kinds.forEach(kind => selectors.push({
-        prefix: ['by-kind', kind],
         start: ['by-kind', kind, s],
         end: ['by-kind', kind, u]
       }))
     }
     else {
-      selectors.push({ prefix: ['by-timestamp'], start: ['by-timestamp', s], end: ['by-timestamp', u] })
+      selectors.push({ start: ['by-timestamp', s], end: ['by-timestamp', u] })
     }
 
     const idx = 0;
@@ -230,11 +227,11 @@ export class NDenoKvDatabase implements NStore {
           return;
         }
 
-        indices.push(entry.value);
+        indices.add(entry.value);
       }
     }))
 
-    return indices;
+    return Array.from(indices);
   }
 
   async resolveFilters(filters: NostrFilter[]): Promise<string[]> {
@@ -277,5 +274,9 @@ export class NDenoKvDatabase implements NStore {
     for (const result of results) {
       await this.removeById(result);
     }
+  }
+
+  close() {
+    this.db.close();
   }
 }

@@ -273,17 +273,17 @@ export class NDenoKvDatabase implements NStore {
     return { count: results.length };
   }
 
-  async removeById(id: string) {
-    const evt = await this.db.get<NostrEvent>(['events', id]);
-    if (!evt.value) throw new Error("Attempt to remove a value that didn't exist from the db.");
+  private async removeById(id: string) {
+    const evt = await this.getEvtById(id);
     const txn = this.db.atomic();
-    indexTags(evt.value).forEach(k => txn.delete(k));
+    if (!evt) throw new Error(`Attempt to remove an event ${id} that did not exist.`);
+    indexTags(evt).forEach(k => txn.delete(k));
 
     txn.delete(['events', id])
-      .delete(Keys.byKind(id, evt.value.created_at, evt.value.kind))
-      .delete(Keys.byPubkey(evt.value.id, evt.value.created_at, evt.value.pubkey))
-      .delete(Keys.byPubkeyAndKind(evt.value.id, evt.value.created_at, evt.value.pubkey, evt.value.kind))
-      .delete(Keys.byTimestamp(evt.value.id, evt.value.created_at));
+      .delete(Keys.byKind(id, evt.created_at, evt.kind))
+      .delete(Keys.byPubkey(evt.id, evt.created_at, evt.pubkey))
+      .delete(Keys.byPubkeyAndKind(evt.id, evt.created_at, evt.pubkey, evt.kind))
+      .delete(Keys.byTimestamp(evt.id, evt.created_at));
 
     const res = await txn.commit();
     if (!res.ok) throw new Error('Delete failed!');

@@ -73,7 +73,17 @@ export class NDenoKvDatabase implements NStore {
 
   async event(event: NostrEvent): Promise<void> {
     if (event.kind === 5) {
-      // remove the events it tags if they belong to the sending user
+      const ids = [];
+      for (const id of event.tags
+        .filter(tag => tag[0] === 'e')
+        .map(tag => tag[1])) {
+        const evt = await this.db.get<NostrEvent>(['events', id]);
+        if (evt.value && evt.value.pubkey === event.pubkey) {
+          ids.push(id);
+        }
+      }
+
+      await this.remove([{ ids }]);
     }
     else if (NKinds.ephemeral(event.kind)) {
       return;
@@ -100,7 +110,10 @@ export class NDenoKvDatabase implements NStore {
       }
     }
 
-    // check if a kind 5 exists for this event. if so, scream
+    const doesKind5Exist = await this.resolveFilter({ kinds: [5], '#e': [event.id] });
+    if (doesKind5Exist.length) {
+      throw new Error('This event was deleted by a kind 5 event.');
+    }
 
     const txn = this.db.atomic();
     indexTags(event).forEach((key) => txn.set(key, event.id));
@@ -141,7 +154,7 @@ export class NDenoKvDatabase implements NStore {
           prefix = [parsed.pkb, parsed.kind, parsed.rest];
         }
 
-        tags.push({ start: ['by-tag', index, ...prefix, s], end: ['by-tag', index, ...prefix, s] });
+        tags.push({ start: ['by-tag', index, ...prefix, s], end: ['by-tag', index, ...prefix, u] });
       }
     }
 
@@ -231,7 +244,7 @@ export class NDenoKvDatabase implements NStore {
       }
     }))
 
-    return Array.from(indices);
+    return Array.from(indices).filter(Boolean);
   }
 
   async resolveFilters(filters: NostrFilter[]): Promise<string[]> {

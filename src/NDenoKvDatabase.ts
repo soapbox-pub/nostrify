@@ -256,9 +256,16 @@ export class NDenoKvDatabase implements NStore {
   }
 
   async query(filters: NostrFilter[]): Promise<NostrEvent[]> {
-    const results = await this.resolveFilters(filters);
-    const events = await this.db.getMany<NostrEvent[]>(results.map(id => ['events', id]));
-    return events.map(entry => entry.value).filter(Boolean) as NostrEvent[];
+    const results = (await this.resolveFilters(filters)).filter(Boolean);
+    const events: NostrEvent[] = [];
+    for (let i = 0; i < results.length; i += 10) {
+      const chunk = (await this.db.getMany<NostrEvent[]>(
+        results.slice(i, i + 10).map(id => ['events', id])))
+        .filter(entry => Boolean(entry.value))
+        .map(entry => entry.value!);
+      events.push(...chunk);
+    }
+    return events;
   }
 
   async count(filters: NostrFilter[]): Promise<{ count: number; approximate?: boolean | undefined; }> {

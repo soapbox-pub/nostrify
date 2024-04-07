@@ -11,7 +11,7 @@ for (const event of events) {
         await db.event(event);
     } catch (e) {
         console.log('==== EVENT ====');
-        console.log(event);
+        console.log(event.id);
         console.log('==== ERROR ====');
         console.log(e);
         Deno.exit(1);
@@ -86,5 +86,3 @@ Deno.bench('NKvDatabase.query by multiple authors', async () => {
         limit: 20,
     }]);
 });
-
-await Deno.remove('./benchdb.lmdb');

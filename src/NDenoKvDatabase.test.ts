@@ -89,8 +89,8 @@ Deno.test('NKvDatabase.event with a deleted event', async (t) => {
         tags: [['e', event1.id]],
         created_at: 0,
         content: '',
-        id: '',
-        sig: '',
+        id: 'foobar',
+        sig: 'sig',
       });
 
       assertEquals(await db.query([{ kinds: [1] }]), []);

@@ -22,7 +22,7 @@ for (const event of events) {
   }
 }
 
-Deno.bench('NKvDatabase.event', async (b) => {
+Deno.bench('NDenoKvDatabase.event', async (b) => {
   const secretKey = generateSecretKey();
   const event = finalizeEvent({
     kind: 1,
@@ -36,7 +36,7 @@ Deno.bench('NKvDatabase.event', async (b) => {
   await db.event(event);
 });
 
-Deno.bench('NKvDatabase.event with many tags', async (b) => {
+Deno.bench('NDenoKvDatabase.event with many tags', async (b) => {
   const secretKey = generateSecretKey();
 
   const tags: string[][] = new Array(300)
@@ -55,11 +55,11 @@ Deno.bench('NKvDatabase.event with many tags', async (b) => {
   await db.event(event);
 });
 
-Deno.bench('NKvDatabase.query by id', async () => {
+Deno.bench('NDenoKvDatabase.query by id', async () => {
   await db.query([{ ids: ['119abcfcebf253a6b1af1a03e2ff1c05798c2f46cadfa2efc98eaef686095292'], limit: 1 }]);
 });
 
-Deno.bench('NKvDatabase.query by multiple ids', async () => {
+Deno.bench('NDenoKvDatabase.query by multiple ids', async () => {
   await db.query([{
     ids: [
       '119abcfcebf253a6b1af1a03e2ff1c05798c2f46cadfa2efc98eaef686095292',
@@ -69,19 +69,19 @@ Deno.bench('NKvDatabase.query by multiple ids', async () => {
   }]);
 });
 
-Deno.bench('NKvDatabase.query by kind', async () => {
+Deno.bench('NDenoKvDatabase.query by kind', async () => {
   await db.query([{ kinds: [1], limit: 20 }]);
 });
 
-Deno.bench('NKvDatabase.query by multiple kinds', async () => {
+Deno.bench('NDenoKvDatabase.query by multiple kinds', async () => {
   await db.query([{ kinds: [6, 7], limit: 20 }]);
 });
 
-Deno.bench('NKvDatabase.query by author', async () => {
+Deno.bench('NDenoKvDatabase.query by author', async () => {
   await db.query([{ authors: ['753d025936c8c3238b1b2b2f748be6df92743c2201e5198946e9d6a29156793f'], limit: 20 }]);
 });
 
-Deno.bench('NKvDatabase.query by multiple authors', async () => {
+Deno.bench('NDenoKvDatabase.query by multiple authors', async () => {
   await db.query([{
     authors: [
       '753d025936c8c3238b1b2b2f748be6df92743c2201e5198946e9d6a29156793f',

@@ -13,7 +13,7 @@ const withDb = async (fn: (db: NDenoKvDatabase) => Promise<void>) => {
   db.close();
 };
 
-Deno.test('NKvDatabase.count', async (t) => {
+Deno.test('NDenoKvDatabase.count', async (t) => {
   await withDb(async (db) => {
     await t.step('make sure no events exist', async () => {
       assertEquals((await db.count([{ kinds: [1] }])).count, 0);
@@ -27,7 +27,7 @@ Deno.test('NKvDatabase.count', async (t) => {
   });
 });
 
-Deno.test('NKvDatabase.query', async (t) => {
+Deno.test('NDenoKvDatabase.query', async (t) => {
   await withDb(async (db) => {
     await db.event(event1);
 
@@ -56,7 +56,7 @@ Deno.test('NKvDatabase.query', async (t) => {
   });
 });
 
-Deno.test("NKvDatabase.query with multiple tags doesn't crash", async () => {
+Deno.test("NDenoKvDatabase.query with multiple tags doesn't crash", async () => {
   await withDb(async (db) => {
     await db.query([{
       kinds: [1985],
@@ -67,7 +67,7 @@ Deno.test("NKvDatabase.query with multiple tags doesn't crash", async () => {
   });
 });
 
-Deno.test('NKvDatabase.remove', async () => {
+Deno.test('NDenoKvDatabase.remove', async () => {
   await withDb(async (db) => {
     await db.event(event1);
     assertEquals(await db.query([{ kinds: [1] }]), [event1]);
@@ -76,7 +76,7 @@ Deno.test('NKvDatabase.remove', async () => {
   });
 });
 
-Deno.test('NKvDatabase.event with a deleted event', async (t) => {
+Deno.test('NDenoKvDatabase.event with a deleted event', async (t) => {
   await withDb(async (db) => {
     await db.event(event1);
     assertEquals(await db.query([{ kinds: [1] }]), [event1]);
@@ -102,7 +102,7 @@ Deno.test('NKvDatabase.event with a deleted event', async (t) => {
   });
 });
 
-Deno.test('NKvDatabase.event with replaceable event', async (t) => {
+Deno.test('NDenoKvDatabase.event with replaceable event', async (t) => {
   await withDb(async (db) => {
     await t.step('ensure no kind 0 events exist', async () => {
       assertEquals((await db.count([{ kinds: [0], authors: [event0.pubkey] }])).count, 0);
@@ -125,7 +125,7 @@ Deno.test('NKvDatabase.event with replaceable event', async (t) => {
   });
 });
 
-Deno.test('NKvDatabase.event with parameterized replaceable event', async (t) => {
+Deno.test('NDenoKvDatabase.event with parameterized replaceable event', async (t) => {
   await withDb(async (db) => {
     const [event0, event1, event2] = PR_EVENTS;
 

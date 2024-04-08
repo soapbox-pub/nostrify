@@ -3,6 +3,7 @@ import { NostrEvent, NostrFilter } from '../mod.ts';
 import { NKinds } from './NKinds.ts';
 
 // TODO: implement signal support.
+// TODO: try splitting up events to get around 64K Deno KV limit
 const HEX64_REGEX = /^[0-9A-Fa-f]{64}$/;
 
 const parseAddrTag = (val: string) => {
@@ -31,8 +32,7 @@ const indexTags = (event: NostrEvent) => {
 
     if (HEX64_REGEX.test(tag[1])) {
       index = 'for-hex64-tags';
-    }
-    else if (tag[0] === 'a') {
+    } else if (tag[0] === 'a') {
       index = 'for-address-tags';
       const parsed = parseAddrTag(tag[1]);
       if (!parsed) throw new Error('Invalid tag prefix for tag ' + JSON.stringify(tag));
@@ -44,7 +44,7 @@ const indexTags = (event: NostrEvent) => {
   });
 
   return keys;
-}
+};
 
 const Keys = {
   byPubkey(id: string, timestamp: number, pubkey: string) {
@@ -61,8 +61,8 @@ const Keys = {
   },
   byTag(id: string, timestamp: number, index: string, ...rest: (number | string)[]) {
     return ['by-tag', index, ...rest, timestamp, id];
-  }
-}
+  },
+};
 
 export class NDenoKvDatabase implements NStore {
   private db: Deno.Kv;
@@ -74,36 +74,35 @@ export class NDenoKvDatabase implements NStore {
   async event(event: NostrEvent): Promise<void> {
     if (event.kind === 5) {
       const ids = [];
-      for (const id of event.tags
-        .filter(tag => tag[0] === 'e')
-        .map(tag => tag[1])) {
+      for (
+        const id of event.tags
+          .filter((tag) => tag[0] === 'e')
+          .map((tag) => tag[1])
+      ) {
         const evt = await this.getEvtById(id);
         if (evt && evt.pubkey === event.pubkey) ids.push(id);
       }
 
       await this.remove([{ ids }]);
-    }
-    else if (NKinds.ephemeral(event.kind)) {
+    } else if (NKinds.ephemeral(event.kind)) {
       return;
-    }
-    else if (NKinds.replaceable(event.kind)) {
+    } else if (NKinds.replaceable(event.kind)) {
       const existing = await this.resolveFilter({ kinds: [event.kind], authors: [event.pubkey] });
       if (existing.length) {
         const replaced = await this.getEvtById(existing[0]);
-        if (replaced && replaced.created_at >= event.created_at)
+        if (replaced && replaced.created_at >= event.created_at) {
           throw new Error('Replacing event cannot be older than the event it replaces.');
-        else this.removeById(existing[0]);
+        } else this.removeById(existing[0]);
       }
-    }
-    else if (NKinds.parameterizedReplaceable(event.kind)) {
+    } else if (NKinds.parameterizedReplaceable(event.kind)) {
       const dTagVal = event.tags.find((tag) => tag[0] === 'd')?.[1];
       if (dTagVal) {
         const existing = await this.resolveFilter({ authors: [event.pubkey], kinds: [event.kind], '#d': [dTagVal] });
         if (existing.length) {
           const evt = await this.getEvtById(existing[0]);
-          if (evt && evt.created_at >= event.created_at)
+          if (evt && evt.created_at >= event.created_at) {
             throw new Error('Replacing event cannot be older than the event it replaces.');
-          else this.removeById(existing[0]);
+          } else this.removeById(existing[0]);
         }
       }
     }
@@ -124,7 +123,7 @@ export class NDenoKvDatabase implements NStore {
 
     const res = await txn.commit();
     if (!res.ok) {
-      throw new Error(`There was an error storing event ${event.id}.`)
+      throw new Error(`There was an error storing event ${event.id}.`);
     }
   }
 
@@ -144,11 +143,12 @@ export class NDenoKvDatabase implements NStore {
 
         if (HEX64_REGEX.test(firstRestValue)) {
           index = 'for-hex64-tags';
-        }
-        else if (tagName === 'a') {
+        } else if (tagName === 'a') {
           index = 'for-address-tags';
           const parsed = parseAddrTag(firstRestValue);
-          if (!parsed) throw new Error('Error parsing indexed address, this should never happen! File a bug with Ditto devs.');
+          if (!parsed) {
+            throw new Error('Error parsing indexed address, this should never happen! File a bug with Ditto devs.');
+          }
 
           prefix = [parsed.pkb, parsed.kind, parsed.rest];
         }
@@ -164,24 +164,21 @@ export class NDenoKvDatabase implements NStore {
           for await (const entry of this.db.list<string>(range)) {
             if (entry.value) indices.add(entry.value);
           }
-        }
-        else if (kinds?.length && !authors?.length) {
+        } else if (kinds?.length && !authors?.length) {
           for await (const entry of this.db.list<string>(range)) {
             if (entry.value) {
               const evt = await this.getEvtById(entry.value);
               if (evt && kinds.includes(evt.kind)) indices.add(entry.value);
             }
           }
-        }
-        else if (!kinds?.length && authors?.length) {
+        } else if (!kinds?.length && authors?.length) {
           for await (const entry of this.db.list<string>(range)) {
             if (entry.value) {
               const evt = await this.getEvtById(entry.value);
               if (evt && authors.includes(evt.pubkey)) indices.add(entry.value);
             }
           }
-        }
-        else {
+        } else {
           for await (const entry of this.db.list<string>(range)) {
             if (entry.value) {
               const evt = await this.getEvtById(entry.value);
@@ -195,43 +192,48 @@ export class NDenoKvDatabase implements NStore {
     }
 
     if (ids?.length) {
-      return await Promise.all(ids.map(async (itm, i) => {
-        if (limit && i > limit - 1) return;
-        const evt = await this.getEvtById(itm);
-        if (evt && evt.created_at >= s && evt.created_at <= u) return itm;
-      }).filter(Boolean) as unknown as string[]);
+      return await Promise.all(
+        ids.map(async (itm, i) => {
+          if (limit && i > limit - 1) return;
+          const evt = await this.getEvtById(itm);
+          if (evt && evt.created_at >= s && evt.created_at <= u) return itm;
+        }).filter(Boolean) as unknown as string[],
+      );
     }
 
     const selectors: Deno.KvListSelector[] = [];
 
     if (authors?.length) {
       if (kinds?.length) {
-        authors.forEach(author => kinds.forEach(kind =>
+        authors.forEach((author) =>
+          kinds.forEach((kind) =>
+            selectors.push({
+              start: ['by-pubkey-kind', author, kind, s],
+              end: ['by-pubkey-kind', author, kind, u],
+            })
+          )
+        );
+      } else {
+        authors.forEach((author) =>
           selectors.push({
-            start: ['by-pubkey-kind', author, kind, s],
-            end: ['by-pubkey-kind', author, kind, u]
+            start: ['by-pubkey', author, s],
+            end: ['by-pubkey', author, u],
           })
-        ))
+        );
       }
-      else {
-        authors.forEach(author => selectors.push({
-          start: ['by-pubkey', author, s],
-          end: ['by-pubkey', author, u]
-        }))
-      }
-    }
-    else if (kinds?.length) {
-      kinds.forEach(kind => selectors.push({
-        start: ['by-kind', kind, s],
-        end: ['by-kind', kind, u]
-      }))
-    }
-    else {
-      selectors.push({ start: ['by-timestamp', s], end: ['by-timestamp', u] })
+    } else if (kinds?.length) {
+      kinds.forEach((kind) =>
+        selectors.push({
+          start: ['by-kind', kind, s],
+          end: ['by-kind', kind, u],
+        })
+      );
+    } else {
+      selectors.push({ start: ['by-timestamp', s], end: ['by-timestamp', u] });
     }
 
     const idx = 0;
-    await Promise.all(selectors.map(async selector => {
+    await Promise.all(selectors.map(async (selector) => {
       for await (const entry of this.db.list<string>(selector)) {
         if (limit && idx > limit) {
           return;
@@ -239,7 +241,7 @@ export class NDenoKvDatabase implements NStore {
 
         indices.add(entry.value);
       }
-    }))
+    }));
 
     return Array.from(indices).filter(Boolean);
   }
@@ -257,15 +259,16 @@ export class NDenoKvDatabase implements NStore {
     const events: NostrEvent[] = [];
     for (let i = 0; i < results.length; i += 10) {
       const chunk = (await this.db.getMany<NostrEvent[]>(
-        results.slice(i, i + 10).map(id => ['events', id])))
-        .filter(entry => Boolean(entry.value))
-        .map(entry => entry.value!);
+        results.slice(i, i + 10).map((id) => ['events', id]),
+      ))
+        .filter((entry) => Boolean(entry.value))
+        .map((entry) => entry.value!);
       events.push(...chunk);
     }
     return events;
   }
 
-  async count(filters: NostrFilter[]): Promise<{ count: number; approximate?: boolean | undefined; }> {
+  async count(filters: NostrFilter[]): Promise<{ count: number; approximate?: boolean | undefined }> {
     const results = await this.resolveFilters(filters);
     return { count: results.length };
   }
@@ -274,7 +277,7 @@ export class NDenoKvDatabase implements NStore {
     const evt = await this.getEvtById(id);
     const txn = this.db.atomic();
     if (!evt) throw new Error(`Attempt to remove an event ${id} that did not exist.`);
-    indexTags(evt).forEach(k => txn.delete(k));
+    indexTags(evt).forEach((k) => txn.delete(k));
 
     txn.delete(['events', id])
       .delete(Keys.byKind(id, evt.created_at, evt.kind))
@@ -290,8 +293,7 @@ export class NDenoKvDatabase implements NStore {
     const evtMaybe = await this.db.get<NostrEvent>(['events', id]);
     if (evtMaybe.value) {
       return evtMaybe.value;
-    }
-    else {
+    } else {
       return null;
     }
   }

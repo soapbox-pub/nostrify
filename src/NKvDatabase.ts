@@ -149,16 +149,17 @@ export class NKvDatabase implements NStore {
     if (event.kind === 5) {
       this.remove([{
         ids: event.tags
-          .filter(tag => tag[0] === 'e')
-          .map(tag => tag[1])
-          .filter(id => this.get<NostrEvent>('root', id)?.pubkey === event.pubkey),
+          .filter((tag) => tag[0] === 'e')
+          .map((tag) => tag[1])
+          .filter((id) => this.get<NostrEvent>('root', id)?.pubkey === event.pubkey),
       }]);
     } else if (NKinds.replaceable(event.kind)) {
       const existing = this.resolveFilter({ kinds: [event.kind], authors: [event.pubkey] });
       if (existing.length) {
         const evt = this.get<NostrEvent>('root', existing[0])!;
-        if (evt.created_at >= event.created_at)
+        if (evt.created_at >= event.created_at) {
           return Promise.reject(new Error('Replacing event cannot be older than the event it replaces.'));
+        }
         this.removeById(existing[0]);
       }
     } else if (NKinds.parameterizedReplaceable(event.kind)) {
@@ -167,8 +168,9 @@ export class NKvDatabase implements NStore {
         const existing = this.resolveFilter({ authors: [event.pubkey], kinds: [event.kind], '#d': [dTagVal] });
         if (existing.length) {
           const evt = this.get<NostrEvent>('root', existing[0])!;
-          if (evt.created_at >= event.created_at)
+          if (evt.created_at >= event.created_at) {
             return Promise.reject(new Error('Replacing event cannot be older than the event it replaces.'));
+          }
           this.removeById(existing[0]);
         }
       }
@@ -252,29 +254,27 @@ export class NKvDatabase implements NStore {
       return indices;
     }
 
-    const getStartEndKeys = (params?: { author?: string, kind?: number }) => {
+    const getStartEndKeys = (params?: { author?: string; kind?: number }) => {
       if (!params || (!params.kind && !params.author)) {
         return { start: LmdbKeys.byTimestamp(s), end: LmdbKeys.byTimestamp(u) };
       }
       if (params.author && params.kind) {
         return {
           start: LmdbKeys.byPubkeyAndKind(s, params.author, params.kind),
-          end: LmdbKeys.byPubkeyAndKind(u, params.author, params.kind)
-        }
-      }
-      else if (params.author && !params.kind) {
+          end: LmdbKeys.byPubkeyAndKind(u, params.author, params.kind),
+        };
+      } else if (params.author && !params.kind) {
         return {
           start: LmdbKeys.byPubkey(s, params.author),
-          end: LmdbKeys.byPubkey(u, params.author)
-        }
-      }
-      else if (params.kind && !params.author) {
+          end: LmdbKeys.byPubkey(u, params.author),
+        };
+      } else if (params.kind && !params.author) {
         return {
           start: LmdbKeys.byKind(params.kind, s),
-          end: LmdbKeys.byKind(params.kind, u)
-        }
+          end: LmdbKeys.byKind(params.kind, u),
+        };
       }
-    }
+    };
 
     if (ids?.length) {
       indices.push(...ids);
@@ -290,19 +290,17 @@ export class NKvDatabase implements NStore {
       for (const range of ranges) {
         this.dbs[dbi]
           .getKeys(range)
-          .forEach(key =>
-            indices.push(...this.dbs[dbi].getValues(key))
-          )
+          .forEach((key) => indices.push(...this.dbs[dbi].getValues(key)));
       }
     } else if (kinds?.length) {
       const ranges = kinds.map((kind) => (getStartEndKeys({ kind })));
-      for (const range of ranges) this.dbs.kindIndex.getKeys(range).forEach(key =>
-        indices.push(...this.dbs.kindIndex.getValues(key))
-      )
+      for (const range of ranges) {
+        this.dbs.kindIndex.getKeys(range).forEach((key) => indices.push(...this.dbs.kindIndex.getValues(key)));
+      }
     } else {
       this.dbs.timeIndex
         .getKeys(getStartEndKeys())
-        .forEach(key => indices.push(...this.dbs.timeIndex.getValues(key)));
+        .forEach((key) => indices.push(...this.dbs.timeIndex.getValues(key)));
     }
 
     const results = Array.from(new Set(indices));

@@ -120,10 +120,10 @@ export class NDatabase implements NStore {
 
   /** Check if an event has been deleted. */
   protected async isDeleted(event: NostrEvent): Promise<boolean> {
-    const { count } = await this.count([
+    const [deletion] = await this.query([
       { kinds: [5], authors: [event.pubkey], '#e': [event.id], limit: 1 },
     ]);
-    return count > 0;
+    return !!deletion;
   }
 
   /** Delete events referenced by kind 5. */

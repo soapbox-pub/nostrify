@@ -4,6 +4,7 @@ import { NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT } from '../interfaces
 import { NRelay } from '../interfaces/NRelay.ts';
 
 import { Machina } from './Machina.ts';
+import { NSet } from './NSet.ts';
 
 interface NPoolOpts {
   open(url: WebSocket['url']): NRelay;
@@ -94,14 +95,14 @@ export class NPool implements NRelay {
   }
 
   async query(filters: NostrFilter[], opts?: { signal?: AbortSignal }): Promise<NostrEvent[]> {
-    const events: NostrEvent[] = [];
+    const events = new NSet();
 
     for await (const msg of this.req(filters, opts)) {
       if (msg[0] === 'EOSE') break;
-      if (msg[0] === 'EVENT') events.push(msg[2]);
+      if (msg[0] === 'EVENT') events.add(msg[2]);
       if (msg[0] === 'CLOSED') throw new Error('Subscription closed');
     }
 
-    return events;
+    return [...events];
   }
 }

@@ -3,33 +3,32 @@ import { NostrFilter } from '../interfaces/NostrFilter.ts';
 import { NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT } from '../interfaces/NostrRelayMsg.ts';
 import { NRelay } from '../interfaces/NRelay.ts';
 
-import { NRelay1, NRelay1Opts } from './NRelay1.ts';
-
-interface NPoolOpts extends NRelay1Opts {
+interface NPoolOpts {
+  open(url: WebSocket['url']): NRelay;
   eventRelays(event: NostrEvent): Promise<WebSocket['url'][]>;
   reqRelays(filters: NostrFilter[]): Promise<WebSocket['url'][]>;
 }
 
 export class NPool implements NRelay {
+  private open: (url: WebSocket['url']) => NRelay;
   private eventRelays: (event: NostrEvent) => Promise<WebSocket['url'][]>;
   private reqRelays: (filters: NostrFilter[]) => Promise<WebSocket['url'][]>;
 
-  private relayOpts: NRelay1Opts;
-  private relays: Map<WebSocket['url'], NRelay1> = new Map();
+  private relays: Map<WebSocket['url'], NRelay> = new Map();
 
-  constructor({ eventRelays, reqRelays, ...relayOpts }: NPoolOpts) {
+  constructor({ open, eventRelays, reqRelays }: NPoolOpts) {
+    this.open = open;
     this.eventRelays = eventRelays;
     this.reqRelays = reqRelays;
-    this.relayOpts = relayOpts;
   }
 
-  relay(url: WebSocket['url']): NRelay1 {
+  relay(url: WebSocket['url']): NRelay {
     const relay = this.relays.get(url);
 
     if (relay) {
       return relay;
     } else {
-      const relay = new NRelay1(url, this.relayOpts);
+      const relay = this.open(url);
       this.relays.set(url, relay);
       return relay;
     }

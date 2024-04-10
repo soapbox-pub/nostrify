@@ -349,7 +349,7 @@ export class NDatabase implements NStore {
       .createIndex('nostr_events_kind_pubkey_created_at')
       .on('nostr_events')
       .ifNotExists()
-      .columns(['kind', 'pubkey', 'created_at'])
+      .columns(['kind', 'pubkey', 'created_at desc'])
       .execute();
 
     await schema.createIndex('nostr_tags_event_id').on('nostr_tags').ifNotExists().column('event_id').execute();

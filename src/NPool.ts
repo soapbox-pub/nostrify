@@ -6,25 +6,55 @@ import { NRelay } from '../interfaces/NRelay.ts';
 import { Machina } from './Machina.ts';
 import { NSet } from './NSet.ts';
 
-interface NPoolOpts {
+export interface NPoolOpts {
+  /** Creates an `NRelay` instance for the given URL. */
   open(url: WebSocket['url']): NRelay;
-  eventRelays(event: NostrEvent): Promise<WebSocket['url'][]>;
+  /** Determines the relays to use for making `REQ`s to the given filters. To support the Outbox model, it should analyze the `authors` field of the filters. */
   reqRelays(filters: NostrFilter[]): Promise<WebSocket['url'][]>;
+  /** Determines the relays to use for publishing the given event. To support the Outbox model, it should analyze the `pubkey` field of the event. */
+  eventRelays(event: NostrEvent): Promise<WebSocket['url'][]>;
 }
 
+/**
+ * The `NPool` class is a `NRelay` implementation for connecting to multiple relays.
+ *
+ * ```ts
+ * const pool = new NPool({
+ *   open: (url) => new NRelay1(url),
+ *   reqRelays: async (filters) => ['wss://relay1.mostr.pub', 'wss://relay2.mostr.pub'],
+ *   eventRelays: async (event) => ['wss://relay1.mostr.pub', 'wss://relay2.mostr.pub'],
+ * });
+ *
+ * // Now you can use the pool like a regular relay.
+ * for await (const msg of pool.req([{ kinds: [1] }])) {
+ *   if (msg[0] === 'EVENT') console.log(msg[2]);
+ *   if (msg[0] === 'EOSE') break;
+ * }
+ * ```
+ *
+ * This class is designed with the Outbox model in mind.
+ * Instead of passing relay URLs into each method, you pass functions into the contructor that statically-analyze filters and events to determine which relays to use for requesting and publishing events.
+ * If a relay wasn't already connected, it will be opened automatically.
+ * Defining `open` will also let you use any relay implementation, such as `NRelay1`.
+ *
+ * Note that `pool.req` may stream duplicate events, while `pool.query` will correctly process replaceable events and deletions within the event set before returning them.
+ *
+ * `pool.req` will only emit an `EOSE` when all relays in its set have emitted an `EOSE`, and likewise for `CLOSED`.
+ */
 export class NPool implements NRelay {
   private open: (url: WebSocket['url']) => NRelay;
-  private eventRelays: (event: NostrEvent) => Promise<WebSocket['url'][]>;
   private reqRelays: (filters: NostrFilter[]) => Promise<WebSocket['url'][]>;
+  private eventRelays: (event: NostrEvent) => Promise<WebSocket['url'][]>;
 
   private relays: Map<WebSocket['url'], NRelay> = new Map();
 
   constructor({ open, eventRelays, reqRelays }: NPoolOpts) {
     this.open = open;
-    this.eventRelays = eventRelays;
     this.reqRelays = reqRelays;
+    this.eventRelays = eventRelays;
   }
 
+  /** Get or create a relay instance for the given URL. */
   relay(url: WebSocket['url']): NRelay {
     const relay = this.relays.get(url);
 

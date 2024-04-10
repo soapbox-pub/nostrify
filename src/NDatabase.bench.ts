@@ -89,3 +89,11 @@ Deno.bench('NDatabase.query by multiple authors', async () => {
     limit: 20,
   }]);
 });
+
+Deno.bench('NDatabase.query by author and multiple kinds', async () => {
+  await db.query([{
+    kinds: [1, 6],
+    authors: ['4eb88310d6b4ed95c6d66a395b3d3cf559b85faec8f7691dafd405a92e055d6d'],
+    limit: 20,
+  }]);
+});

@@ -3,6 +3,8 @@ import { NostrFilter } from '../interfaces/NostrFilter.ts';
 import { NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT } from '../interfaces/NostrRelayMsg.ts';
 import { NRelay } from '../interfaces/NRelay.ts';
 
+import { Machina } from './Machina.ts';
+
 interface NPoolOpts {
   open(url: WebSocket['url']): NRelay;
   eventRelays(event: NostrEvent): Promise<WebSocket['url'][]>;
@@ -38,15 +40,48 @@ export class NPool implements NRelay {
     filters: NostrFilter[],
     opts?: { signal?: AbortSignal },
   ): AsyncGenerator<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
-    const relayUrls = await this.reqRelays(filters);
+    const controller = new AbortController();
+    const signal = controller.signal;
 
-    // FIXME: This implementation is not good.
+    const onAbort = () => controller.abort();
+    opts?.signal?.addEventListener('abort', onAbort, { once: true });
+
+    const relayUrls = new Set(await this.reqRelays(filters));
+    const machina = new Machina<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>(signal);
+
+    const eoses = new Set<WebSocket['url']>();
+    const closes = new Set<WebSocket['url']>();
+
     for (const url of relayUrls) {
       const relay = this.relay(url);
+      (async () => {
+        for await (const msg of relay.req(filters, { signal })) {
+          if (msg[0] === 'EOSE') {
+            eoses.add(url);
+            if (eoses.size === relayUrls.size) {
+              machina.push(msg);
+            }
+          }
+          if (msg[0] === 'CLOSED') {
+            closes.add(url);
+            if (closes.size === relayUrls.size) {
+              machina.push(msg);
+            }
+          }
+          if (msg[0] === 'EVENT') {
+            machina.push(msg);
+          }
+        }
+      })();
+    }
 
-      for await (const msg of relay.req(filters, opts)) {
+    try {
+      for await (const msg of machina) {
         yield msg;
       }
+    } finally {
+      controller.abort();
+      opts?.signal?.removeEventListener('abort', onAbort);
     }
   }
 

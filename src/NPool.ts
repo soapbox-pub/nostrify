@@ -131,11 +131,7 @@ export class NPool implements NRelay {
       this
         .relay(url)
         .query(filters, opts)
-        .then((results) => {
-          for (const event of results) {
-            events.add(event);
-          }
-        })
+        .then((results) => results.forEach((event) => events.add(event)))
         .catch(() => {});
     }
 

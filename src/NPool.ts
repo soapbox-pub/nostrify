@@ -127,10 +127,16 @@ export class NPool implements NRelay {
   async query(filters: NostrFilter[], opts?: { signal?: AbortSignal }): Promise<NostrEvent[]> {
     const events = new NSet();
 
-    for await (const msg of this.req(filters, opts)) {
-      if (msg[0] === 'EOSE') break;
-      if (msg[0] === 'EVENT') events.add(msg[2]);
-      if (msg[0] === 'CLOSED') throw new Error('Subscription closed');
+    for (const url of await this.reqRelays(filters)) {
+      this
+        .relay(url)
+        .query(filters, opts)
+        .then((results) => {
+          for (const event of results) {
+            events.add(event);
+          }
+        })
+        .catch(() => {});
     }
 
     return [...events];

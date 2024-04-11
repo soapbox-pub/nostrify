@@ -103,7 +103,7 @@ export class NPool implements NRelay {
             machina.push(msg);
           }
         }
-      })();
+      })().catch(() => {});
     }
 
     try {

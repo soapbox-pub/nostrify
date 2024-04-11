@@ -22,6 +22,7 @@ export type {
 } from './interfaces/NostrClientMsg.ts';
 export type { NostrEvent } from './interfaces/NostrEvent.ts';
 export type { NostrFilter } from './interfaces/NostrFilter.ts';
+export type { NostrMetadata } from './interfaces/NostrMetadata.ts';
 export type {
   NostrRelayCLOSED,
   NostrRelayCOUNT,

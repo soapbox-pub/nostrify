@@ -72,10 +72,7 @@ export class NPool implements NRelay {
     opts?: { signal?: AbortSignal },
   ): AsyncGenerator<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
     const controller = new AbortController();
-    const signal = controller.signal;
-
-    const onAbort = () => controller.abort();
-    opts?.signal?.addEventListener('abort', onAbort, { once: true });
+    const signal = opts?.signal ? AbortSignal.any([opts.signal, controller.signal]) : controller.signal;
 
     const relayUrls = new Set(await this.reqRelays(filters));
     const machina = new Machina<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>(signal);
@@ -112,7 +109,6 @@ export class NPool implements NRelay {
       }
     } finally {
       controller.abort();
-      opts?.signal?.removeEventListener('abort', onAbort);
     }
   }
 

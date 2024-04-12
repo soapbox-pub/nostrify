@@ -148,7 +148,7 @@ export class NRelay1 implements NRelay {
       }
     }
 
-    return events;
+    return events.sort((a, b) => b.created_at - a.created_at);
   }
 
   async event(event: NostrEvent, opts?: { signal?: AbortSignal }): Promise<void> {

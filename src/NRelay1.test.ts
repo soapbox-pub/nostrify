@@ -1,4 +1,4 @@
-import { assertEquals } from 'https://deno.land/std@0.212.0/assert/mod.ts';
+import { assert, assertEquals } from 'https://deno.land/std@0.212.0/assert/mod.ts';
 import { finalizeEvent, generateSecretKey } from 'npm:nostr-tools@^2.3.1';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
@@ -13,6 +13,7 @@ Deno.test('NRelay1.query', async () => {
   const events = await relay.query([{ kinds: [1], limit: 3 }], { signal: controller.signal });
 
   assertEquals(events.length, 3);
+  assert(events[0].created_at >= events[1].created_at);
 
   await relay.close();
   clearTimeout(tid);

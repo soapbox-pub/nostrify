@@ -1,4 +1,4 @@
-import { matchFilters, verifyEvent as _verifyEvent } from 'npm:nostr-tools@^2.3.1';
+import { getFilterLimit, matchFilters, verifyEvent as _verifyEvent } from 'npm:nostr-tools@^2.3.1';
 import {
   ArrayQueue,
   Backoff,
@@ -135,10 +135,17 @@ export class NRelay1 implements NRelay {
   async query(filters: NostrFilter[], opts?: { signal?: AbortSignal }): Promise<NostrEvent[]> {
     const events: NostrEvent[] = [];
 
+    const limit = filters.reduce((result, filter) => result + getFilterLimit(filter), 0);
+    if (limit === 0) return events;
+
     for await (const msg of this.req(filters, opts)) {
       if (msg[0] === 'EOSE') break;
       if (msg[0] === 'EVENT') events.push(msg[2]);
       if (msg[0] === 'CLOSED') throw new Error('Subscription closed');
+
+      if (events.length >= limit) {
+        break;
+      }
     }
 
     return events;

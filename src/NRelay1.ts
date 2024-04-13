@@ -23,6 +23,7 @@ import { NRelay } from '../interfaces/NRelay.ts';
 
 import { Machina } from './Machina.ts';
 import { NSchema as n } from './NSchema.ts';
+import { NSet } from './NSet.ts';
 
 type EventMap = {
   [k: `ok:${string}`]: NostrRelayOK;
@@ -110,7 +111,7 @@ export class NRelay1 implements NRelay {
     const { signal } = opts;
     const subscriptionId = crypto.randomUUID();
 
-    const msgs = this.#on(`sub:${subscriptionId}`, signal);
+    const msgs = this.on(`sub:${subscriptionId}`, signal);
     const req: NostrClientREQ = ['REQ', subscriptionId, ...filters];
 
     this.send(req);
@@ -133,26 +134,26 @@ export class NRelay1 implements NRelay {
   }
 
   async query(filters: NostrFilter[], opts?: { signal?: AbortSignal }): Promise<NostrEvent[]> {
-    const events: NostrEvent[] = [];
+    const events = new NSet();
 
     const limit = filters.reduce((result, filter) => result + getFilterLimit(filter), 0);
-    if (limit === 0) return events;
+    if (limit === 0) return [];
 
     for await (const msg of this.req(filters, opts)) {
       if (msg[0] === 'EOSE') break;
-      if (msg[0] === 'EVENT') events.push(msg[2]);
+      if (msg[0] === 'EVENT') events.add(msg[2]);
       if (msg[0] === 'CLOSED') throw new Error('Subscription closed');
 
-      if (events.length >= limit) {
+      if (events.size >= limit) {
         break;
       }
     }
 
-    return events;
+    return NRelay1.sortEvents([...events]);
   }
 
   async event(event: NostrEvent, opts?: { signal?: AbortSignal }): Promise<void> {
-    const result = this.#once(`ok:${event.id}`, opts?.signal);
+    const result = this.once(`ok:${event.id}`, opts?.signal);
 
     this.send(['EVENT', event]);
 
@@ -168,7 +169,7 @@ export class NRelay1 implements NRelay {
     opts?: { signal?: AbortSignal },
   ): Promise<{ count: number; approximate?: boolean }> {
     const subscriptionId = crypto.randomUUID();
-    const result = this.#once(`count:${subscriptionId}`, opts?.signal);
+    const result = this.once(`count:${subscriptionId}`, opts?.signal);
 
     this.send(['COUNT', subscriptionId, ...filters]);
 
@@ -176,7 +177,7 @@ export class NRelay1 implements NRelay {
     return count;
   }
 
-  async *#on<K extends keyof EventMap>(key: K, signal?: AbortSignal): AsyncGenerator<EventMap[K]> {
+  private async *on<K extends keyof EventMap>(key: K, signal?: AbortSignal): AsyncGenerator<EventMap[K]> {
     if (signal?.aborted) throw this.abortError();
 
     const machina = new Machina<EventMap[K]>(signal);
@@ -193,8 +194,8 @@ export class NRelay1 implements NRelay {
     }
   }
 
-  async #once<K extends keyof EventMap>(key: K, signal?: AbortSignal): Promise<EventMap[K]> {
-    for await (const msg of this.#on(key, signal)) {
+  private async once<K extends keyof EventMap>(key: K, signal?: AbortSignal): Promise<EventMap[K]> {
+    for await (const msg of this.on(key, signal)) {
       return msg;
     }
     throw new Error('Unreachable');
@@ -209,6 +210,15 @@ export class NRelay1 implements NRelay {
     await new Promise((resolve) => {
       this.socket.addEventListener(WebsocketEvent.close, resolve, { once: true });
       this.socket.close();
+    });
+  }
+
+  private static sortEvents(events: NostrEvent[]): NostrEvent[] {
+    return events.sort((a: NostrEvent, b: NostrEvent): number => {
+      if (a.created_at !== b.created_at) {
+        return b.created_at - a.created_at;
+      }
+      return a.id.localeCompare(b.id);
     });
   }
 }

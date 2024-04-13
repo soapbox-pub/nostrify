@@ -1,9 +1,12 @@
+import { getFilterLimit } from 'npm:nostr-tools@^2.3.1';
+
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NostrFilter } from '../interfaces/NostrFilter.ts';
 import { NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT } from '../interfaces/NostrRelayMsg.ts';
 import { NRelay } from '../interfaces/NRelay.ts';
 
 import { Machina } from './Machina.ts';
+import { NKinds } from './NKinds.ts';
 import { NSet } from './NSet.ts';
 
 export interface NPoolOpts {
@@ -72,10 +75,7 @@ export class NPool implements NRelay {
     opts?: { signal?: AbortSignal },
   ): AsyncGenerator<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
     const controller = new AbortController();
-    const signal = controller.signal;
-
-    const onAbort = () => controller.abort();
-    opts?.signal?.addEventListener('abort', onAbort, { once: true });
+    const signal = opts?.signal ? AbortSignal.any([opts.signal, controller.signal]) : controller.signal;
 
     const relayUrls = new Set(await this.reqRelays(filters));
     const machina = new Machina<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>(signal);
@@ -112,14 +112,13 @@ export class NPool implements NRelay {
       }
     } finally {
       controller.abort();
-      opts?.signal?.removeEventListener('abort', onAbort);
     }
   }
 
   async event(event: NostrEvent, opts?: { signal?: AbortSignal }): Promise<void> {
     const relayUrls = await this.eventRelays(event);
 
-    await Promise.all(
+    await Promise.any(
       relayUrls.map((url) => this.relay(url).event(event, opts)),
     );
   }
@@ -127,14 +126,36 @@ export class NPool implements NRelay {
   async query(filters: NostrFilter[], opts?: { signal?: AbortSignal }): Promise<NostrEvent[]> {
     const events = new NSet();
 
-    for (const url of await this.reqRelays(filters)) {
-      this
-        .relay(url)
-        .query(filters, opts)
-        .then((results) => results.forEach((event) => events.add(event)))
-        .catch(() => {});
+    const limit = filters.reduce((result, filter) => result + getFilterLimit(filter), 0);
+    if (limit === 0) return [];
+
+    const replaceable = filters.reduce((result, filter) => {
+      return result || !!filter.kinds?.some((k) => NKinds.replaceable(k) || NKinds.parameterizedReplaceable(k));
+    }, false);
+
+    try {
+      for await (const msg of this.req(filters, opts)) {
+        if (msg[0] === 'EOSE') break;
+        if (msg[0] === 'EVENT') events.add(msg[2]);
+        if (msg[0] === 'CLOSED') throw new Error('Subscription closed');
+
+        if (!replaceable && (events.size >= limit)) {
+          break;
+        }
+      }
+    } catch (_) {
+      // Skip errors, return partial results.
     }
 
-    return [...events];
+    return NPool.sortEvents([...events]);
+  }
+
+  private static sortEvents(events: NostrEvent[]): NostrEvent[] {
+    return events.sort((a: NostrEvent, b: NostrEvent): number => {
+      if (a.created_at !== b.created_at) {
+        return b.created_at - a.created_at;
+      }
+      return a.id.localeCompare(b.id);
+    });
   }
 }

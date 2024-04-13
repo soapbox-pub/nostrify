@@ -147,15 +147,6 @@ export class NPool implements NRelay {
       // Skip errors, return partial results.
     }
 
-    return NPool.sortEvents([...events]);
-  }
-
-  private static sortEvents(events: NostrEvent[]): NostrEvent[] {
-    return events.sort((a: NostrEvent, b: NostrEvent): number => {
-      if (a.created_at !== b.created_at) {
-        return b.created_at - a.created_at;
-      }
-      return a.id.localeCompare(b.id);
-    });
+    return [...events];
   }
 }

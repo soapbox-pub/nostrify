@@ -84,21 +84,23 @@ class NSet implements Set<NostrEvent> {
   }
 
   *entries(): IterableIterator<[NostrEvent, NostrEvent]> {
-    for (const event of this.cache.values()) {
+    for (const event of this.values()) {
       yield [event, event];
     }
   }
 
   keys(): IterableIterator<NostrEvent> {
-    return this.cache.values();
+    return this.values();
   }
 
-  values(): IterableIterator<NostrEvent> {
-    return this.cache.values();
+  *values(): IterableIterator<NostrEvent> {
+    for (const event of NSet.sortEvents([...this.cache.values()])) {
+      yield event;
+    }
   }
 
   [Symbol.iterator](): IterableIterator<NostrEvent> {
-    return this.cache.values();
+    return this.values();
   }
 
   [Symbol.toStringTag]: string = 'NSet';
@@ -119,16 +121,20 @@ class NSet implements Set<NostrEvent> {
    * Both events must be replaceable, belong to the same kind and pubkey (and `d` tag, for parameterized events), and the `event` must be newer than the `target`.
    */
   protected static replaces(event: NostrEvent, target: NostrEvent): boolean {
-    const { kind, pubkey, created_at } = event;
+    const { kind, pubkey } = event;
 
     if (NSet.isReplaceable(kind)) {
-      return kind === target.kind && pubkey === target.pubkey && created_at > target.created_at;
+      return kind === target.kind && pubkey === target.pubkey && NSet.sortEvents([event, target])[0] === event;
     }
 
     if (NSet.isParameterizedReplaceable(kind)) {
       const d1 = event.tags.find(([name]) => name === 'd')?.[1] || '';
       const d2 = target.tags.find(([name]) => name === 'd')?.[1] || '';
-      return kind === target.kind && pubkey === target.pubkey && created_at > target.created_at && d1 === d2;
+
+      return kind === target.kind &&
+        pubkey === target.pubkey &&
+        NSet.sortEvents([event, target])[0] === event &&
+        d1 === d2;
     }
 
     return false;
@@ -139,7 +145,7 @@ class NSet implements Set<NostrEvent> {
    *
    * `event` must be a kind `5` event, and both events must share the same `pubkey`.
    */
-  static deletes(event: NostrEvent, target: NostrEvent): boolean {
+  protected static deletes(event: NostrEvent, target: NostrEvent): boolean {
     const { kind, pubkey, tags } = event;
     if (kind === 5 && pubkey === target.pubkey) {
       for (const [name, value] of tags) {
@@ -149,6 +155,20 @@ class NSet implements Set<NostrEvent> {
       }
     }
     return false;
+  }
+
+  /**
+   * Sort events in reverse-chronological order by the `created_at` timestamp,
+   * and then by the event `id` (lexicographically) in case of ties.
+   * This mutates the array.
+   */
+  protected static sortEvents(events: NostrEvent[]): NostrEvent[] {
+    return events.sort((a: NostrEvent, b: NostrEvent): number => {
+      if (a.created_at !== b.created_at) {
+        return b.created_at - a.created_at;
+      }
+      return a.id.localeCompare(b.id);
+    });
   }
 }
 

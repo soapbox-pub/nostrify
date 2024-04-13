@@ -149,7 +149,7 @@ export class NRelay1 implements NRelay {
       }
     }
 
-    return NRelay1.sortEvents([...events]);
+    return [...events];
   }
 
   async event(event: NostrEvent, opts?: { signal?: AbortSignal }): Promise<void> {
@@ -210,15 +210,6 @@ export class NRelay1 implements NRelay {
     await new Promise((resolve) => {
       this.socket.addEventListener(WebsocketEvent.close, resolve, { once: true });
       this.socket.close();
-    });
-  }
-
-  private static sortEvents(events: NostrEvent[]): NostrEvent[] {
-    return events.sort((a: NostrEvent, b: NostrEvent): number => {
-      if (a.created_at !== b.created_at) {
-        return b.created_at - a.created_at;
-      }
-      return a.id.localeCompare(b.id);
     });
   }
 }

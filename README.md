@@ -2,16 +2,6 @@
 
 Low-level Nostr library with a focus on web standards.
 
-## Usage
-
-```ts
-// Deno
-import { NostrEvent, NSchema, NSet } from 'https://gitlab.com/soapbox-pub/NSpec/-/raw/v0.3.0/mod.ts';
-
-// Node
-import { NostrEvent, NSchema, NSet } from 'nspec';
-```
-
 ## Schema
 
 A suite of [zod](https://github.com/colinhacks/zod) schemas for Nostr are available in the `NSchema` module.

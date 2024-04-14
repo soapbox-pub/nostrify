@@ -1,6 +1,10 @@
 # Nostrify
 
-Low-level Nostr library with a focus on web standards.
+Bring your projects to life on Nostr. 🌱
+
+Nostrify is a Nostr framework for web browsers and Deno. It's made up of of simple modules that can be used independently, or swapped out with your own implementations.
+
+Use it alongside nostr-tools, NDK, or your existing application. Nostrify can be gradually adopted and plays nice with others.
 
 ## Schema
 

@@ -6,10 +6,8 @@
   "exports": "./mod.ts",
   "tasks": {
     "test": "deno test -A",
-    "check": "deno check mod.ts",
-    "npm": "deno run -A scripts/npm.ts"
+    "check": "deno check mod.ts"
   },
-  "exclude": ["npm"],
   "lint": {
     "rules": {
       "tags": ["recommended"],

@@ -1,4 +1,4 @@
-# NSpec
+# Nostrify
 
 Low-level Nostr library with a focus on web standards.
 
@@ -7,7 +7,7 @@ Low-level Nostr library with a focus on web standards.
 A suite of [zod](https://github.com/colinhacks/zod) schemas for Nostr are available in the `NSchema` module.
 
 ```ts
-import { NSchema as n } from 'nspec';
+import { NSchema as n } from '@nostrify/nostrify';
 
 const event: NostrEvent = n.event().parse(eventData);
 const metadata: NostrMetadata = n.json().pipe(n.metadata()).parse(event.content);

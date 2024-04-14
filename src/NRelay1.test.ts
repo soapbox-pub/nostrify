@@ -9,7 +9,7 @@ Deno.test('NRelay1.query', async () => {
   const controller = new AbortController();
   const tid = setTimeout(() => controller.abort(), 3000);
 
-  const relay = new NRelay1('wss://relay.nostr.band');
+  const relay = new NRelay1('wss://relay.primal.net/');
   const events = await relay.query([{ kinds: [1], limit: 3 }], { signal: controller.signal });
 
   assertEquals(events.length, 3);
@@ -23,7 +23,7 @@ Deno.test('NRelay1.req', async () => {
   const controller = new AbortController();
   const tid = setTimeout(() => controller.abort(), 3000);
 
-  const relay = new NRelay1('wss://relay.nostr.band');
+  const relay = new NRelay1('wss://relay.primal.net/');
   const events: NostrEvent[] = [];
 
   for await (const msg of relay.req([{ kinds: [1], limit: 3 }], { signal: controller.signal })) {
@@ -43,7 +43,7 @@ Deno.test('NRelay1.event', async () => {
   const controller = new AbortController();
   const tid = setTimeout(() => controller.abort(), 3000);
 
-  const relay = new NRelay1('wss://relay.mostr.pub');
+  const relay = new NRelay1('wss://relay.mostr.pub/');
 
   const event: NostrEvent = finalizeEvent({
     kind: 1,

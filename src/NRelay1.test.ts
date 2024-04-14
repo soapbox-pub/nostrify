@@ -47,7 +47,7 @@ Deno.test('NRelay1.event', async () => {
 
   const event: NostrEvent = finalizeEvent({
     kind: 1,
-    content: 'This is an automated test from NSpec: https://gitlab.com/soapbox-pub/NSpec',
+    content: 'This is an automated test from Nostrify: https://gitlab.com/soapbox-pub/nostrify',
     tags: [],
     created_at: Math.floor(Date.now() / 1000),
   }, generateSecretKey());

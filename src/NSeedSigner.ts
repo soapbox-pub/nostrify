@@ -1,4 +1,4 @@
-import { HDKey } from 'npm:@scure/bip32@^1.3.3';
+import { HDKey } from '@scure/bip32';
 
 import { NSecSigner } from './NSecSigner.ts';
 

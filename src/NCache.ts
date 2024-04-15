@@ -1,7 +1,7 @@
 // deno-lint-ignore-file require-await
 
-import { LRUCache } from 'npm:lru-cache@^10.2.0';
-import { matchFilters } from 'npm:nostr-tools@^2.3.1';
+import { LRUCache } from 'lru-cache';
+import { matchFilters } from 'nostr-tools';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NostrFilter } from '../interfaces/NostrFilter.ts';

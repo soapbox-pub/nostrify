@@ -1,7 +1,7 @@
-import { assertEquals, assertRejects } from 'https://deno.land/std@0.212.0/assert/mod.ts';
-import { DB as Sqlite } from 'https://raw.githubusercontent.com/dyedgreen/deno-sqlite/1e98e837c6b2efe1f7b6291501bbe49aca296c9e/mod.ts';
-import { DenoSqliteDialect } from 'https://gitlab.com/soapbox-pub/kysely-deno-sqlite/-/raw/v2.0.1/mod.ts';
-import { Kysely } from 'npm:kysely@^0.27.2';
+import { Database as Sqlite } from '@db/sqlite';
+import { assertEquals, assertRejects } from '@std/assert';
+import { DenoSqlite3Dialect } from '@soapbox/kysely-deno-sqlite';
+import { Kysely } from 'kysely';
 
 import { NDatabase, NDatabaseOpts, NDatabaseSchema } from './NDatabase.ts';
 
@@ -11,8 +11,8 @@ import event1 from '../fixtures/event-1.json' with { type: 'json' };
 /** Create in-memory database for testing. */
 const createDB = async (opts?: NDatabaseOpts) => {
   const kysely = new Kysely<NDatabaseSchema>({
-    dialect: new DenoSqliteDialect({
-      database: new Sqlite(),
+    dialect: new DenoSqlite3Dialect({
+      database: new Sqlite(':memory:'),
     }),
   });
   const db = new NDatabase(kysely, opts);

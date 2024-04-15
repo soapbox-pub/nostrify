@@ -1,12 +1,5 @@
-import { getFilterLimit, matchFilters, verifyEvent as _verifyEvent } from 'npm:nostr-tools@^2.3.1';
-import {
-  ArrayQueue,
-  Backoff,
-  ExponentialBackoff,
-  Websocket,
-  WebsocketBuilder,
-  WebsocketEvent,
-} from 'npm:websocket-ts@^2.1.5';
+import { getFilterLimit, matchFilters, verifyEvent as _verifyEvent } from 'nostr-tools';
+import { ArrayQueue, Backoff, ExponentialBackoff, Websocket, WebsocketBuilder, WebsocketEvent } from 'websocket-ts';
 
 import { NostrClientMsg, NostrClientREQ } from '../interfaces/NostrClientMsg.ts';
 import { NostrEvent } from '../interfaces/NostrEvent.ts';

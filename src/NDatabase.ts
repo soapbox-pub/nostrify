@@ -1,4 +1,4 @@
-import { Kysely, sql } from 'npm:kysely@^0.27.2';
+import { Kysely, sql } from 'kysely';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NStore } from '../interfaces/NStore.ts';

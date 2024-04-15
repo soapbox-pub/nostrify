@@ -1,4 +1,4 @@
-import { getFilterLimit } from 'npm:nostr-tools@^2.3.1';
+import { getFilterLimit } from 'nostr-tools';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NostrFilter } from '../interfaces/NostrFilter.ts';

@@ -1,4 +1,4 @@
-import { Kysely, sql } from 'kysely';
+import { type DeleteResult, Kysely, type SelectQueryBuilder, sql } from 'kysely';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NStore } from '../interfaces/NStore.ts';
@@ -127,7 +127,7 @@ export class NDatabase implements NStore {
   }
 
   /** Delete events referenced by kind 5. */
-  protected async deleteEvents(trx: Kysely<NDatabaseSchema>, event: NostrEvent) {
+  protected async deleteEvents(trx: Kysely<NDatabaseSchema>, event: NostrEvent): Promise<void> {
     if (event.kind === 5) {
       await this.deleteEventsTrx(trx, [{
         ids: event.tags.filter(([name]) => name === 'e')?.[1],
@@ -136,7 +136,7 @@ export class NDatabase implements NStore {
   }
 
   /** Replace events in NIP-01 replaceable ranges with the same kind and pubkey. */
-  protected async replaceEvents(trx: Kysely<NDatabaseSchema>, event: NostrEvent) {
+  protected async replaceEvents(trx: Kysely<NDatabaseSchema>, event: NostrEvent): Promise<void> {
     if (NKinds.replaceable(event.kind)) {
       await this.deleteReplaced(
         trx,
@@ -162,14 +162,14 @@ export class NDatabase implements NStore {
   }
 
   /** Insert the event into the database. */
-  protected async insertEvent(trx: Kysely<NDatabaseSchema>, event: NostrEvent) {
+  protected async insertEvent(trx: Kysely<NDatabaseSchema>, event: NostrEvent): Promise<void> {
     await trx.insertInto('nostr_events')
       .values({ ...event, tags: JSON.stringify(event.tags) })
       .execute();
   }
 
   /** Insert event tags depending on the event and settings. */
-  protected async insertTags(trx: Kysely<NDatabaseSchema>, event: NostrEvent) {
+  protected async insertTags(trx: Kysely<NDatabaseSchema>, event: NostrEvent): Promise<void> {
     const tags = this.indexTags(event);
     const rows = tags.map(([name, value]) => ({ event_id: event.id, name, value }));
 
@@ -180,7 +180,7 @@ export class NDatabase implements NStore {
   }
 
   /** Add search data to the FTS5 table. */
-  protected async indexSearch(trx: Kysely<NDatabaseSchema>, event: NostrEvent) {
+  protected async indexSearch(trx: Kysely<NDatabaseSchema>, event: NostrEvent): Promise<void> {
     if (!this.fts5) return;
     const content = this.searchText(event);
     if (!content) return;
@@ -196,7 +196,7 @@ export class NDatabase implements NStore {
     filter: NostrFilter,
     replaces: (event: NostrEvent, prevEvent: NDatabaseSchema['nostr_events']) => boolean,
     error: string,
-  ) {
+  ): Promise<void> {
     const prevEvents = await this.getFilterQuery(trx, filter).execute();
     for (const prevEvent of prevEvents) {
       if (!replaces(event, prevEvent)) {
@@ -207,7 +207,10 @@ export class NDatabase implements NStore {
   }
 
   /** Build the query for a filter. */
-  protected getFilterQuery(db: Kysely<NDatabaseSchema>, filter: NostrFilter) {
+  protected getFilterQuery(
+    db: Kysely<NDatabaseSchema>,
+    filter: NostrFilter,
+  ): SelectQueryBuilder<NDatabaseSchema, 'nostr_events', NDatabaseSchema['nostr_events']> {
     let query = db
       .selectFrom('nostr_events')
       .selectAll()
@@ -253,7 +256,9 @@ export class NDatabase implements NStore {
   }
 
   /** Combine filter queries into a single union query. */
-  protected getEventsQuery(filters: NostrFilter[]) {
+  protected getEventsQuery(
+    filters: NostrFilter[],
+  ): SelectQueryBuilder<NDatabaseSchema, 'nostr_events', NDatabaseSchema['nostr_events']> {
     return filters
       .map((filter) =>
         this.db
@@ -285,7 +290,7 @@ export class NDatabase implements NStore {
   }
 
   /** Delete events from each table. Should be run in a transaction! */
-  protected async deleteEventsTrx(db: Kysely<NDatabaseSchema>, filters: NostrFilter[]) {
+  protected async deleteEventsTrx(db: Kysely<NDatabaseSchema>, filters: NostrFilter[]): Promise<DeleteResult[]> {
     const query = this.getEventsQuery(filters).clearSelect().select('id');
 
     if (this.fts5) {
@@ -320,7 +325,7 @@ export class NDatabase implements NStore {
   }
 
   /** Migrate the database schema. */
-  async migrate() {
+  async migrate(): Promise<void> {
     const schema = this.db.schema;
 
     await schema

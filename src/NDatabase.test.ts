@@ -1,6 +1,6 @@
+import { Database as Sqlite } from '@db/sqlite';
 import { assertEquals, assertRejects } from '@std/assert';
-import { DB as Sqlite } from 'x/sqlite';
-import { DenoSqliteDialect } from '@soapbox/kysely-deno-sqlite';
+import { DenoSqlite3Dialect } from '@soapbox/kysely-deno-sqlite';
 import { Kysely } from 'kysely';
 
 import { NDatabase, NDatabaseOpts, NDatabaseSchema } from './NDatabase.ts';
@@ -11,8 +11,8 @@ import event1 from '../fixtures/event-1.json' with { type: 'json' };
 /** Create in-memory database for testing. */
 const createDB = async (opts?: NDatabaseOpts) => {
   const kysely = new Kysely<NDatabaseSchema>({
-    dialect: new DenoSqliteDialect({
-      database: new Sqlite(),
+    dialect: new DenoSqlite3Dialect({
+      database: new Sqlite(':memory:'),
     }),
   });
   const db = new NDatabase(kysely, opts);

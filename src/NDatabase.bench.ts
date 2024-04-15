@@ -1,5 +1,5 @@
-import { DB as Sqlite } from 'x/sqlite';
-import { DenoSqliteDialect } from '@soapbox/kysely-deno-sqlite';
+import { Database as Sqlite } from '@db/sqlite';
+import { DenoSqlite3Dialect } from '@soapbox/kysely-deno-sqlite';
 import { Kysely } from 'kysely';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
@@ -8,8 +8,8 @@ import { NDatabase, NDatabaseSchema } from './NDatabase.ts';
 import events from '../fixtures/events.json' with { type: 'json' };
 
 const kysely = new Kysely<NDatabaseSchema>({
-  dialect: new DenoSqliteDialect({
-    database: new Sqlite(),
+  dialect: new DenoSqlite3Dialect({
+    database: new Sqlite(':memory:'),
   }),
 });
 

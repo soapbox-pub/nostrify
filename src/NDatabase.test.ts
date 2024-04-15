@@ -24,8 +24,8 @@ Deno.test('NDatabase.migrate', async () => {
   await createDB();
 });
 
-Deno.test('NDatabase.migrate with FTS', async () => {
-  await createDB({ fts: true });
+Deno.test('NDatabase.migrate with FTS5', async () => {
+  await createDB({ fts5: true });
 });
 
 Deno.test('NDatabase.migrate twice', async () => {
@@ -66,7 +66,7 @@ Deno.test("NDatabase.query with multiple tags doesn't crash", async () => {
 });
 
 Deno.test('NDatabase.query with search', async () => {
-  const db = await createDB({ fts: true });
+  const db = await createDB({ fts5: true });
 
   await db.event(event0);
   await db.event(event1);

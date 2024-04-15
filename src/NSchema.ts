@@ -1,4 +1,4 @@
-import { z } from 'npm:zod@^3.22.4';
+import { z } from 'zod';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NostrMetadata } from '../interfaces/NostrMetadata.ts';

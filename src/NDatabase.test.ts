@@ -1,7 +1,7 @@
-import { assertEquals, assertRejects } from 'https://deno.land/std@0.212.0/assert/mod.ts';
-import { DB as Sqlite } from 'https://raw.githubusercontent.com/dyedgreen/deno-sqlite/1e98e837c6b2efe1f7b6291501bbe49aca296c9e/mod.ts';
-import { DenoSqliteDialect } from 'https://gitlab.com/soapbox-pub/kysely-deno-sqlite/-/raw/v2.0.1/mod.ts';
-import { Kysely } from 'npm:kysely@^0.27.2';
+import { assertEquals, assertRejects } from '@std/assert';
+import { DB as Sqlite } from 'x/sqlite';
+import { DenoSqliteDialect } from '@soapbox/kysely-deno-sqlite';
+import { Kysely } from 'kysely';
 
 import { NDatabase, NDatabaseOpts, NDatabaseSchema } from './NDatabase.ts';
 

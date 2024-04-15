@@ -1,5 +1,5 @@
-import { assert, assertEquals } from 'https://deno.land/std@0.212.0/assert/mod.ts';
-import { finalizeEvent, generateSecretKey } from 'npm:nostr-tools@^2.3.1';
+import { assert, assertEquals } from '@std/assert';
+import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 

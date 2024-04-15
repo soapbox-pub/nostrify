@@ -1,4 +1,4 @@
-import { assert } from 'https://deno.land/std@0.212.0/assert/mod.ts';
+import { assert } from '@std/assert';
 
 import { NSchema as n } from './NSchema.ts';
 

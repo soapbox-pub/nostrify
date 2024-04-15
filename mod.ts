@@ -1,4 +1,5 @@
 export { LNURL } from './src/LNURL.ts';
+export { NDatabase, type NDatabaseOpts, type NDatabaseSchema } from './src/NDatabase.ts';
 export { NCache } from './src/NCache.ts';
 export { NCustodial } from './src/NCustodial.ts';
 export { NIP05 } from './src/NIP05.ts';

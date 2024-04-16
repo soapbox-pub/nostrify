@@ -25,6 +25,7 @@
   "unstable": ["ffi"],
   "imports": {
     "@db/sqlite": "jsr:@db/sqlite@^0.11.1",
+    "@nostr-dev-kit/ndk": "npm:@nostr-dev-kit/ndk@^2.7.1",
     "@noble/hashes": "npm:@noble/hashes@^1.4.0",
     "@scure/base": "npm:@scure/base@^1.1.6",
     "@scure/bip32": "npm:@scure/bip32@^1.4.0",

@@ -1,7 +1,7 @@
 {
   "name": "@nostrify/ndk",
   "version": "0.9.8",
-  "exports": "./ndk/mod.ts",
+  "exports": "./mod.ts",
   "imports": {
     "@nostr-dev-kit/ndk": "npm:@nostr-dev-kit/ndk@^2.7.1"
   }

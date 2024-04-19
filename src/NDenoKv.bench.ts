@@ -1,27 +1,22 @@
-import { Database as Sqlite } from '@db/sqlite';
-import { DenoSqlite3Dialect } from '@soapbox/kysely-deno-sqlite';
-import { Kysely } from 'kysely';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
-
-import { NDatabase, NDatabaseSchema } from './NDatabase.ts';
 
 import events from '../fixtures/events.json' with { type: 'json' };
 
-const kysely = new Kysely<NDatabaseSchema>({
-  dialect: new DenoSqlite3Dialect({
-    database: new Sqlite(':memory:'),
-  }),
-});
+import { NDenoKv } from './NDenoKv.ts';
 
-const db = new NDatabase(kysely);
-await db.migrate();
+const kv = await Deno.openKv(':memory:');
+const db = new NDenoKv(kv);
 
 // Seed database with 1000 events.
 for (const event of events) {
-  await db.event(event);
+  try {
+    await db.event(event);
+  } catch (_e) {
+    // skip too large events
+  }
 }
 
-Deno.bench('NDatabase.event', async (b) => {
+Deno.bench('NDenoKv.event', async (b) => {
   const secretKey = generateSecretKey();
   const event = finalizeEvent({
     kind: 1,
@@ -35,7 +30,7 @@ Deno.bench('NDatabase.event', async (b) => {
   await db.event(event);
 });
 
-Deno.bench('NDatabase.event with many tags', async (b) => {
+Deno.bench('NDenoKv.event with many tags', async (b) => {
   const secretKey = generateSecretKey();
 
   const tags: string[][] = new Array(300)
@@ -54,11 +49,11 @@ Deno.bench('NDatabase.event with many tags', async (b) => {
   await db.event(event);
 });
 
-Deno.bench('NDatabase.query by id', async () => {
+Deno.bench('NDenoKv.query by id', async () => {
   await db.query([{ ids: ['119abcfcebf253a6b1af1a03e2ff1c05798c2f46cadfa2efc98eaef686095292'], limit: 1 }]);
 });
 
-Deno.bench('NDatabase.query by multiple ids', async () => {
+Deno.bench('NDenoKv.query by multiple ids', async () => {
   await db.query([{
     ids: [
       '119abcfcebf253a6b1af1a03e2ff1c05798c2f46cadfa2efc98eaef686095292',
@@ -68,19 +63,19 @@ Deno.bench('NDatabase.query by multiple ids', async () => {
   }]);
 });
 
-Deno.bench('NDatabase.query by kind', async () => {
+Deno.bench('NDenoKv.query by kind', async () => {
   await db.query([{ kinds: [1], limit: 20 }]);
 });
 
-Deno.bench('NDatabase.query by multiple kinds', async () => {
+Deno.bench('NDenoKv.query by multiple kinds', async () => {
   await db.query([{ kinds: [6, 7], limit: 20 }]);
 });
 
-Deno.bench('NDatabase.query by author', async () => {
+Deno.bench('NDenoKv.query by author', async () => {
   await db.query([{ authors: ['753d025936c8c3238b1b2b2f748be6df92743c2201e5198946e9d6a29156793f'], limit: 20 }]);
 });
 
-Deno.bench('NDatabase.query by multiple authors', async () => {
+Deno.bench('NDenoKv.query by multiple authors', async () => {
   await db.query([{
     authors: [
       '753d025936c8c3238b1b2b2f748be6df92743c2201e5198946e9d6a29156793f',
@@ -90,14 +85,14 @@ Deno.bench('NDatabase.query by multiple authors', async () => {
   }]);
 });
 
-Deno.bench('NDatabase.query by single tag', async () => {
+Deno.bench('NDenoKv.query by single tag', async () => {
   await db.query([{
     '#p': ['be49045474d8234adbd38dff67bbb9ae2a6d0696bf809e44e9cd12aac0ea6318'],
     limit: 20,
   }]);
 });
 
-Deno.bench('NDatabase.query by multiple tags', async () => {
+Deno.bench('NDenoKv.query by multiple tags', async () => {
   await db.query([{
     '#p': ['be49045474d8234adbd38dff67bbb9ae2a6d0696bf809e44e9cd12aac0ea6318'],
     '#e': ['8b6b27ecb89097d7b7eacd63068e10858ec8114a2a1b021e7bf2ff2a7543d7a9'],
@@ -105,14 +100,14 @@ Deno.bench('NDatabase.query by multiple tags', async () => {
   }]);
 });
 
-Deno.bench('NDatabase.query many events by tag', async () => {
+Deno.bench('NDenoKv.query many events by tag', async () => {
   await db.query([{
     '#r': ['wss://relay.mostr.pub'],
     limit: 20,
   }]);
 });
 
-Deno.bench('NDatabase.query by kind and pubkey', async () => {
+Deno.bench('NDenoKv.query by kind and pubkey', async () => {
   await db.query([{
     kinds: [3],
     authors: ['235f0103f48a7c04524d0ab40de8d8549c5563545b9ab21da2949c013c48bffd'],
@@ -120,7 +115,7 @@ Deno.bench('NDatabase.query by kind and pubkey', async () => {
   }]);
 });
 
-Deno.bench('NDatabase.query by multiple kinds and pubkey', async () => {
+Deno.bench('NDenoKv.query by multiple kinds and pubkey', async () => {
   await db.query([{
     kinds: [3, 5, 6],
     authors: ['235f0103f48a7c04524d0ab40de8d8549c5563545b9ab21da2949c013c48bffd'],
@@ -128,7 +123,7 @@ Deno.bench('NDatabase.query by multiple kinds and pubkey', async () => {
   }]);
 });
 
-Deno.bench('NDatabase.query by kind and multiple pubkeys', async () => {
+Deno.bench('NDenoKv.query by kind and multiple pubkeys', async () => {
   await db.query([{
     kinds: [3],
     authors: [
@@ -140,7 +135,7 @@ Deno.bench('NDatabase.query by kind and multiple pubkeys', async () => {
   }]);
 });
 
-Deno.bench('NDatabase.query by multiple kinds and multiple pubkeys', async () => {
+Deno.bench('NDenoKv.query by multiple kinds and multiple pubkeys', async () => {
   await db.query([{
     kinds: [3, 5, 6],
     authors: [

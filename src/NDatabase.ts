@@ -95,6 +95,8 @@ export class NDatabase implements NStore {
 
   /** Insert an event (and its tags) into the database. */
   async event(event: NostrEvent): Promise<void> {
+    if (NKinds.ephemeral(event.kind)) return;
+
     if (await this.isDeleted(event)) {
       throw new Error('Cannot add a deleted event');
     }
@@ -131,6 +133,7 @@ export class NDatabase implements NStore {
     if (event.kind === 5) {
       await this.deleteEventsTrx(trx, [{
         ids: event.tags.filter(([name]) => name === 'e')?.[1],
+        authors: [event.pubkey],
       }]);
     }
   }

@@ -6,6 +6,10 @@
       "proxy",
       "https://gleasonator.com/objects/8f6fac53-4f66-4c6e-ac7d-92e5e78c3e79",
       "activitypub"
+    ],
+    [
+      "t",
+      "t for testing"
     ]
   ],
   "pubkey": "79c2cae114ea28a981e7559b4fe7854a473521a8d22a66bbab9fa248eb820ff6",

@@ -347,8 +347,4 @@ export class NDenoKv implements NStore {
 
     return { kind, pkb: s[1], rest: s[2] };
   }
-
-  close(): void {
-    this.db.close();
-  }
 }

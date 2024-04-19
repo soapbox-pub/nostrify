@@ -11,7 +11,7 @@ async function withDB(fn: (db: NDenoKv) => Promise<void>) {
   const kv = await Deno.openKv(':memory:');
   const db = new NDenoKv(kv);
   await fn(db);
-  db.close();
+  kv.close();
 }
 
 Deno.test('NDenoKv.count', async (t) => {

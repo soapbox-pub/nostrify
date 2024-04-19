@@ -5,20 +5,23 @@ import { NostrFilter } from '../interfaces/NostrFilter.ts';
 import { NKinds } from './NKinds.ts';
 
 const Keys = {
-  byPubkey(id: string, timestamp: number, pubkey: string) {
-    return ['by-pubkey', pubkey, timestamp, id];
+  events(id: string): Deno.KvKey {
+    return ['nostr', 'events', id];
   },
-  byKind(id: string, timestamp: number, kind: number) {
-    return ['by-kind', kind, timestamp, id];
+  byPubkey(id: string, timestamp: number, pubkey: string): Deno.KvKey {
+    return ['nostr', 'by-pubkey', pubkey, timestamp, id];
   },
-  byPubkeyAndKind(id: string, timestamp: number, pubkey: string, kind: number) {
-    return ['by-pubkey-kind', pubkey, kind, timestamp, id];
+  byKind(id: string, timestamp: number, kind: number): Deno.KvKey {
+    return ['nostr', 'by-kind', kind, timestamp, id];
   },
-  byTimestamp(id: string, timestamp: number) {
-    return ['by-timestamp', timestamp, id];
+  byPubkeyAndKind(id: string, timestamp: number, pubkey: string, kind: number): Deno.KvKey {
+    return ['nostr', 'by-pubkey-kind', pubkey, kind, timestamp, id];
   },
-  byTag(id: string, timestamp: number, index: string, ...rest: (number | string)[]) {
-    return ['by-tag', index, ...rest, timestamp, id];
+  byTimestamp(id: string, timestamp: number): Deno.KvKey {
+    return ['nostr', 'by-timestamp', timestamp, id];
+  },
+  byTag(id: string, timestamp: number, index: string, ...rest: (number | string)[]): Deno.KvKey {
+    return ['nostr', 'by-tag', index, ...rest, timestamp, id];
   },
 };
 
@@ -44,12 +47,12 @@ export class NDenoKv implements NStore {
     ]);
 
     await Promise.all(
-      NDenoKv.indexTags(event).map((key) => this.db.set(key, event.id)),
+      NDenoKv.insertTags(event).map((key) => this.db.set(key, event.id)),
     );
 
     const txn = this.db.atomic();
 
-    txn.set(['events', event.id], event)
+    txn.set(Keys.events(event.id), event)
       .set(Keys.byKind(event.id, event.created_at, event.kind), true)
       .set(Keys.byPubkey(event.id, event.created_at, event.pubkey), true)
       .set(Keys.byPubkeyAndKind(event.id, event.created_at, event.pubkey, event.kind), true)
@@ -131,7 +134,7 @@ export class NDenoKv implements NStore {
     }
   }
 
-  private static indexTags(event: NostrEvent): Deno.KvKey[] {
+  private static insertTags(event: NostrEvent): Deno.KvKey[] {
     const keys: Deno.KvKey[] = [];
 
     event.tags.forEach((tag, i) => {
@@ -187,7 +190,10 @@ export class NDenoKv implements NStore {
           prefix = [parsed.pkb, parsed.kind, parsed.rest];
         }
 
-        tags.push({ start: ['by-tag', index, ...prefix, s], end: ['by-tag', index, ...prefix, u] });
+        tags.push({
+          start: ['nostr', 'by-tag', index, ...prefix, s],
+          end: ['nostr', 'by-tag', index, ...prefix, u],
+        });
       }
     }
 
@@ -230,28 +236,28 @@ export class NDenoKv implements NStore {
         authors.forEach((author) =>
           kinds.forEach((kind) =>
             selectors.push({
-              start: ['by-pubkey-kind', author, kind, s],
-              end: ['by-pubkey-kind', author, kind, u],
+              start: ['nostr', 'by-pubkey-kind', author, kind, s],
+              end: ['nostr', 'by-pubkey-kind', author, kind, u],
             })
           )
         );
       } else {
         authors.forEach((author) =>
           selectors.push({
-            start: ['by-pubkey', author, s],
-            end: ['by-pubkey', author, u],
+            start: ['nostr', 'by-pubkey', author, s],
+            end: ['nostr', 'by-pubkey', author, u],
           })
         );
       }
     } else if (kinds?.length) {
       kinds.forEach((kind) =>
         selectors.push({
-          start: ['by-kind', kind, s],
-          end: ['by-kind', kind, u],
+          start: ['nostr', 'by-kind', kind, s],
+          end: ['nostr', 'by-kind', kind, u],
         })
       );
     } else {
-      selectors.push({ start: ['by-timestamp', s], end: ['by-timestamp', u] });
+      selectors.push({ start: ['nostr', 'by-timestamp', s], end: ['nostr', 'by-timestamp', u] });
     }
 
     let count = 0;
@@ -284,7 +290,7 @@ export class NDenoKv implements NStore {
     const CHUNK_SIZE = 10;
     for (let i = 0; i < results.length; i += CHUNK_SIZE) {
       const chunk = (await this.db.getMany<NostrEvent[]>(
-        results.slice(i, i + CHUNK_SIZE).map((id) => ['events', id]),
+        results.slice(i, i + CHUNK_SIZE).map((id) => Keys.events(id)),
       ))
         .filter((entry) => Boolean(entry.value))
         .map((entry) => entry.value!);
@@ -302,9 +308,9 @@ export class NDenoKv implements NStore {
     const evt = await this.getEvtById(id);
     const txn = this.db.atomic();
     if (!evt) throw new Error(`Attempt to remove an event ${id} that did not exist.`);
-    NDenoKv.indexTags(evt).forEach((k) => txn.delete(k));
+    NDenoKv.insertTags(evt).forEach((k) => txn.delete(k));
 
-    txn.delete(['events', id])
+    txn.delete(Keys.events(id))
       .delete(Keys.byKind(id, evt.created_at, evt.kind))
       .delete(Keys.byPubkey(evt.id, evt.created_at, evt.pubkey))
       .delete(Keys.byPubkeyAndKind(evt.id, evt.created_at, evt.pubkey, evt.kind))
@@ -315,7 +321,7 @@ export class NDenoKv implements NStore {
   }
 
   private async getEvtById(id: string): Promise<NostrEvent | null> {
-    const evtMaybe = await this.db.get<NostrEvent>(['events', id]);
+    const evtMaybe = await this.db.get<NostrEvent>(Keys.events(id));
     if (evtMaybe.value) {
       return evtMaybe.value;
     } else {

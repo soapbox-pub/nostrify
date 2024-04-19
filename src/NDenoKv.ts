@@ -76,18 +76,21 @@ export class NDenoKv implements NStore {
   async event(event: NostrEvent): Promise<void> {
     if (NKinds.ephemeral(event.kind)) return;
 
+    if (await this.isDeleted(event)) {
+      throw new Error('Cannot add a deleted event');
+    }
+
     await Promise.all([
       this.deleteEvents(event),
       this.replaceEvents(event),
     ]);
 
-    const kind5sForEvent = await this.resolveFilter({ kinds: [5], '#e': [event.id] });
-    if (kind5sForEvent.length) {
-      throw new Error('This event was deleted by a kind 5 event.');
-    }
+    await Promise.all(
+      indexTags(event).map((key) => this.db.set(key, event.id)),
+    );
 
-    await Promise.all(indexTags(event).map(async (key) => await this.db.set(key, event.id)));
     const txn = this.db.atomic();
+
     txn.set(['events', event.id], event)
       .set(Keys.byKind(event.id, event.created_at, event.kind), true)
       .set(Keys.byPubkey(event.id, event.created_at, event.pubkey), true)
@@ -95,11 +98,24 @@ export class NDenoKv implements NStore {
       .set(Keys.byTimestamp(event.id, event.created_at), true);
 
     const res = await txn.commit();
+
     if (!res.ok) {
       throw new Error(`There was an error storing event ${event.id}.`);
     }
   }
 
+  /** Check if an event has been deleted. */
+  protected async isDeleted(event: NostrEvent): Promise<boolean> {
+    const ids = await this.resolveFilter({
+      kinds: [5],
+      authors: [event.pubkey],
+      '#e': [event.id],
+      limit: 1,
+    });
+    return ids.length > 0;
+  }
+
+  /** Delete events referenced by kind 5. */
   protected async deleteEvents(event: NostrEvent): Promise<void> {
     if (event.kind !== 5) return;
 
@@ -113,6 +129,7 @@ export class NDenoKv implements NStore {
     }
   }
 
+  /** Replace events in NIP-01 replaceable ranges with the same kind and pubkey. */
   protected async replaceEvents(event: NostrEvent): Promise<void> {
     if (NKinds.replaceable(event.kind)) {
       await this.deleteReplaced(
@@ -293,7 +310,7 @@ export class NDenoKv implements NStore {
     return { count: results.length };
   }
 
-  private async removeById(id: string) {
+  private async removeById(id: string): Promise<void> {
     const evt = await this.getEvtById(id);
     const txn = this.db.atomic();
     if (!evt) throw new Error(`Attempt to remove an event ${id} that did not exist.`);
@@ -325,7 +342,7 @@ export class NDenoKv implements NStore {
     }
   }
 
-  close() {
+  close(): void {
     this.db.close();
   }
 }

@@ -95,6 +95,8 @@ export class NDatabase implements NStore {
 
   /** Insert an event (and its tags) into the database. */
   async event(event: NostrEvent): Promise<void> {
+    if (NKinds.ephemeral(event.kind)) return;
+
     if (await this.isDeleted(event)) {
       throw new Error('Cannot add a deleted event');
     }

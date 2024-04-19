@@ -109,3 +109,39 @@ Deno.bench('NDenoKvDatabase.query many events by tag', async () => {
     "#r": ["wss://relay.mostr.pub"]
   }])
 })
+
+Deno.bench('NDenoKvDatabase.query by kind and pubkey', async () => {
+  await db.query([{
+    kinds: [3],
+    authors: ["235f0103f48a7c04524d0ab40de8d8549c5563545b9ab21da2949c013c48bffd"]
+  }])
+})
+
+Deno.bench('NDenoKvDatabase.query by multiple kinds and pubkey', async () => {
+  await db.query([{
+    kinds: [3, 5, 6],
+    authors: ["235f0103f48a7c04524d0ab40de8d8549c5563545b9ab21da2949c013c48bffd"]
+  }])
+})
+
+Deno.bench('NDenoKvDatabase.query by kind and multiple pubkeys', async () => {
+  await db.query([{
+    kinds: [3],
+    authors: [
+      "235f0103f48a7c04524d0ab40de8d8549c5563545b9ab21da2949c013c48bffd",
+      "d7ac5eb387d842d79f2421a7f7de3349f02fb2fecac8b8714b4f570d58b4baaf",
+      "dace63b00c42e6e017d00dd190a9328386002ff597b841eb5ef91de4f1ce8491"
+    ]
+  }])
+})
+
+Deno.bench('NDenoKvDatabase.query by multiple kinds and multiple pubkeys', async () => {
+  await db.query([{
+    kinds: [3, 5, 6],
+    authors: [
+      "235f0103f48a7c04524d0ab40de8d8549c5563545b9ab21da2949c013c48bffd",
+      "d7ac5eb387d842d79f2421a7f7de3349f02fb2fecac8b8714b4f570d58b4baaf",
+      "dace63b00c42e6e017d00dd190a9328386002ff597b841eb5ef91de4f1ce8491"
+    ]
+  }])
+})

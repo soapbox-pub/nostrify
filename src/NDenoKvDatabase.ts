@@ -197,7 +197,6 @@ export class NDenoKvDatabase implements NStore {
 
     if (authors?.length) {
       if (kinds?.length) {
-        // TODO: bench this
         authors.forEach((author) =>
           kinds.forEach((kind) =>
             selectors.push({

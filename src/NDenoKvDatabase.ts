@@ -119,12 +119,11 @@ export class NDenoKvDatabase implements NStore {
 
     await Promise.all(indexTags(event).map(async (key) => await this.db.set(key, event.id)));
     const txn = this.db.atomic();
-    // TODO: do booleans instead of ids?
     txn.set(['events', event.id], event)
-      .set(Keys.byKind(event.id, event.created_at, event.kind), event.id)
-      .set(Keys.byPubkey(event.id, event.created_at, event.pubkey), event.id)
-      .set(Keys.byPubkeyAndKind(event.id, event.created_at, event.pubkey, event.kind), event.id)
-      .set(Keys.byTimestamp(event.id, event.created_at), event.id);
+      .set(Keys.byKind(event.id, event.created_at, event.kind), true)
+      .set(Keys.byPubkey(event.id, event.created_at, event.pubkey), true)
+      .set(Keys.byPubkeyAndKind(event.id, event.created_at, event.pubkey, event.kind), true)
+      .set(Keys.byTimestamp(event.id, event.created_at), true);
 
     const res = await txn.commit();
     if (!res.ok) {
@@ -248,7 +247,8 @@ export class NDenoKvDatabase implements NStore {
           return;
         }
 
-        indices.add(entry.value);
+        // last part of key is always the id
+        indices.add(entry.key.at(-1) as string);
       }
     }));
 

@@ -94,6 +94,7 @@ Deno.bench('NDenoKvDatabase.query by multiple authors', async () => {
 Deno.bench('NDenoKvDatabase.query by single tag', async () => {
   await db.query([{
     '#p': ['be49045474d8234adbd38dff67bbb9ae2a6d0696bf809e44e9cd12aac0ea6318'],
+    limit: 20,
   }]);
 });
 
@@ -101,12 +102,14 @@ Deno.bench('NDenoKvDatabase.query by multiple tags', async () => {
   await db.query([{
     '#p': ['be49045474d8234adbd38dff67bbb9ae2a6d0696bf809e44e9cd12aac0ea6318'],
     '#e': ['8b6b27ecb89097d7b7eacd63068e10858ec8114a2a1b021e7bf2ff2a7543d7a9'],
+    limit: 20,
   }]);
 });
 
 Deno.bench('NDenoKvDatabase.query many events by tag', async () => {
   await db.query([{
     '#r': ['wss://relay.mostr.pub'],
+    limit: 20,
   }]);
 });
 
@@ -114,6 +117,7 @@ Deno.bench('NDenoKvDatabase.query by kind and pubkey', async () => {
   await db.query([{
     kinds: [3],
     authors: ['235f0103f48a7c04524d0ab40de8d8549c5563545b9ab21da2949c013c48bffd'],
+    limit: 20,
   }]);
 });
 
@@ -121,6 +125,7 @@ Deno.bench('NDenoKvDatabase.query by multiple kinds and pubkey', async () => {
   await db.query([{
     kinds: [3, 5, 6],
     authors: ['235f0103f48a7c04524d0ab40de8d8549c5563545b9ab21da2949c013c48bffd'],
+    limit: 20,
   }]);
 });
 
@@ -132,6 +137,7 @@ Deno.bench('NDenoKvDatabase.query by kind and multiple pubkeys', async () => {
       'd7ac5eb387d842d79f2421a7f7de3349f02fb2fecac8b8714b4f570d58b4baaf',
       'dace63b00c42e6e017d00dd190a9328386002ff597b841eb5ef91de4f1ce8491',
     ],
+    limit: 20,
   }]);
 });
 
@@ -143,5 +149,6 @@ Deno.bench('NDenoKvDatabase.query by multiple kinds and multiple pubkeys', async
       'd7ac5eb387d842d79f2421a7f7de3349f02fb2fecac8b8714b4f570d58b4baaf',
       'dace63b00c42e6e017d00dd190a9328386002ff597b841eb5ef91de4f1ce8491',
     ],
+    limit: 20,
   }]);
 });

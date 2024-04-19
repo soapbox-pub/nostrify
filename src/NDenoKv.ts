@@ -4,50 +4,6 @@ import { NostrFilter } from '../interfaces/NostrFilter.ts';
 
 import { NKinds } from './NKinds.ts';
 
-// TODO: implement signal support.
-// TODO: try splitting up events to get around 64K Deno KV limit
-const HEX64_REGEX = /^[0-9A-Fa-f]{64}$/;
-
-const parseAddrTag = (val: string) => {
-  const s = val.split(':');
-  if (s.length !== 3) return null;
-  const kind = parseInt(val[0]);
-  if (isNaN(kind)) return null;
-  if (!HEX64_REGEX.test(s[1])) return null;
-
-  return { kind, pkb: s[1], rest: s[2] };
-};
-
-const indexTags = (event: NostrEvent) => {
-  const keys: Deno.KvKey[] = [];
-
-  event.tags.forEach((tag, i) => {
-    // change for multi-character tags
-    if (tag.length < 2 || tag[0].length !== 1 || tag[1]?.length === 0 || tag[1]?.length > 100) {
-      return; // cant be indexed, forget it
-    }
-    const firstTag = event.tags.findIndex((t) => t.length >= 2 && t[1] == tag[1]);
-    if (firstTag !== i) return; // skip duplicate tags
-
-    let index = 'for-utf8-tags';
-    let prefix: (string | number)[] = [tag[1]];
-
-    if (HEX64_REGEX.test(tag[1])) {
-      index = 'for-hex64-tags';
-    } else if (tag[0] === 'a') {
-      index = 'for-address-tags';
-      const parsed = parseAddrTag(tag[1]);
-      if (!parsed) throw new Error('Invalid tag prefix for tag ' + JSON.stringify(tag));
-
-      prefix = [parsed.pkb, parsed.kind, parsed.rest];
-    }
-
-    keys.push(Keys.byTag(event.id, event.created_at, index, ...prefix));
-  });
-
-  return keys;
-};
-
 const Keys = {
   byPubkey(id: string, timestamp: number, pubkey: string) {
     return ['by-pubkey', pubkey, timestamp, id];
@@ -73,6 +29,8 @@ export class NDenoKv implements NStore {
     this.db = db;
   }
 
+  private static HEX64_REGEX = /^[0-9A-Fa-f]{64}$/;
+
   async event(event: NostrEvent): Promise<void> {
     if (NKinds.ephemeral(event.kind)) return;
 
@@ -86,7 +44,7 @@ export class NDenoKv implements NStore {
     ]);
 
     await Promise.all(
-      indexTags(event).map((key) => this.db.set(key, event.id)),
+      NDenoKv.indexTags(event).map((key) => this.db.set(key, event.id)),
     );
 
     const txn = this.db.atomic();
@@ -173,6 +131,36 @@ export class NDenoKv implements NStore {
     }
   }
 
+  private static indexTags(event: NostrEvent): Deno.KvKey[] {
+    const keys: Deno.KvKey[] = [];
+
+    event.tags.forEach((tag, i) => {
+      // change for multi-character tags
+      if (tag.length < 2 || tag[0].length !== 1 || tag[1]?.length === 0 || tag[1]?.length > 100) {
+        return; // cant be indexed, forget it
+      }
+      const firstTag = event.tags.findIndex((t) => t.length >= 2 && t[1] == tag[1]);
+      if (firstTag !== i) return; // skip duplicate tags
+
+      let index = 'for-utf8-tags';
+      let prefix: (string | number)[] = [tag[1]];
+
+      if (NDenoKv.HEX64_REGEX.test(tag[1])) {
+        index = 'for-hex64-tags';
+      } else if (tag[0] === 'a') {
+        index = 'for-address-tags';
+        const parsed = NDenoKv.parseAddrTag(tag[1]);
+        if (!parsed) throw new Error('Invalid tag prefix for tag ' + JSON.stringify(tag));
+
+        prefix = [parsed.pkb, parsed.kind, parsed.rest];
+      }
+
+      keys.push(Keys.byTag(event.id, event.created_at, index, ...prefix));
+    });
+
+    return keys;
+  }
+
   private async resolveFilter(filter: NostrFilter): Promise<string[]> {
     const { ids, authors, kinds, limit, since, until, search: _search, ...rest } = filter;
     const s = since || 0;
@@ -187,11 +175,11 @@ export class NDenoKv implements NStore {
         let index = 'for-utf8-tags';
         let prefix: (string | number)[] = [firstRestValue];
 
-        if (HEX64_REGEX.test(firstRestValue)) {
+        if (NDenoKv.HEX64_REGEX.test(firstRestValue)) {
           index = 'for-hex64-tags';
         } else if (tagName === 'a') {
           index = 'for-address-tags';
-          const parsed = parseAddrTag(firstRestValue);
+          const parsed = NDenoKv.parseAddrTag(firstRestValue);
           if (!parsed) {
             throw new Error('Error parsing indexed address, this should never happen! File a bug with Ditto devs.');
           }
@@ -314,7 +302,7 @@ export class NDenoKv implements NStore {
     const evt = await this.getEvtById(id);
     const txn = this.db.atomic();
     if (!evt) throw new Error(`Attempt to remove an event ${id} that did not exist.`);
-    indexTags(evt).forEach((k) => txn.delete(k));
+    NDenoKv.indexTags(evt).forEach((k) => txn.delete(k));
 
     txn.delete(['events', id])
       .delete(Keys.byKind(id, evt.created_at, evt.kind))
@@ -340,6 +328,18 @@ export class NDenoKv implements NStore {
     for (const result of results) {
       await this.removeById(result);
     }
+  }
+
+  private static parseAddrTag(value: string): { kind: number; pkb: string; rest: string } | undefined {
+    const s = value.split(':');
+    if (s.length !== 3) return;
+
+    const kind = parseInt(value[0]);
+
+    if (isNaN(kind)) return;
+    if (!NDenoKv.HEX64_REGEX.test(s[1])) return;
+
+    return { kind, pkb: s[1], rest: s[2] };
   }
 
   close(): void {

@@ -89,3 +89,23 @@ Deno.bench('NDatabase.query by multiple authors', async () => {
     limit: 20,
   }]);
 });
+
+Deno.bench('NDatabase.query by single tag', async () => {
+  await db.query([{
+    "#p": ["be49045474d8234adbd38dff67bbb9ae2a6d0696bf809e44e9cd12aac0ea6318"]
+  }])
+})
+
+Deno.bench('NDatabase.query by multiple tags', async () => {
+  await db.query([{
+    "#p": ["be49045474d8234adbd38dff67bbb9ae2a6d0696bf809e44e9cd12aac0ea6318"],
+    "#e": ["8b6b27ecb89097d7b7eacd63068e10858ec8114a2a1b021e7bf2ff2a7543d7a9"]
+  }])
+})
+
+
+Deno.bench('NDatabase.query many events by tag', async () => {
+  await db.query([{
+    "#r": ["wss://relay.mostr.pub"]
+  }])
+})

@@ -87,7 +87,7 @@ export class NDenoKvDatabase implements NStore {
         const evt = await this.getEvtById(id);
         if (evt && evt.pubkey === event.pubkey) ids.push(id);
       }
-      await Promise.all(ids.map(id => this.removeById(id)));
+      await Promise.all(ids.map((id) => this.removeById(id)));
     } else if (NKinds.ephemeral(event.kind)) {
       return;
     } else if (NKinds.replaceable(event.kind)) {
@@ -164,32 +164,18 @@ export class NDenoKvDatabase implements NStore {
     const indices: Set<string> = new Set();
     if (tags.length) {
       for (const range of tags) {
-        // TODO: (refactor) for await const here
-        //   filter inside
-        if (kinds?.length && authors?.length) {
-          for await (const entry of this.db.list<string>(range)) {
-            if (entry.value) {
-              const evt = await this.getEvtById(entry.value);
+        for await (const entry of this.db.list<string>(range)) {
+          if (entry.value) {
+            const evt = await this.getEvtById(entry.value);
+            if (kinds?.length && authors?.length) {
               if (evt && kinds.includes(evt.kind) && authors.includes(evt.pubkey)) indices.add(entry.value);
-            }
-          }
-        } else if (kinds?.length && !authors?.length) {
-          for await (const entry of this.db.list<string>(range)) {
-            if (entry.value) {
-              const evt = await this.getEvtById(entry.value);
+            } else if (kinds?.length && !authors?.length) {
               if (evt && kinds.includes(evt.kind)) indices.add(entry.value);
-            }
-          }
-        } else if (!kinds?.length && authors?.length) {
-          for await (const entry of this.db.list<string>(range)) {
-            if (entry.value) {
-              const evt = await this.getEvtById(entry.value);
+            } else if (!kinds?.length && authors?.length) {
               if (evt && authors.includes(evt.pubkey)) indices.add(entry.value);
+            } else {
+              if (entry.value) indices.add(entry.value);
             }
-          }
-        } else {
-          for await (const entry of this.db.list<string>(range)) {
-            if (entry.value) indices.add(entry.value);
           }
         }
       }

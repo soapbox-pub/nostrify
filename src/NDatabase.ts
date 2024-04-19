@@ -131,6 +131,7 @@ export class NDatabase implements NStore {
     if (event.kind === 5) {
       await this.deleteEventsTrx(trx, [{
         ids: event.tags.filter(([name]) => name === 'e')?.[1],
+        authors: [event.pubkey],
       }]);
     }
   }

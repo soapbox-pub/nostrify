@@ -65,7 +65,7 @@ const Keys = {
   },
 };
 
-export class NDenoKvDatabase implements NStore {
+export class NDenoKv implements NStore {
   private db: Deno.Kv;
 
   constructor(db: Deno.Kv) {

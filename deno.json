@@ -22,7 +22,7 @@
     "singleQuote": true,
     "proseWrap": "preserve"
   },
-  "unstable": ["ffi"],
+  "unstable": ["ffi", "kv"],
   "imports": {
     "@db/sqlite": "jsr:@db/sqlite@^0.11.1",
     "@nostr-dev-kit/ndk": "npm:@nostr-dev-kit/ndk@^2.7.1",

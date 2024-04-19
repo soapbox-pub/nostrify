@@ -1,6 +1,7 @@
 import { NStore } from '../interfaces/NStore.ts';
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NostrFilter } from '../interfaces/NostrFilter.ts';
+
 import { NKinds } from './NKinds.ts';
 
 // TODO: implement signal support.
@@ -73,44 +74,12 @@ export class NDenoKv implements NStore {
   }
 
   async event(event: NostrEvent): Promise<void> {
-    // Handle special kinds.
-    if (event.kind === 5) {
-      // potential slowdown -- because we have the ids but we
-      // remove by filter anyway instead of directly
-      // .map(removeById)
-      const ids = [];
-      for (
-        const id of event.tags
-          .filter((tag) => tag[0] === 'e')
-          .map((tag) => tag[1])
-      ) {
-        const evt = await this.getEvtById(id);
-        if (evt && evt.pubkey === event.pubkey) ids.push(id);
-      }
-      await Promise.all(ids.map((id) => this.removeById(id)));
-    } else if (NKinds.ephemeral(event.kind)) {
-      return;
-    } else if (NKinds.replaceable(event.kind)) {
-      const existing = await this.resolveFilter({ kinds: [event.kind], authors: [event.pubkey] });
-      if (existing.length) {
-        const replaced = await this.getEvtById(existing[0]);
-        if (replaced && replaced.created_at >= event.created_at) {
-          throw new Error('Replacing event cannot be older than the event it replaces.');
-        } else this.removeById(existing[0]);
-      }
-    } else if (NKinds.parameterizedReplaceable(event.kind)) {
-      // eliminate this duplication
-      const dTagVal = event.tags.find((tag) => tag[0] === 'd')?.[1];
-      if (dTagVal) {
-        const existing = await this.resolveFilter({ authors: [event.pubkey], kinds: [event.kind], '#d': [dTagVal] });
-        if (existing.length) {
-          const evt = await this.getEvtById(existing[0]);
-          if (evt && evt.created_at >= event.created_at) {
-            throw new Error('Replacing event cannot be older than the event it replaces.');
-          } else this.removeById(existing[0]);
-        }
-      }
-    }
+    if (NKinds.ephemeral(event.kind)) return;
+
+    await Promise.all([
+      this.deleteEvents(event),
+      this.replaceEvents(event),
+    ]);
 
     const kind5sForEvent = await this.resolveFilter({ kinds: [5], '#e': [event.id] });
     if (kind5sForEvent.length) {
@@ -128,6 +97,62 @@ export class NDenoKv implements NStore {
     const res = await txn.commit();
     if (!res.ok) {
       throw new Error(`There was an error storing event ${event.id}.`);
+    }
+  }
+
+  protected async deleteEvents(event: NostrEvent): Promise<void> {
+    if (event.kind !== 5) return;
+
+    for (const [name, value] of event.tags) {
+      if (name === 'e') {
+        const target = await this.getEvtById(value);
+        if (target?.pubkey === event.pubkey) {
+          await this.removeById(value);
+        }
+      }
+    }
+  }
+
+  protected async replaceEvents(event: NostrEvent): Promise<void> {
+    if (NKinds.replaceable(event.kind)) {
+      await this.deleteReplaced(
+        event,
+        { kinds: [event.kind], authors: [event.pubkey] },
+        (event, prevEvent) => event.created_at > prevEvent.created_at,
+        'Cannot replace an event with an older event',
+      );
+    }
+
+    if (NKinds.parameterizedReplaceable(event.kind)) {
+      const d = event.tags.find(([tag]) => tag === 'd')?.[1];
+      if (d) {
+        await this.deleteReplaced(
+          event,
+          { kinds: [event.kind], authors: [event.pubkey], '#d': [d] },
+          (event, prevEvent) => event.created_at > prevEvent.created_at,
+          'Cannot replace an event with an older event',
+        );
+      }
+    }
+  }
+
+  /** Delete events that are replaced by the new event. */
+  protected async deleteReplaced(
+    event: NostrEvent,
+    filter: NostrFilter,
+    replaces: (event: NostrEvent, prevEvent: NostrEvent) => boolean,
+    error: string,
+  ): Promise<void> {
+    const prevIds = await this.resolveFilter(filter);
+
+    for (const id of prevIds) {
+      const prevEvent = await this.getEvtById(id);
+
+      if (prevEvent && !replaces(event, prevEvent)) {
+        throw new Error(error);
+      }
+
+      await this.removeById(id);
     }
   }
 

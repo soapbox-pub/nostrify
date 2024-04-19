@@ -1,4 +1,4 @@
-import { assertEquals, assertRejects } from 'https://deno.land/std@0.212.0/assert/mod.ts';
+import { assertEquals, assertRejects } from '@std/assert';
 
 import { Machina } from './Machina.ts';
 

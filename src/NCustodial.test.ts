@@ -1,4 +1,4 @@
-import { assert, assertEquals } from 'https://deno.land/std@0.212.0/assert/mod.ts';
+import { assert, assertEquals } from '@std/assert';
 
 import { NCustodial } from './NCustodial.ts';
 

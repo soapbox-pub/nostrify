@@ -1,5 +1,5 @@
-import { assertEquals } from 'https://deno.land/std@0.212.0/assert/mod.ts';
-import { finalizeEvent, generateSecretKey, getPublicKey } from 'npm:nostr-tools@^2.3.1';
+import { assertEquals } from '@std/assert';
+import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools';
 
 import { NSecSigner } from './NSecSigner.ts';
 

@@ -1,7 +1,7 @@
 // deno-lint-ignore-file require-await
 
-import { bytesToHex } from 'npm:@noble/hashes@^1.3.3/utils';
-import { finalizeEvent, getPublicKey, nip04, nip44 } from 'npm:nostr-tools@^2.3.1';
+import { bytesToHex } from '@noble/hashes/utils';
+import { finalizeEvent, getPublicKey, nip04, nip44 } from 'nostr-tools';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NostrSigner } from '../interfaces/NostrSigner.ts';

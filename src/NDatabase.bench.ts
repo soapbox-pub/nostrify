@@ -1,15 +1,15 @@
-import { DB as Sqlite } from 'https://raw.githubusercontent.com/dyedgreen/deno-sqlite/1e98e837c6b2efe1f7b6291501bbe49aca296c9e/mod.ts';
-import { DenoSqliteDialect } from 'https://gitlab.com/soapbox-pub/kysely-deno-sqlite/-/raw/v2.0.1/mod.ts';
-import { Kysely } from 'npm:kysely@^0.27.2';
-import { finalizeEvent, generateSecretKey } from 'npm:nostr-tools@^2.3.1';
+import { Database as Sqlite } from '@db/sqlite';
+import { DenoSqlite3Dialect } from '@soapbox/kysely-deno-sqlite';
+import { Kysely } from 'kysely';
+import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
 import { NDatabase, NDatabaseSchema } from './NDatabase.ts';
 
 import events from '../fixtures/events.json' with { type: 'json' };
 
 const kysely = new Kysely<NDatabaseSchema>({
-  dialect: new DenoSqliteDialect({
-    database: new Sqlite(),
+  dialect: new DenoSqlite3Dialect({
+    database: new Sqlite(':memory:'),
   }),
 });
 
@@ -92,56 +92,55 @@ Deno.bench('NDatabase.query by multiple authors', async () => {
 
 Deno.bench('NDatabase.query by single tag', async () => {
   await db.query([{
-    "#p": ["be49045474d8234adbd38dff67bbb9ae2a6d0696bf809e44e9cd12aac0ea6318"]
-  }])
-})
+    '#p': ['be49045474d8234adbd38dff67bbb9ae2a6d0696bf809e44e9cd12aac0ea6318'],
+  }]);
+});
 
 Deno.bench('NDatabase.query by multiple tags', async () => {
   await db.query([{
-    "#p": ["be49045474d8234adbd38dff67bbb9ae2a6d0696bf809e44e9cd12aac0ea6318"],
-    "#e": ["8b6b27ecb89097d7b7eacd63068e10858ec8114a2a1b021e7bf2ff2a7543d7a9"]
-  }])
-})
-
+    '#p': ['be49045474d8234adbd38dff67bbb9ae2a6d0696bf809e44e9cd12aac0ea6318'],
+    '#e': ['8b6b27ecb89097d7b7eacd63068e10858ec8114a2a1b021e7bf2ff2a7543d7a9'],
+  }]);
+});
 
 Deno.bench('NDatabase.query many events by tag', async () => {
   await db.query([{
-    "#r": ["wss://relay.mostr.pub"]
-  }])
-})
+    '#r': ['wss://relay.mostr.pub'],
+  }]);
+});
 
 Deno.bench('NDatabase.query by kind and pubkey', async () => {
   await db.query([{
     kinds: [3],
-    authors: ["235f0103f48a7c04524d0ab40de8d8549c5563545b9ab21da2949c013c48bffd"]
-  }])
-})
+    authors: ['235f0103f48a7c04524d0ab40de8d8549c5563545b9ab21da2949c013c48bffd'],
+  }]);
+});
 
 Deno.bench('NDatabase.query by multiple kinds and pubkey', async () => {
   await db.query([{
     kinds: [3, 5, 6],
-    authors: ["235f0103f48a7c04524d0ab40de8d8549c5563545b9ab21da2949c013c48bffd"]
-  }])
-})
+    authors: ['235f0103f48a7c04524d0ab40de8d8549c5563545b9ab21da2949c013c48bffd'],
+  }]);
+});
 
 Deno.bench('NDatabase.query by kind and multiple pubkeys', async () => {
   await db.query([{
     kinds: [3],
     authors: [
-      "235f0103f48a7c04524d0ab40de8d8549c5563545b9ab21da2949c013c48bffd",
-      "d7ac5eb387d842d79f2421a7f7de3349f02fb2fecac8b8714b4f570d58b4baaf",
-      "dace63b00c42e6e017d00dd190a9328386002ff597b841eb5ef91de4f1ce8491"
-    ]
-  }])
-})
+      '235f0103f48a7c04524d0ab40de8d8549c5563545b9ab21da2949c013c48bffd',
+      'd7ac5eb387d842d79f2421a7f7de3349f02fb2fecac8b8714b4f570d58b4baaf',
+      'dace63b00c42e6e017d00dd190a9328386002ff597b841eb5ef91de4f1ce8491',
+    ],
+  }]);
+});
 
 Deno.bench('NDatabase.query by multiple kinds and multiple pubkeys', async () => {
   await db.query([{
     kinds: [3, 5, 6],
     authors: [
-      "235f0103f48a7c04524d0ab40de8d8549c5563545b9ab21da2949c013c48bffd",
-      "d7ac5eb387d842d79f2421a7f7de3349f02fb2fecac8b8714b4f570d58b4baaf",
-      "dace63b00c42e6e017d00dd190a9328386002ff597b841eb5ef91de4f1ce8491"
-    ]
-  }])
-})
+      '235f0103f48a7c04524d0ab40de8d8549c5563545b9ab21da2949c013c48bffd',
+      'd7ac5eb387d842d79f2421a7f7de3349f02fb2fecac8b8714b4f570d58b4baaf',
+      'dace63b00c42e6e017d00dd190a9328386002ff597b841eb5ef91de4f1ce8491',
+    ],
+  }]);
+});

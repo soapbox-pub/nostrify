@@ -1,4 +1,4 @@
-import { z } from 'npm:zod@^3.22.4';
+import { z } from 'zod';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NostrMetadata } from '../interfaces/NostrMetadata.ts';
@@ -16,7 +16,7 @@ import {
  * A suite of [zod](https://github.com/colinhacks/zod) schemas for Nostr.
  *
  * ```ts
- * import { NSchema as n } from 'nspec';
+ * import { NSchema as n } from '@nostrify/nostrify';
  *
  * const event: NostrEvent = n.event().parse(eventData);
  * const metadata: NostrMetadata = n.json().pipe(n.metadata()).parse(event.content);

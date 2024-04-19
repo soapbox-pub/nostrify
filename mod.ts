@@ -1,11 +1,13 @@
 export { LNURL } from './src/LNURL.ts';
+export { NDatabase, type NDatabaseOpts, type NDatabaseSchema } from './src/NDatabase.ts';
 export { NCache } from './src/NCache.ts';
 export { NCustodial } from './src/NCustodial.ts';
 export { NIP05 } from './src/NIP05.ts';
 export { NIP50 } from './src/NIP50.ts';
 export { NKinds } from './src/NKinds.ts';
-export { NPhraseSigner } from './src/NPhraseSigner.ts';
-export { NRelay1 } from './src/NRelay1.ts';
+export { NPhraseSigner, type NPhraseSignerOpts } from './src/NPhraseSigner.ts';
+export { NPool, type NPoolOpts } from './src/NPool.ts';
+export { NRelay1, type NRelay1Opts } from './src/NRelay1.ts';
 export { NSchema } from './src/NSchema.ts';
 export { NSecSigner } from './src/NSecSigner.ts';
 export { NSeedSigner } from './src/NSeedSigner.ts';
@@ -21,6 +23,7 @@ export type {
 } from './interfaces/NostrClientMsg.ts';
 export type { NostrEvent } from './interfaces/NostrEvent.ts';
 export type { NostrFilter } from './interfaces/NostrFilter.ts';
+export type { NostrMetadata } from './interfaces/NostrMetadata.ts';
 export type {
   NostrRelayCLOSED,
   NostrRelayCOUNT,

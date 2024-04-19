@@ -1,5 +1,6 @@
 import { NStore } from '../interfaces/NStore.ts';
-import { NostrEvent, NostrFilter } from '../mod.ts';
+import { NostrEvent } from '../interfaces/NostrEvent.ts';
+import { NostrFilter } from '../interfaces/NostrFilter.ts';
 import { NKinds } from './NKinds.ts';
 
 // TODO: implement signal support.
@@ -72,7 +73,11 @@ export class NDenoKvDatabase implements NStore {
   }
 
   async event(event: NostrEvent): Promise<void> {
+    // Handle special kinds.
     if (event.kind === 5) {
+      // potential slowdown -- because we have the ids but we
+      // remove by filter anyway instead of directly
+      // .map(removeById)
       const ids = [];
       for (
         const id of event.tags
@@ -82,8 +87,7 @@ export class NDenoKvDatabase implements NStore {
         const evt = await this.getEvtById(id);
         if (evt && evt.pubkey === event.pubkey) ids.push(id);
       }
-
-      await this.remove([{ ids }]);
+      await Promise.all(ids.map(id => this.removeById(id)));
     } else if (NKinds.ephemeral(event.kind)) {
       return;
     } else if (NKinds.replaceable(event.kind)) {
@@ -95,6 +99,7 @@ export class NDenoKvDatabase implements NStore {
         } else this.removeById(existing[0]);
       }
     } else if (NKinds.parameterizedReplaceable(event.kind)) {
+      // eliminate this duplication
       const dTagVal = event.tags.find((tag) => tag[0] === 'd')?.[1];
       if (dTagVal) {
         const existing = await this.resolveFilter({ authors: [event.pubkey], kinds: [event.kind], '#d': [dTagVal] });
@@ -109,12 +114,12 @@ export class NDenoKvDatabase implements NStore {
 
     const kind5sForEvent = await this.resolveFilter({ kinds: [5], '#e': [event.id] });
     if (kind5sForEvent.length) {
-      const evt = await this.getEvtById(kind5sForEvent[0]);
-      throw new Error('This event was deleted by a kind 5 event, corresponding kind 5: ' + JSON.stringify(evt));
+      throw new Error('This event was deleted by a kind 5 event.');
     }
 
     await Promise.all(indexTags(event).map(async (key) => await this.db.set(key, event.id)));
     const txn = this.db.atomic();
+    // TODO: do booleans instead of ids?
     txn.set(['events', event.id], event)
       .set(Keys.byKind(event.id, event.created_at, event.kind), event.id)
       .set(Keys.byPubkey(event.id, event.created_at, event.pubkey), event.id)
@@ -160,9 +165,14 @@ export class NDenoKvDatabase implements NStore {
     const indices: Set<string> = new Set();
     if (tags.length) {
       for (const range of tags) {
-        if (!kinds?.length && !authors?.length) {
+        // TODO: (refactor) for await const here
+        //   filter inside
+        if (kinds?.length && authors?.length) {
           for await (const entry of this.db.list<string>(range)) {
-            if (entry.value) indices.add(entry.value);
+            if (entry.value) {
+              const evt = await this.getEvtById(entry.value);
+              if (evt && kinds.includes(evt.kind) && authors.includes(evt.pubkey)) indices.add(entry.value);
+            }
           }
         } else if (kinds?.length && !authors?.length) {
           for await (const entry of this.db.list<string>(range)) {
@@ -180,10 +190,7 @@ export class NDenoKvDatabase implements NStore {
           }
         } else {
           for await (const entry of this.db.list<string>(range)) {
-            if (entry.value) {
-              const evt = await this.getEvtById(entry.value);
-              if (evt && kinds!.includes(evt.kind) && authors!.includes(evt.pubkey)) indices.add(entry.value);
-            }
+            if (entry.value) indices.add(entry.value);
           }
         }
       }
@@ -205,6 +212,7 @@ export class NDenoKvDatabase implements NStore {
 
     if (authors?.length) {
       if (kinds?.length) {
+        // TODO: bench this
         authors.forEach((author) =>
           kinds.forEach((kind) =>
             selectors.push({
@@ -232,10 +240,11 @@ export class NDenoKvDatabase implements NStore {
       selectors.push({ start: ['by-timestamp', s], end: ['by-timestamp', u] });
     }
 
-    const idx = 0;
+    let count = 0;
     await Promise.all(selectors.map(async (selector) => {
       for await (const entry of this.db.list<string>(selector)) {
-        if (limit && idx > limit) {
+        count += 1;
+        if (limit && (count > limit)) {
           return;
         }
 
@@ -257,9 +266,10 @@ export class NDenoKvDatabase implements NStore {
   async query(filters: NostrFilter[]): Promise<NostrEvent[]> {
     const results = (await this.resolveFilters(filters)).filter(Boolean);
     const events: NostrEvent[] = [];
-    for (let i = 0; i < results.length; i += 10) {
+    const CHUNK_SIZE = 10;
+    for (let i = 0; i < results.length; i += CHUNK_SIZE) {
       const chunk = (await this.db.getMany<NostrEvent[]>(
-        results.slice(i, i + 10).map((id) => ['events', id]),
+        results.slice(i, i + CHUNK_SIZE).map((id) => ['events', id]),
       ))
         .filter((entry) => Boolean(entry.value))
         .map((entry) => entry.value!);

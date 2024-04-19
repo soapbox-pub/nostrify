@@ -7,15 +7,15 @@ import event1 from '../fixtures/event-1.json' with { type: 'json' };
 import PR_EVENTS from '../fixtures/parameterized-replaceable-events.json' with { type: 'json' };
 
 /** Create in-memory database for testing. */
-const withDb = async (fn: (db: NDenoKv) => Promise<void>) => {
+async function withDB(fn: (db: NDenoKv) => Promise<void>) {
   const kv = await Deno.openKv(':memory:');
   const db = new NDenoKv(kv);
   await fn(db);
   db.close();
-};
+}
 
 Deno.test('NDenoKv.count', async (t) => {
-  await withDb(async (db) => {
+  await withDB(async (db) => {
     await t.step('make sure no events exist', async () => {
       assertEquals((await db.count([{ kinds: [1] }])).count, 0);
     });
@@ -29,7 +29,7 @@ Deno.test('NDenoKv.count', async (t) => {
 });
 
 Deno.test('NDenoKv.query', async (t) => {
-  await withDb(async (db) => {
+  await withDB(async (db) => {
     await db.event(event1);
 
     await t.step('should find by kind', async () => {
@@ -58,7 +58,7 @@ Deno.test('NDenoKv.query', async (t) => {
 });
 
 Deno.test("NDenoKv.query with multiple tags doesn't crash", async () => {
-  await withDb(async (db) => {
+  await withDB(async (db) => {
     await db.query([{
       kinds: [1985],
       authors: ['c87e0d90c7e521967a6975439ba20d9052c2b6680d8c4c80fc2943e2c726d98c'],
@@ -69,7 +69,7 @@ Deno.test("NDenoKv.query with multiple tags doesn't crash", async () => {
 });
 
 Deno.test('NDenoKv.remove', async () => {
-  await withDb(async (db) => {
+  await withDB(async (db) => {
     await db.event(event1);
     assertEquals(await db.query([{ kinds: [1] }]), [event1]);
     await db.remove([{ kinds: [1] }]);
@@ -78,7 +78,7 @@ Deno.test('NDenoKv.remove', async () => {
 });
 
 Deno.test('NDenoKv.event with a deleted event', async (t) => {
-  await withDb(async (db) => {
+  await withDB(async (db) => {
     await db.event(event1);
     assertEquals(await db.query([{ kinds: [1] }]), [event1]);
 
@@ -104,7 +104,7 @@ Deno.test('NDenoKv.event with a deleted event', async (t) => {
 });
 
 Deno.test('NDenoKv.event with replaceable event', async (t) => {
-  await withDb(async (db) => {
+  await withDB(async (db) => {
     await t.step('ensure no kind 0 events exist', async () => {
       assertEquals((await db.count([{ kinds: [0], authors: [event0.pubkey] }])).count, 0);
     });
@@ -127,7 +127,7 @@ Deno.test('NDenoKv.event with replaceable event', async (t) => {
 });
 
 Deno.test('NDenoKv.event with parameterized replaceable event', async (t) => {
-  await withDb(async (db) => {
+  await withDB(async (db) => {
     const [event0, event1, event2] = PR_EVENTS;
 
     await t.step('should insert replaceable event', async () => {

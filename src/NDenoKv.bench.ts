@@ -9,18 +9,10 @@ const db = new NDenoKv(kv);
 
 // Seed database with 1000 events.
 for (const event of events) {
-  if (event.id === '927f28d9000c832db954e18dd530ce20c6f9476f78162bf5b1e22cefcb582c9c') {
-    // big ass kind 3, skip for now
-    continue;
-  }
   try {
     await db.event(event);
-  } catch (e) {
-    console.log('==== EVENT ====');
-    console.log(event.id);
-    console.log('==== ERROR ====');
-    console.log(e);
-    Deno.exit(1);
+  } catch (_e) {
+    // skip too large events
   }
 }
 

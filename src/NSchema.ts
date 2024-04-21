@@ -1,4 +1,4 @@
-import { unknown, z } from 'zod';
+import { z } from 'zod';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NostrFilter } from '../interfaces/NostrFilter.ts';
@@ -14,6 +14,7 @@ import {
 import {
   NostrRelayAUTH,
   NostrRelayCLOSED,
+  NostrRelayCOUNT,
   NostrRelayEOSE,
   NostrRelayEVENT,
   NostrRelayMsg,
@@ -96,7 +97,7 @@ class NSchema {
     return z.tuple([z.literal('REQ'), z.string()]).rest(NSchema.filter());
   }
 
-  /** NIP-01 `COUNT` message from client to relay. */
+  /** NIP-45 `COUNT` message from client to relay. */
   static clientCOUNT(): z.ZodType<NostrClientCOUNT> {
     return z.tuple([z.literal('COUNT'), z.string()]).rest(NSchema.filter());
   }
@@ -152,6 +153,18 @@ class NSchema {
     return z.tuple([z.literal('AUTH'), z.string()]);
   }
 
+  /** NIP-45 `COUNT` message from relay to client. */
+  static relayCOUNT(): z.ZodType<NostrRelayCOUNT> {
+    return z.tuple([
+      z.literal('COUNT'),
+      z.string(),
+      z.object({
+        count: z.number().int().nonnegative(),
+        approximate: z.boolean().optional(),
+      }),
+    ]);
+  }
+
   /** NIP-01 message from relay to client. */
   static relayMsg(): z.ZodType<NostrRelayMsg> {
     return z.union([
@@ -161,6 +174,7 @@ class NSchema {
       NSchema.relayNOTICE(),
       NSchema.relayCLOSED(),
       NSchema.relayAUTH(),
+      NSchema.relayCOUNT(),
     ]);
   }
 

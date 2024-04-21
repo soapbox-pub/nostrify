@@ -1,4 +1,4 @@
-import { assert } from '@std/assert';
+import { assert, assertEquals } from '@std/assert';
 
 import { NSchema as n } from './NSchema.ts';
 
@@ -19,4 +19,22 @@ Deno.test('n.bech32', () => {
 
   assert(!n.bech32().safeParse('abc').success);
   assert(!n.bech32().safeParse(lnurlCallback.pr + '_').success);
+});
+
+Deno.test('n.filter', () => {
+  assert(n.filter().safeParse({}).success);
+  assert(n.filter().safeParse({ kinds: [0] }).success);
+  assert(n.filter().safeParse({ ids: [nostrEvent.id] }).success);
+  assert(n.filter().safeParse({ authors: [nostrEvent.pubkey] }).success);
+  assert(n.filter().safeParse({ kinds: [1], '#t': ['nostrasia'] }).success);
+  assert(n.filter().safeParse({ '#t': ['yolo'] }).success);
+
+  assertEquals(
+    n.filter().parse({ kinds: [1], '#t': ['nostrasia'], seenOn: ['wss://relay.mostr.pub/'] }),
+    { kinds: [1], '#t': ['nostrasia'] },
+  );
+
+  assert(!n.filter().safeParse({ kinds: [0.5] }).success);
+  assert(!n.filter().safeParse({ ids: ['abc'] }).success);
+  assert(!n.filter().safeParse({ authors: ['abc'] }).success);
 });

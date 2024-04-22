@@ -3,7 +3,10 @@
   "lock": false,
   "name": "@nostrify/nostrify",
   "version": "0.10.2",
-  "exports": "./mod.ts",
+  "exports": {
+    ".": "./mod.ts",
+    "./policies": "./src/policies/mod.ts"
+  },
   "tasks": {
     "test": "deno test -A",
     "check": "deno check mod.ts"

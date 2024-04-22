@@ -43,7 +43,7 @@ export class AntiDuplicationPolicy implements NPolicy {
 
       if (value) {
         await kv.set(key, true, { expireIn });
-        return ['OK', id, false, ''];
+        return ['OK', id, false, 'blocked: the same message has been repeated too many times'];
       }
 
       await kv.set(key, true, { expireIn });

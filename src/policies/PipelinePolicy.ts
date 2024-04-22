@@ -11,7 +11,7 @@ import { NPolicy } from '../../interfaces/NPolicy.ts';
  * const policy = new PipelinePolicy([
  *   new NoOpPolicy(),
  *   new FiltersPolicy([{ kinds: [0, 1, 3, 5, 7, 1984, 9734, 9735, 10002] }]),
- *   new KeywordPolicy('https://t.me/'),
+ *   new KeywordPolicy(['https://t.me/']),
  *   new RegexPolicy(/(🟠|🔥|😳)ChtaGPT/i),
  *   new PubkeyBanPolicy(['e810fafa1e89cdf80cced8e013938e87e21b699b24c8570537be92aec4b12c18']),
  *   new HellthreadPolicy({ limit: 100 }),

@@ -41,7 +41,7 @@ export class AntiDuplicationPolicy implements NPolicy {
     const { kv, expireIn = 60000, minLength = 50 } = this.opts;
 
     if (kind === 1 && content.length >= minLength) {
-      const hash = String(AntiDuplicationPolicy.hashCode(content));
+      const hash = AntiDuplicationPolicy.hashCode(content);
       const key: Deno.KvKey = ['nostrify', 'policies', 'antiduplication', hash];
 
       const { value } = await kv.get(key);

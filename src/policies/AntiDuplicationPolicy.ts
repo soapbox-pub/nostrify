@@ -15,19 +15,19 @@ interface AntiDuplicationPolicyOpts {
 /**
  * Prevent messages with the exact same content from being submitted repeatedly.
  *
- * It stores a hashcode for each content in an SQLite database and rate-limits them. Only messages that meet the minimum length criteria are selected.
+ * It stores a hashcode for each content in a Deno.Kv database and rate-limits them. Only messages that meet the minimum length criteria are selected.
  * Each time a matching message is submitted, the timer will reset, so spammers sending the same message will only ever get the first one through.
  *
  * @example
  * ```ts
+ * // Open a Deno.KV instance.
+ * const kv = await Deno.openKv();
+ *
  * // Prevent the same message from being posted within 60 seconds.
- * new AntiDuplicationPolicy({ expireIn: 60000 });
+ * new AntiDuplicationPolicy({ kv, expireIn: 60000 });
  *
  * // Only enforce the policy on messages with at least 50 characters.
- * new AntiDuplicationPolicy({ expireIn: 60000, minLength: 50 });
- *
- * // Use a custom Deno.Kv instance.
- * new AntiDuplicationPolicy({ kv: await Deno.openKv('./mydb.sqlite3') });
+ * new AntiDuplicationPolicy({ kv, expireIn: 60000, minLength: 50 });
  * ```
  */
 export class AntiDuplicationPolicy implements NPolicy {

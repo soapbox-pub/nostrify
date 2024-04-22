@@ -18,7 +18,6 @@ interface AntiDuplicationPolicyOpts {
  * It stores a hashcode for each content in a Deno.Kv database and rate-limits them. Only messages that meet the minimum length criteria are selected.
  * Each time a matching message is submitted, the timer will reset, so spammers sending the same message will only ever get the first one through.
  *
- * @example
  * ```ts
  * // Open a Deno.KV instance.
  * const kv = await Deno.openKv();
@@ -31,11 +30,7 @@ interface AntiDuplicationPolicyOpts {
  * ```
  */
 export class AntiDuplicationPolicy implements NPolicy {
-  private opts: AntiDuplicationPolicyOpts;
-
-  constructor(opts: AntiDuplicationPolicyOpts) {
-    this.opts = opts;
-  }
+  constructor(private opts: AntiDuplicationPolicyOpts) {}
 
   async call({ id, kind, content }: NostrEvent): Promise<NostrRelayOK> {
     const { kv, expireIn = 60000, minLength = 50 } = this.opts;

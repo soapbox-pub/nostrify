@@ -1,10 +1,10 @@
 import { assertEquals } from '@std/assert';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
-import { NoOpPolicy } from './NoOpPolicy.ts';
+import { ReadOnlyPolicy } from './ReadOnlyPolicy.ts';
 
-Deno.test('NoOpPolicy', async () => {
-  const policy = new NoOpPolicy();
+Deno.test('ReadOnlyPolicy', async () => {
+  const policy = new ReadOnlyPolicy();
 
   const event = finalizeEvent({
     kind: 1,
@@ -13,8 +13,9 @@ Deno.test('NoOpPolicy', async () => {
     created_at: Math.floor(Date.now() / 1000),
   }, generateSecretKey());
 
-  const [_, eventId, ok] = await policy.call(event);
+  const [_, eventId, ok, reason] = await policy.call(event);
 
   assertEquals(eventId, event.id);
-  assertEquals(ok, true);
+  assertEquals(reason, 'blocked: the relay is read-only');
+  assertEquals(ok, false);
 });

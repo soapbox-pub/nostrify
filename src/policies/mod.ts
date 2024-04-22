@@ -5,6 +5,7 @@ export { KeywordPolicy } from './KeywordPolicy.ts';
 export { NoOpPolicy } from './NoOpPolicy.ts';
 export { PipelinePolicy } from './PipelinePolicy.ts';
 export { PowPolicy } from './PowPolicy.ts';
+export { PubkeyBanPolicy } from './PubkeyBanPolicy.ts';
 export { ReadOnlyPolicy } from './ReadOnlyPolicy.ts';
 export { RegexPolicy } from './RegexPolicy.ts';
 export { SizePolicy } from './SizePolicy.ts';

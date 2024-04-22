@@ -6,12 +6,10 @@ import { ReadOnlyPolicy } from './ReadOnlyPolicy.ts';
 Deno.test('ReadOnlyPolicy', async () => {
   const policy = new ReadOnlyPolicy();
 
-  const event = finalizeEvent({
-    kind: 1,
-    content: 'hello world',
-    tags: [],
-    created_at: Math.floor(Date.now() / 1000),
-  }, generateSecretKey());
+  const event = finalizeEvent(
+    { kind: 1, content: '', tags: [], created_at: 0 },
+    generateSecretKey(),
+  );
 
   const [_, eventId, ok, reason] = await policy.call(event);
 

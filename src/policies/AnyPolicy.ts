@@ -2,7 +2,7 @@ import { NostrEvent } from '../../interfaces/NostrEvent.ts';
 import { NostrRelayOK } from '../../interfaces/NostrRelayMsg.ts';
 import { NPolicy } from '../../interfaces/NPolicy.ts';
 
-/** Similar to `PipelinePolicy`, but passes if at least one policy passes. */
+/** Similar to `PipePolicy`, but passes if at least one policy passes. */
 export class AnyPolicy implements NPolicy {
   constructor(private policies: NPolicy[]) {}
 

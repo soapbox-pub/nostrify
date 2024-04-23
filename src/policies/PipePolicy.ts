@@ -8,7 +8,7 @@ import { NPolicy } from '../../interfaces/NPolicy.ts';
  * If any policy rejects, the pipeline will stop and return the rejected message.
  *
  * ```ts
- * const policy = new PipelinePolicy([
+ * const policy = new PipePolicy([
  *   new NoOpPolicy(),
  *   new FiltersPolicy([{ kinds: [0, 1, 3, 5, 7, 1984, 9734, 9735, 10002] }]),
  *   new KeywordPolicy(['https://t.me/']),
@@ -21,7 +21,7 @@ import { NPolicy } from '../../interfaces/NPolicy.ts';
  * const [_, eventId, ok, reason] = await policy.call(event);
  * ```
  */
-export class PipelinePolicy implements NPolicy {
+export class PipePolicy implements NPolicy {
   constructor(private policies: NPolicy[]) {}
 
   async call(event: NostrEvent): Promise<NostrRelayOK> {

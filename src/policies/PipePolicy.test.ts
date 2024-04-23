@@ -2,11 +2,11 @@ import { assertEquals } from '@std/assert';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
 import { NoOpPolicy } from './NoOpPolicy.ts';
-import { PipelinePolicy } from './PipelinePolicy.ts';
+import { PipePolicy } from './PipePolicy.ts';
 import { ReadOnlyPolicy } from './ReadOnlyPolicy.ts';
 
 Deno.test('passes events through multiple policies', async () => {
-  const policy = new PipelinePolicy([
+  const policy = new PipePolicy([
     new NoOpPolicy(),
     new ReadOnlyPolicy(),
   ]);
@@ -23,7 +23,7 @@ Deno.test('passes events through multiple policies', async () => {
 });
 
 Deno.test('short-circuits on the first reject', async () => {
-  const policy = new PipelinePolicy([
+  const policy = new PipePolicy([
     new ReadOnlyPolicy(),
     new NoOpPolicy(),
   ]);
@@ -40,7 +40,7 @@ Deno.test('short-circuits on the first reject', async () => {
 });
 
 Deno.test('accepts when all policies accept', async () => {
-  const policy = new PipelinePolicy([
+  const policy = new PipePolicy([
     new NoOpPolicy(),
     new NoOpPolicy(),
     new NoOpPolicy(),

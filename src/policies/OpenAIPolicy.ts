@@ -65,7 +65,7 @@ interface OpenAIPolicyOpts {
  * // With a custom handler.
  * new OpenAIPolicy({
  *   apiKey: Deno.env.get('OPENAI_API_KEY'),
- *   handler(event, result) {
+ *   handler(event, data) {
  *     // Loop each result.
  *     return data.results.some((result) => {
  *       if (result.flagged) {

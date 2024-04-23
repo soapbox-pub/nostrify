@@ -2,6 +2,7 @@ export { AntiDuplicationPolicy } from './AntiDuplicationPolicy.ts';
 export { AnyPolicy } from './AnyPolicy.ts';
 export { FiltersPolicy } from './FiltersPolicy.ts';
 export { HellthreadPolicy } from './HellthreadPolicy.ts';
+export { InvertPolicy } from './InvertPolicy.ts';
 export { KeywordPolicy } from './KeywordPolicy.ts';
 export { NoOpPolicy } from './NoOpPolicy.ts';
 export { OpenAIPolicy } from './OpenAIPolicy.ts';

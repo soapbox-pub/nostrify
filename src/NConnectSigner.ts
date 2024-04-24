@@ -34,6 +34,25 @@ export class NConnectSigner implements NostrSigner {
     this.pubkey = pubkey;
     this.signer = signer;
     this.timeout = timeout;
+    this.start();
+  }
+
+  private async start(): Promise<void> {
+    const local = await this.signer.getPublicKey();
+
+    const req = this.relay.req(
+      [{ kinds: [24133], authors: [this.pubkey], '#p': [local] }],
+    );
+
+    for await (const msg of req) {
+      if (msg[0] === 'CLOSED') throw new Error('Subscription closed');
+      if (msg[0] === 'EVENT') {
+        const event = msg[2];
+        const decrypted = await this.signer.nip04!.decrypt(this.pubkey, event.content);
+        const response = n.json().pipe(n.connectResponse()).parse(decrypted);
+        this.ee.dispatchEvent(new CustomEvent(response.id, { detail: response }));
+      }
+    }
   }
 
   async getPublicKey(): Promise<string> {
@@ -117,24 +136,23 @@ export class NConnectSigner implements NostrSigner {
       tags: [['p', this.pubkey]],
     });
 
-    const req = this.relay.req(
-      [{ kinds: [24133], authors: [this.pubkey], '#p': [event.pubkey] }],
-      { signal },
-    );
-
     this.relay.event(event, { signal });
 
-    for await (const msg of req) {
-      if (msg[0] === 'EVENT') {
-        const event = msg[2];
-        const decrypted = await this.signer.nip04!.decrypt(this.pubkey, event.content);
-        const response = n.json().pipe(n.connectResponse()).parse(decrypted);
-        if (response.id === request.id) {
-          return response;
-        }
-      }
-    }
-
-    throw new Error('No response from relay');
+    return new Promise<NostrConnectResponse>((resolve, reject) => {
+      const cleanup = () => {
+        signal?.removeEventListener('abort', onAbort);
+        this.ee.removeEventListener(request.id, onEvent);
+      };
+      const onEvent = (e: Event) => {
+        resolve((e as CustomEvent).detail);
+        cleanup();
+      };
+      const onAbort = () => {
+        reject(new DOMException('The signal has been aborted', 'AbortError'));
+        cleanup();
+      };
+      signal?.addEventListener('abort', onAbort);
+      this.ee.addEventListener(request.id, onEvent);
+    });
   }
 }

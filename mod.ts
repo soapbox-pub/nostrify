@@ -23,6 +23,7 @@ export type {
   NostrClientMsg,
   NostrClientREQ,
 } from './interfaces/NostrClientMsg.ts';
+export type { NostrConnectRequest, NostrConnectResponse } from './interfaces/NostrConnect.ts';
 export type { NostrEvent } from './interfaces/NostrEvent.ts';
 export type { NostrFilter } from './interfaces/NostrFilter.ts';
 export type { NostrMetadata } from './interfaces/NostrMetadata.ts';

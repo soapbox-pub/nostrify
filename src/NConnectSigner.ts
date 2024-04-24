@@ -27,7 +27,6 @@ export class NConnectSigner implements NostrSigner {
   private signer: NostrSigner;
   private timeout?: number;
 
-  private connected: boolean = false;
   private ee = new EventTarget();
 
   constructor({ relay, pubkey, signer, timeout }: NConnectSignerOpts) {
@@ -35,9 +34,6 @@ export class NConnectSigner implements NostrSigner {
     this.pubkey = pubkey;
     this.signer = signer;
     this.timeout = timeout;
-  }
-
-  private async connect(): Promise<void> {
   }
 
   async getPublicKey(): Promise<string> {
@@ -77,6 +73,17 @@ export class NConnectSigner implements NostrSigner {
       return this.cmd('nip44_decrypt', [pubkey, ciphertext]);
     },
   };
+
+  /** Send a `connect` command to the relay. It should respond with `ack`. */
+  async connect(pubkey: string, secret?: string): Promise<string> {
+    const params: string[] = [pubkey];
+
+    if (secret) {
+      params.push(secret);
+    }
+
+    return this.cmd('connect', params);
+  }
 
   /** Send a `ping` command to the signer. It should respond with `pong`. */
   async ping(): Promise<string> {

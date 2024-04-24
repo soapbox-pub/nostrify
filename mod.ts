@@ -1,5 +1,6 @@
 export { LNURL } from './src/LNURL.ts';
 export { Machina } from './src/Machina.ts';
+export { MockRelay } from './src/MockRelay.ts';
 export { NCache } from './src/NCache.ts';
 export { NConnectSigner, type NConnectSignerOpts } from './src/NConnectSigner.ts';
 export { NCustodial } from './src/NCustodial.ts';

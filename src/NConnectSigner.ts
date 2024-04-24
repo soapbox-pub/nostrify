@@ -38,6 +38,35 @@ export class NConnectSigner implements NostrSigner {
   private async connect(): Promise<void> {
   }
 
+  async getPublicKey(): Promise<string> {
+    return this.cmd('get_public_key', []);
+  }
+
+  async signEvent(event: Omit<NostrEvent, 'id' | 'pubkey' | 'sig'>): Promise<NostrEvent> {
+    const result = await this.cmd('sign_event', [JSON.stringify(event)]);
+    return n.json().pipe(n.event()).parse(result);
+  }
+
+  readonly nip04 = {
+    encrypt: async (pubkey: string, plaintext: string): Promise<string> => {
+      return this.cmd('nip04_encrypt', [pubkey, plaintext]);
+    },
+
+    decrypt: async (pubkey: string, ciphertext: string): Promise<string> => {
+      return this.cmd('nip04_decrypt', [pubkey, ciphertext]);
+    },
+  };
+
+  readonly nip44 = {
+    encrypt: async (pubkey: string, plaintext: string): Promise<string> => {
+      return this.cmd('nip44_encrypt', [pubkey, plaintext]);
+    },
+
+    decrypt: async (pubkey: string, ciphertext: string): Promise<string> => {
+      return this.cmd('nip44_decrypt', [pubkey, ciphertext]);
+    },
+  };
+
   /** High-level RPC method. Returns the string result, or throws on error. */
   private async cmd(method: string, params: string[]): Promise<string> {
     const signal = typeof this.timeout === 'number' ? AbortSignal.timeout(this.timeout) : undefined;
@@ -85,33 +114,4 @@ export class NConnectSigner implements NostrSigner {
 
     throw new Error('No response from relay');
   }
-
-  async getPublicKey(): Promise<string> {
-    return this.cmd('get_public_key', []);
-  }
-
-  async signEvent(event: Omit<NostrEvent, 'id' | 'pubkey' | 'sig'>): Promise<NostrEvent> {
-    const result = await this.cmd('sign_event', [JSON.stringify(event)]);
-    return n.json().pipe(n.event()).parse(result);
-  }
-
-  readonly nip04 = {
-    encrypt: async (pubkey: string, plaintext: string): Promise<string> => {
-      return this.cmd('nip04_encrypt', [pubkey, plaintext]);
-    },
-
-    decrypt: async (pubkey: string, ciphertext: string): Promise<string> => {
-      return this.cmd('nip04_decrypt', [pubkey, ciphertext]);
-    },
-  };
-
-  readonly nip44 = {
-    encrypt: async (pubkey: string, plaintext: string): Promise<string> => {
-      return this.cmd('nip44_encrypt', [pubkey, plaintext]);
-    },
-
-    decrypt: async (pubkey: string, ciphertext: string): Promise<string> => {
-      return this.cmd('nip44_decrypt', [pubkey, ciphertext]);
-    },
-  };
 }

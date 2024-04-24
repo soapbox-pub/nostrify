@@ -1,5 +1,5 @@
-import { assertEquals } from 'https://deno.land/std@0.212.0/assert/mod.ts';
-import { returnsNext, stub } from 'https://deno.land/std@0.212.0/testing/mock.ts';
+import { assertEquals } from '@std/assert';
+import { returnsNext, stub } from '@std/testing/mock';
 
 import { NIP05 } from './NIP05.ts';
 import nostrJson from '../fixtures/nostr.json' with { type: 'json' };

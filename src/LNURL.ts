@@ -1,4 +1,4 @@
-import { bech32 } from 'npm:@scure/base@^1.1.5';
+import { bech32 } from '@scure/base';
 
 import { LNURLCallback } from '../interfaces/LNURLCallback.ts';
 import { LNURLDetails } from '../interfaces/LNURLDetails.ts';

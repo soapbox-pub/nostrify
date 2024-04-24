@@ -1,23 +1,17 @@
-# NSpec
+# Nostrify
 
-Low-level Nostr library with a focus on web standards.
+Bring your projects to life on Nostr. 🌱
 
-## Usage
+Nostrify is a Nostr framework for web browsers and Deno. It's made up of of simple modules that can be used independently, or swapped out with your own implementations.
 
-```ts
-// Deno
-import { NostrEvent, NSchema, NSet } from 'https://gitlab.com/soapbox-pub/NSpec/-/raw/v0.3.0/mod.ts';
-
-// Node
-import { NostrEvent, NSchema, NSet } from 'nspec';
-```
+Use it alongside nostr-tools, NDK, or your existing application. Nostrify can be gradually adopted and plays nice with others.
 
 ## Schema
 
 A suite of [zod](https://github.com/colinhacks/zod) schemas for Nostr are available in the `NSchema` module.
 
 ```ts
-import { NSchema as n } from 'nspec';
+import { NSchema as n } from '@nostrify/nostrify';
 
 const event: NostrEvent = n.event().parse(eventData);
 const metadata: NostrMetadata = n.json().pipe(n.metadata()).parse(event.content);
@@ -182,7 +176,40 @@ All options are optional.
 
 ### `NPool` class
 
-TODO
+The `NPool` class is a `NRelay` implementation for connecting to multiple relays.
+
+```ts
+const pool = new NPool({
+  open: (url) => new NRelay1(url),
+  reqRelays: async (filters) => ['wss://relay1.mostr.pub', 'wss://relay2.mostr.pub'],
+  eventRelays: async (event) => ['wss://relay1.mostr.pub', 'wss://relay2.mostr.pub'],
+});
+
+// Now you can use the pool like a regular relay.
+for await (const msg of pool.req([{ kinds: [1] }])) {
+  if (msg[0] === 'EVENT') console.log(msg[2]);
+  if (msg[0] === 'EOSE') break;
+}
+```
+
+This class is designed with the Outbox model in mind.
+Instead of passing relay URLs into each method, you pass functions into the contructor that statically-analyze filters and events to determine which relays to use for requesting and publishing events.
+If a relay wasn't already connected, it will be opened automatically.
+Defining `open` will also let you use any relay implementation, such as `NRelay1`.
+
+Note that `pool.req` may stream duplicate events, while `pool.query` will correctly process replaceable events and deletions within the event set before returning them.
+
+`pool.req` will only emit an `EOSE` when all relays in its set have emitted an `EOSE`, and likewise for `CLOSED`.
+
+#### `NPoolOpts` interface
+
+- `open` - A function like `(url: string) => NRelay`. This function should return a new instance of `NRelay` for the given URL.
+
+- `reqRelays` - A function like `(filters: NostrFilter[]) => Promise<string[]>`. This function should return an array of relay URLs to use for making a REQ to the given filters. To support the Outbox model, it should analyze the `authors` field of the filters.
+
+- `eventRelays` - A function like `(event: NostrEvent) => Promise<string[]>`. This function should return an array of relay URLs to use for publishing an EVENT. To support the Outbox model, it should analyze the `pubkey` field of the event.
+
+Pro-tip: the `url` parameter is a unique relay identifier (string), and doesn't technically _have_ to be a URL, as long as you handle it correctly in your `open` function.
 
 ## Signers
 

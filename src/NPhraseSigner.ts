@@ -1,4 +1,4 @@
-import { mnemonicToSeedSync } from 'npm:@scure/bip39@^1.2.2';
+import { mnemonicToSeedSync } from '@scure/bip39';
 
 import { NSeedSigner } from './NSeedSigner.ts';
 

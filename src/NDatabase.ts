@@ -1,4 +1,4 @@
-import { Kysely, sql } from 'npm:kysely@^0.27.2';
+import { type DeleteResult, Kysely, type SelectQueryBuilder, sql } from 'kysely';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NStore } from '../interfaces/NStore.ts';
@@ -22,15 +22,15 @@ export interface NDatabaseSchema {
     name: string;
     value: string;
   };
-  nostr_fts: {
+  nostr_fts5: {
     event_id: string;
     content: string;
   };
 }
 
 export interface NDatabaseOpts {
-  /** Whether or not to use FTS. */
-  fts?: boolean;
+  /** Whether or not to enable full-text search with SQLite FTS5. */
+  fts5?: boolean;
   /**
    * Function that returns which tags to index so tag queries like `{ "#p": ["123"] }` will work.
    * By default, all single-letter tags are indexed.
@@ -39,7 +39,7 @@ export interface NDatabaseOpts {
   /**
    * Build a search index from the event.
    * By default, only kinds 0 and 1 events are indexed for search, and the search text is the event content with tag values appended to it.
-   * Only applicable if `fts` is `true`.
+   * Only applicable if `fts5` is `true`.
    */
   searchText?(event: NostrEvent): string | undefined;
 }
@@ -70,13 +70,13 @@ export interface NDatabaseOpts {
  */
 export class NDatabase implements NStore {
   private db: Kysely<NDatabaseSchema>;
-  private fts: boolean;
+  private fts5: boolean;
   private indexTags: (event: NostrEvent) => string[][];
   private searchText: (event: NostrEvent) => string | undefined;
 
   constructor(db: Kysely<any>, opts?: NDatabaseOpts) {
     this.db = db as Kysely<NDatabaseSchema>;
-    this.fts = opts?.fts ?? false;
+    this.fts5 = opts?.fts5 ?? false;
     this.indexTags = opts?.indexTags ?? NDatabase.indexTags;
     this.searchText = opts?.searchText ?? NDatabase.searchText;
   }
@@ -95,6 +95,8 @@ export class NDatabase implements NStore {
 
   /** Insert an event (and its tags) into the database. */
   async event(event: NostrEvent): Promise<void> {
+    if (NKinds.ephemeral(event.kind)) return;
+
     if (await this.isDeleted(event)) {
       throw new Error('Cannot add a deleted event');
     }
@@ -120,23 +122,24 @@ export class NDatabase implements NStore {
 
   /** Check if an event has been deleted. */
   protected async isDeleted(event: NostrEvent): Promise<boolean> {
-    const { count } = await this.count([
+    const [deletion] = await this.query([
       { kinds: [5], authors: [event.pubkey], '#e': [event.id], limit: 1 },
     ]);
-    return count > 0;
+    return !!deletion;
   }
 
   /** Delete events referenced by kind 5. */
-  protected async deleteEvents(trx: Kysely<NDatabaseSchema>, event: NostrEvent) {
+  protected async deleteEvents(trx: Kysely<NDatabaseSchema>, event: NostrEvent): Promise<void> {
     if (event.kind === 5) {
       await this.deleteEventsTrx(trx, [{
         ids: event.tags.filter(([name]) => name === 'e')?.[1],
+        authors: [event.pubkey],
       }]);
     }
   }
 
   /** Replace events in NIP-01 replaceable ranges with the same kind and pubkey. */
-  protected async replaceEvents(trx: Kysely<NDatabaseSchema>, event: NostrEvent) {
+  protected async replaceEvents(trx: Kysely<NDatabaseSchema>, event: NostrEvent): Promise<void> {
     if (NKinds.replaceable(event.kind)) {
       await this.deleteReplaced(
         trx,
@@ -162,14 +165,14 @@ export class NDatabase implements NStore {
   }
 
   /** Insert the event into the database. */
-  protected async insertEvent(trx: Kysely<NDatabaseSchema>, event: NostrEvent) {
+  protected async insertEvent(trx: Kysely<NDatabaseSchema>, event: NostrEvent): Promise<void> {
     await trx.insertInto('nostr_events')
       .values({ ...event, tags: JSON.stringify(event.tags) })
       .execute();
   }
 
   /** Insert event tags depending on the event and settings. */
-  protected async insertTags(trx: Kysely<NDatabaseSchema>, event: NostrEvent) {
+  protected async insertTags(trx: Kysely<NDatabaseSchema>, event: NostrEvent): Promise<void> {
     const tags = this.indexTags(event);
     const rows = tags.map(([name, value]) => ({ event_id: event.id, name, value }));
 
@@ -179,12 +182,12 @@ export class NDatabase implements NStore {
       .execute();
   }
 
-  /** Add search data to the FTS table. */
-  protected async indexSearch(trx: Kysely<NDatabaseSchema>, event: NostrEvent) {
-    if (!this.fts) return;
+  /** Add search data to the FTS5 table. */
+  protected async indexSearch(trx: Kysely<NDatabaseSchema>, event: NostrEvent): Promise<void> {
+    if (!this.fts5) return;
     const content = this.searchText(event);
     if (!content) return;
-    await trx.insertInto('nostr_fts')
+    await trx.insertInto('nostr_fts5')
       .values({ event_id: event.id, content })
       .execute();
   }
@@ -196,7 +199,7 @@ export class NDatabase implements NStore {
     filter: NostrFilter,
     replaces: (event: NostrEvent, prevEvent: NDatabaseSchema['nostr_events']) => boolean,
     error: string,
-  ) {
+  ): Promise<void> {
     const prevEvents = await this.getFilterQuery(trx, filter).execute();
     for (const prevEvent of prevEvents) {
       if (!replaces(event, prevEvent)) {
@@ -207,7 +210,10 @@ export class NDatabase implements NStore {
   }
 
   /** Build the query for a filter. */
-  protected getFilterQuery(db: Kysely<NDatabaseSchema>, filter: NostrFilter) {
+  protected getFilterQuery(
+    db: Kysely<NDatabaseSchema>,
+    filter: NostrFilter,
+  ): SelectQueryBuilder<NDatabaseSchema, 'nostr_events', NDatabaseSchema['nostr_events']> {
     let query = db
       .selectFrom('nostr_events')
       .selectAll()
@@ -232,10 +238,10 @@ export class NDatabase implements NStore {
       query = query.limit(filter.limit);
     }
 
-    if (filter.search && this.fts) {
+    if (filter.search && this.fts5) {
       query = query
-        .innerJoin('nostr_fts', 'nostr_fts.event_id', 'nostr_events.id')
-        .where('nostr_fts.content', 'match', JSON.stringify(filter.search));
+        .innerJoin('nostr_fts5', 'nostr_fts5.event_id', 'nostr_events.id')
+        .where('nostr_fts5.content', 'match', JSON.stringify(filter.search));
     }
 
     const joinedQuery = query.leftJoin('nostr_tags', 'nostr_tags.event_id', 'nostr_events.id');
@@ -253,7 +259,9 @@ export class NDatabase implements NStore {
   }
 
   /** Combine filter queries into a single union query. */
-  protected getEventsQuery(filters: NostrFilter[]) {
+  protected getEventsQuery(
+    filters: NostrFilter[],
+  ): SelectQueryBuilder<NDatabaseSchema, 'nostr_events', NDatabaseSchema['nostr_events']> {
     return filters
       .map((filter) =>
         this.db
@@ -285,11 +293,11 @@ export class NDatabase implements NStore {
   }
 
   /** Delete events from each table. Should be run in a transaction! */
-  protected async deleteEventsTrx(db: Kysely<NDatabaseSchema>, filters: NostrFilter[]) {
+  protected async deleteEventsTrx(db: Kysely<NDatabaseSchema>, filters: NostrFilter[]): Promise<DeleteResult[]> {
     const query = this.getEventsQuery(filters).clearSelect().select('id');
 
-    if (this.fts) {
-      await db.deleteFrom('nostr_fts')
+    if (this.fts5) {
+      await db.deleteFrom('nostr_fts5')
         .where('event_id', 'in', () => query)
         .execute();
     }
@@ -320,7 +328,7 @@ export class NDatabase implements NStore {
   }
 
   /** Migrate the database schema. */
-  async migrate() {
+  async migrate(): Promise<void> {
     const schema = this.db.schema;
 
     await schema
@@ -349,7 +357,7 @@ export class NDatabase implements NStore {
       .createIndex('nostr_events_kind_pubkey_created_at')
       .on('nostr_events')
       .ifNotExists()
-      .columns(['kind', 'pubkey', 'created_at'])
+      .columns(['kind', 'pubkey', 'created_at desc'])
       .execute();
 
     await schema.createIndex('nostr_tags_event_id').on('nostr_tags').ifNotExists().column('event_id').execute();
@@ -360,8 +368,8 @@ export class NDatabase implements NStore {
       .columns(['name', 'value'])
       .execute();
 
-    if (this.fts) {
-      await sql`CREATE VIRTUAL TABLE nostr_fts USING fts5(event_id, content)`.execute(this.db);
+    if (this.fts5) {
+      await sql`CREATE VIRTUAL TABLE nostr_fts5 USING fts5(event_id, content)`.execute(this.db);
     }
   }
 }

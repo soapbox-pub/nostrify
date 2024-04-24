@@ -1,4 +1,4 @@
-import { finalizeEvent, generateSecretKey } from 'npm:nostr-tools@^2.3.1';
+import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
 import { NCache } from './NCache.ts';
 

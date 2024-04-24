@@ -1,6 +1,7 @@
 export { LNURL } from './src/LNURL.ts';
 export { Machina } from './src/Machina.ts';
 export { NCache } from './src/NCache.ts';
+export { NConnectSigner, type NConnectSignerOpts } from './src/NConnectSigner.ts';
 export { NCustodial } from './src/NCustodial.ts';
 export { NDatabase, type NDatabaseOpts, type NDatabaseSchema } from './src/NDatabase.ts';
 export { NDenoKv } from './src/NDenoKv.ts';

@@ -9,7 +9,8 @@ import { NRelay } from '../interfaces/NRelay.ts';
 
 import { NSchema as n } from './NSchema.ts';
 
-interface NConnectSignerOpts {
+/** Options for `NConnectSigner`. */
+export interface NConnectSignerOpts {
   /** Relay to facilitate connection. */
   relay: NRelay;
   /** Remote pubkey to sign as. */

@@ -115,7 +115,7 @@ export class NConnectSigner implements NostrSigner {
     const signal = typeof this.timeout === 'number' ? AbortSignal.timeout(this.timeout) : undefined;
 
     const { result, error } = await this.send(
-      { id: method, method, params },
+      { id: crypto.randomUUID(), method, params },
       { signal },
     );
 
@@ -132,7 +132,7 @@ export class NConnectSigner implements NostrSigner {
 
     const event = await this.signer.signEvent({
       kind: 24133,
-      content: JSON.stringify(request),
+      content: await this.signer.nip04!.encrypt(this.pubkey, JSON.stringify(request)),
       created_at: Math.floor(Date.now() / 1000),
       tags: [['p', this.pubkey]],
     });

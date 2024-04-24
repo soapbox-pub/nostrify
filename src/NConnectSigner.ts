@@ -1,5 +1,7 @@
 // deno-lint-ignore-file require-await
 
+import { z } from 'zod';
+
 import { NostrConnectRequest, NostrConnectResponse } from '../interfaces/NostrConnect.ts';
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NostrSigner } from '../interfaces/NostrSigner.ts';
@@ -47,6 +49,15 @@ export class NConnectSigner implements NostrSigner {
     return n.json().pipe(n.event()).parse(result);
   }
 
+  async getRelays(): Promise<Record<string, { read: boolean; write: boolean }>> {
+    const result = await this.cmd('get_relays', []);
+
+    return n
+      .json()
+      .pipe(z.record(z.string(), z.object({ read: z.boolean(), write: z.boolean() })))
+      .parse(result);
+  }
+
   readonly nip04 = {
     encrypt: async (pubkey: string, plaintext: string): Promise<string> => {
       return this.cmd('nip04_encrypt', [pubkey, plaintext]);
@@ -66,6 +77,11 @@ export class NConnectSigner implements NostrSigner {
       return this.cmd('nip44_decrypt', [pubkey, ciphertext]);
     },
   };
+
+  /** Send a `ping` command to the signer. It should respond with `pong`. */
+  async ping(): Promise<string> {
+    return this.cmd('ping', []);
+  }
 
   /** High-level RPC method. Returns the string result, or throws on error. */
   private async cmd(method: string, params: string[]): Promise<string> {

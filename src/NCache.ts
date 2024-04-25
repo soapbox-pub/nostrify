@@ -43,7 +43,7 @@ class NCache extends NSet implements NStore {
   async query(filters: NostrFilter[]): Promise<NostrEvent[]> {
     const events: NostrEvent[] = [];
 
-    for (const event of [...this]) {
+    for (const event of this) {
       if (matchFilters(filters, event)) {
         this.cache.get(event.id);
         events.push(event);

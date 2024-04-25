@@ -12,13 +12,13 @@ import { NSet } from './NSet.ts';
 
 /** Mock relay for testing. */
 export class MockRelay extends NSet implements NRelay {
-  private subs: [uuid: string, filters: NostrFilter[], machina: Machina<NostrEvent>][] = [];
+  private subs = new Map<string, { filters: NostrFilter[]; machina: Machina<NostrEvent> }>();
 
   async *req(filters: NostrFilter[]): AsyncGenerator<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
     const uuid = crypto.randomUUID();
     const machina = new Machina<NostrEvent>();
 
-    this.subs.push([uuid, filters, machina]);
+    this.subs.set(uuid, { filters, machina });
 
     try {
       for (const event of await this.query(filters)) {
@@ -31,14 +31,14 @@ export class MockRelay extends NSet implements NRelay {
         yield ['EVENT', uuid, event];
       }
     } finally {
-      this.subs = this.subs.filter((sub) => sub[0] !== uuid);
+      this.subs.delete(uuid);
     }
   }
 
   async event(event: NostrEvent): Promise<void> {
     this.add(event);
 
-    for (const [_uuid, filters, machina] of this.subs) {
+    for (const { filters, machina } of this.subs.values()) {
       if (matchFilters(filters, event)) {
         machina.push(event);
       }
@@ -48,7 +48,7 @@ export class MockRelay extends NSet implements NRelay {
   async query(filters: NostrFilter[]): Promise<NostrEvent[]> {
     const events: NostrEvent[] = [];
 
-    for (const event of [...this]) {
+    for (const event of this) {
       if (matchFilters(filters, event)) {
         this.cache.get(event.id);
         events.push(event);

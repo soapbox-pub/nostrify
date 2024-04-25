@@ -1,6 +1,8 @@
 export { LNURL } from './src/LNURL.ts';
 export { Machina } from './src/Machina.ts';
+export { MockRelay } from './src/MockRelay.ts';
 export { NCache } from './src/NCache.ts';
+export { NConnectSigner, type NConnectSignerOpts } from './src/NConnectSigner.ts';
 export { NCustodial } from './src/NCustodial.ts';
 export { NDatabase, type NDatabaseOpts, type NDatabaseSchema } from './src/NDatabase.ts';
 export { NDenoKv } from './src/NDenoKv.ts';
@@ -23,6 +25,7 @@ export type {
   NostrClientMsg,
   NostrClientREQ,
 } from './interfaces/NostrClientMsg.ts';
+export type { NostrConnectRequest, NostrConnectResponse } from './interfaces/NostrConnect.ts';
 export type { NostrEvent } from './interfaces/NostrEvent.ts';
 export type { NostrFilter } from './interfaces/NostrFilter.ts';
 export type { NostrMetadata } from './interfaces/NostrMetadata.ts';

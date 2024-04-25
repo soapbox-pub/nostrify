@@ -11,6 +11,7 @@ import {
   NostrClientMsg,
   NostrClientREQ,
 } from '../interfaces/NostrClientMsg.ts';
+import { NostrConnectRequest, NostrConnectResponse } from '../interfaces/NostrConnect.ts';
 import {
   NostrRelayAUTH,
   NostrRelayCLOSED,
@@ -189,6 +190,24 @@ class NSchema {
       lud06: z.string().optional().catch(undefined),
       lud16: z.string().optional().catch(undefined),
     }).passthrough() as z.ZodType<NostrMetadata>;
+  }
+
+  /** NIP-46 request content schema. */
+  static connectRequest(): z.ZodType<NostrConnectRequest> {
+    return z.object({
+      id: z.string(),
+      method: z.string(),
+      params: z.string().array(),
+    });
+  }
+
+  /** NIP-46 response content schema. */
+  static connectResponse(): z.ZodType<NostrConnectResponse> {
+    return z.object({
+      id: z.string(),
+      result: z.string(),
+      error: z.string().optional(),
+    });
   }
 
   /**

@@ -137,8 +137,6 @@ export class NConnectSigner implements NostrSigner {
       tags: [['p', this.pubkey]],
     });
 
-    this.relay.event(event, { signal });
-
     return new Promise<NostrConnectResponse>((resolve, reject) => {
       const cleanup = () => {
         signal?.removeEventListener('abort', onAbort);
@@ -154,6 +152,8 @@ export class NConnectSigner implements NostrSigner {
       };
       signal?.addEventListener('abort', onAbort);
       this.ee.addEventListener(request.id, onEvent);
+
+      this.relay.event(event, { signal });
     });
   }
 }

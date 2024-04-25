@@ -95,8 +95,8 @@ export class NConnectSigner implements NostrSigner {
   };
 
   /** Send a `connect` command to the relay. It should respond with `ack`. */
-  async connect(pubkey: string, secret?: string): Promise<string> {
-    const params: string[] = [pubkey];
+  async connect(secret?: string): Promise<string> {
+    const params: string[] = [this.pubkey];
 
     if (secret) {
       params.push(secret);

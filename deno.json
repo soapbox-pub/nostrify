@@ -5,7 +5,8 @@
   "version": "0.14.3",
   "exports": {
     ".": "./mod.ts",
-    "./policies": "./src/policies/mod.ts"
+    "./policies": "./src/policies/mod.ts",
+    "./test": "./src/test/mod.ts"
   },
   "tasks": {
     "test": "deno test -A",

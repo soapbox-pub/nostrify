@@ -5,6 +5,7 @@
   "version": "0.15.0",
   "exports": {
     ".": "./mod.ts",
+    "./denokv": "./src/denokv/mod.ts",
     "./ln": "./src/ln/mod.ts",
     "./policies": "./src/policies/mod.ts",
     "./test": "./src/test/mod.ts",

@@ -1,8 +1,8 @@
-import { NStore } from '../interfaces/NStore.ts';
-import { NostrEvent } from '../interfaces/NostrEvent.ts';
-import { NostrFilter } from '../interfaces/NostrFilter.ts';
+import { NStore } from '../../interfaces/NStore.ts';
+import { NostrEvent } from '../../interfaces/NostrEvent.ts';
+import { NostrFilter } from '../../interfaces/NostrFilter.ts';
 
-import { NKinds } from './NKinds.ts';
+import { NKinds } from '../NKinds.ts';
 
 const Keys = {
   events(id: string): Deno.KvKey {

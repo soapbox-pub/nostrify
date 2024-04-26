@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.15.0]
+## [0.16.0] - 2024-04-25
+
+### Changed
+
+- BREAKING: moved export of `NDenoKv` to `@nostrify/nostrify/denokv`.
+
+## [0.15.0] - 2024-04-25
 
 ### Changed
 
@@ -88,7 +94,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added `NDenoKv` storage class, for storing events in Deno KV.
 
-[unreleased]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.15.0...HEAD
+[unreleased]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.16.0...HEAD
+[0.16.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.15.0...0.16.0
 [0.15.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.14.3...0.15.0
 [0.14.3]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.14.2...v0.14.3
 [0.14.2]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.14.1...v0.14.2

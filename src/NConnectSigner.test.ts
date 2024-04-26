@@ -3,7 +3,7 @@ import { generateSecretKey, verifyEvent } from 'nostr-tools';
 
 import { NostrConnectResponse } from '../interfaces/NostrConnect.ts';
 
-import { MockRelay } from './MockRelay.ts';
+import { MockRelay } from './test/MockRelay.ts';
 import { NConnectSigner } from './NConnectSigner.ts';
 import { NSchema as n } from './NSchema.ts';
 import { NSecSigner } from './NSecSigner.ts';

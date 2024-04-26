@@ -2,13 +2,13 @@
 
 import { matchFilters } from 'nostr-tools';
 
-import { NostrEvent } from '../interfaces/NostrEvent.ts';
-import { NostrFilter } from '../interfaces/NostrFilter.ts';
-import { NostrRelayCLOSED, NostrRelayCOUNT, NostrRelayEOSE, NostrRelayEVENT } from '../interfaces/NostrRelayMsg.ts';
-import { NRelay } from '../interfaces/NRelay.ts';
+import { NostrEvent } from '../../interfaces/NostrEvent.ts';
+import { NostrFilter } from '../../interfaces/NostrFilter.ts';
+import { NostrRelayCLOSED, NostrRelayCOUNT, NostrRelayEOSE, NostrRelayEVENT } from '../../interfaces/NostrRelayMsg.ts';
+import { NRelay } from '../../interfaces/NRelay.ts';
 
-import { Machina } from './Machina.ts';
-import { NSet } from './NSet.ts';
+import { Machina } from '../utils/Machina.ts';
+import { NSet } from '../NSet.ts';
 
 /** Mock relay for testing. */
 export class MockRelay extends NSet implements NRelay {

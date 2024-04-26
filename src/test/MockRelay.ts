@@ -7,7 +7,7 @@ import { NostrFilter } from '../../interfaces/NostrFilter.ts';
 import { NostrRelayCLOSED, NostrRelayCOUNT, NostrRelayEOSE, NostrRelayEVENT } from '../../interfaces/NostrRelayMsg.ts';
 import { NRelay } from '../../interfaces/NRelay.ts';
 
-import { Machina } from '../Machina.ts';
+import { Machina } from '../utils/Machina.ts';
 import { NSet } from '../NSet.ts';
 
 /** Mock relay for testing. */

@@ -14,7 +14,7 @@ import {
 } from '../interfaces/NostrRelayMsg.ts';
 import { NRelay } from '../interfaces/NRelay.ts';
 
-import { Machina } from './Machina.ts';
+import { Machina } from './utils/Machina.ts';
 import { NSchema as n } from './NSchema.ts';
 import { NSet } from './NSet.ts';
 

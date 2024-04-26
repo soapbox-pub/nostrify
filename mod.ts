@@ -1,5 +1,3 @@
-export { LNURL } from './src/LNURL.ts';
-export { Machina } from './src/Machina.ts';
 export { NCache } from './src/NCache.ts';
 export { NConnectSigner, type NConnectSignerOpts } from './src/NConnectSigner.ts';
 export { NCustodial } from './src/NCustodial.ts';
@@ -16,7 +14,6 @@ export { NSecSigner } from './src/NSecSigner.ts';
 export { NSeedSigner } from './src/NSeedSigner.ts';
 export { NSet } from './src/NSet.ts';
 
-export type { LNURLDetails } from './interfaces/LNURLDetails.ts';
 export type {
   NostrClientCLOSE,
   NostrClientCOUNT,

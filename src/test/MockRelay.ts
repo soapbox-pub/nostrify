@@ -14,7 +14,7 @@ import { NSet } from '../NSet.ts';
 export class MockRelay extends NSet implements NRelay {
   private subs = new Map<string, { filters: NostrFilter[]; machina: Machina<NostrEvent> }>();
 
-  async *req(filters: NostrFilter[]): AsyncGenerator<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
+  async *req(filters: NostrFilter[]): AsyncIterable<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
     const uuid = crypto.randomUUID();
     const machina = new Machina<NostrEvent>();
 

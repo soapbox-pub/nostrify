@@ -23,7 +23,7 @@
  * machina.push('greetings');
  * ```
  */
-export class Machina<T> {
+export class Machina<T> implements AsyncIterable<T> {
   #queue: T[] = [];
   #resolve: (() => void) | undefined;
   #aborted = false;
@@ -36,8 +36,8 @@ export class Machina<T> {
     }
   }
 
-  /** Get messages as an AsyncGenerator. */
-  async *[Symbol.asyncIterator](): AsyncGenerator<T> {
+  /** Get messages as an AsyncIterable. */
+  async *[Symbol.asyncIterator](): AsyncIterator<T> {
     while (!this.#aborted) {
       if (this.#queue.length) {
         yield this.#queue.shift() as T;

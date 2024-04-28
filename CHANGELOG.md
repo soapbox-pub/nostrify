@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- BREAKING: change `NRelay.req` return type from an AsyncGenerator to an AsyncIterable.
+
 ## [0.16.0] - 2024-04-25
 
 ### Changed

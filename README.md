@@ -130,7 +130,7 @@ Relays are an extended form of Storage with real-time streaming capabilities.
 ```ts
 interface NRelay extends NStore {
   /** Subscribe to events matching the given filters. Returns an iterator of raw NIP-01 relay messages. */
-  req(filters: NostrFilter[], opts?: NReqOpts): AsyncGenerator<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>;
+  req(filters: NostrFilter[], opts?: NReqOpts): AsyncIterable<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>;
 }
 ```
 
@@ -146,7 +146,7 @@ Other messages such as `COUNT` and `OK` are handled internally by `NStore` metho
 Other notes:
 
 - `AUTH` is not part of the interface, and should be handled by the implementation using an option in the constructor (see the `NRelay` class below).
-- Using a `break` statement in the `req` loop will close the subscription automatically, sending a `CLOSE` message to the relay. This works thanks to special treatment of `try...finally` blocks by AsyncGenerators.
+- Using a `break` statement in the `req` loop will close the subscription automatically, sending a `CLOSE` message to the relay. This works thanks to special treatment of `try...finally` blocks by AsyncIterables.
 - Passing an `AbortSignal` into the `req` method will also close the subscription automatically when the signal aborts, sending a `CLOSE` message.
 
 ### `NRelay1` class

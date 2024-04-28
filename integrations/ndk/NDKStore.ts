@@ -25,7 +25,7 @@ export class NDKStore implements NRelay {
   async *req(
     filters: NostrFilter[],
     opts: { signal?: AbortSignal } = {},
-  ): AsyncGenerator<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
+  ): AsyncIterable<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
     if (opts.signal?.aborted) throw new DOMException('The signal has been aborted', 'AbortError');
 
     const subId = crypto.randomUUID();

@@ -100,7 +100,7 @@ export class NRelay1 implements NRelay {
   async *req(
     filters: NostrFilter[],
     opts: { signal?: AbortSignal } = {},
-  ): AsyncGenerator<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
+  ): AsyncIterable<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
     const { signal } = opts;
     const subscriptionId = crypto.randomUUID();
 
@@ -170,7 +170,7 @@ export class NRelay1 implements NRelay {
     return count;
   }
 
-  private async *on<K extends keyof EventMap>(key: K, signal?: AbortSignal): AsyncGenerator<EventMap[K]> {
+  private async *on<K extends keyof EventMap>(key: K, signal?: AbortSignal): AsyncIterable<EventMap[K]> {
     if (signal?.aborted) throw this.abortError();
 
     const machina = new Machina<EventMap[K]>(signal);

@@ -73,7 +73,7 @@ export class NPool implements NRelay {
   async *req(
     filters: NostrFilter[],
     opts?: { signal?: AbortSignal },
-  ): AsyncGenerator<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
+  ): AsyncIterable<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
     const controller = new AbortController();
     const signal = opts?.signal ? AbortSignal.any([opts.signal, controller.signal]) : controller.signal;
 

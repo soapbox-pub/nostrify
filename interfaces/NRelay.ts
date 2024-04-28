@@ -8,5 +8,5 @@ export interface NRelay extends NStore {
   req(
     filters: NostrFilter[],
     opts?: { signal?: AbortSignal },
-  ): AsyncGenerator<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>;
+  ): AsyncIterable<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>;
 }

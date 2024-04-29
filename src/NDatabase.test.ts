@@ -75,6 +75,14 @@ Deno.test('NDatabase.query with search', async () => {
   assertEquals(await db.query([{ search: 'Fediverse' }]), [event0]);
 });
 
+Deno.test('NDatabase.query with search and fts5 disabled', async () => {
+  const db = await createDB({ fts5: false });
+
+  await db.event(event1);
+
+  assertEquals(await db.query([{ kinds: [1], search: 'vegan' }]), []);
+});
+
 Deno.test('NDatabase.remove', async () => {
   const db = await createDB();
   await db.event(event1);

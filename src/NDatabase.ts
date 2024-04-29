@@ -238,10 +238,14 @@ export class NDatabase implements NStore {
       query = query.limit(filter.limit);
     }
 
-    if (filter.search && this.fts5) {
-      query = query
-        .innerJoin('nostr_fts5', 'nostr_fts5.event_id', 'nostr_events.id')
-        .where('nostr_fts5.content', 'match', JSON.stringify(filter.search));
+    if (filter.search) {
+      if (this.fts5) {
+        query = query
+          .innerJoin('nostr_fts5', 'nostr_fts5.event_id', 'nostr_events.id')
+          .where('nostr_fts5.content', 'match', JSON.stringify(filter.search));
+      } else {
+        return db.selectFrom('nostr_events').selectAll().where('id', 'in', []);
+      }
     }
 
     const joinedQuery = query.leftJoin('nostr_tags', 'nostr_tags.event_id', 'nostr_events.id');

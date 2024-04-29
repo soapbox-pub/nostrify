@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.1] - 2024-04-29
+
+Redeploy to JSR (to hopefully fix [npm compatibility](https://github.com/jsr-io/jsr/issues/446)).
+
 ## [0.17.0] - 2024-04-28
 
 ### Changed
@@ -100,8 +104,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added `NDenoKv` storage class, for storing events in Deno KV.
 
-[unreleased]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.17.0...HEAD
-[0.16.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.16.0...0.17.0
+[unreleased]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.17.1...HEAD
+[0.17.1]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.17.0...0.17.1
+[0.17.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.16.0...0.17.0
 [0.16.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.15.0...0.16.0
 [0.15.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.14.3...0.15.0
 [0.14.3]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.14.2...v0.14.3

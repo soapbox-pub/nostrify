@@ -30,7 +30,7 @@ export class NDKStore implements NRelay {
 
     const subId = crypto.randomUUID();
     const machina = new Machina<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>(opts.signal);
-    const sub = this.ndk.subscribe(filters, { closeOnEose: true, subId });
+    const sub = this.ndk.subscribe(filters, { subId });
 
     const abort = () => {
       sub.stop();

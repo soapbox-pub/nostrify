@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2024-05-04
+
+### Added
+
+- Added `NSimplePool` class based on SimplePool from nostr-tools.
+
 ## [0.17.1] - 2024-04-29
 
 Redeploy to JSR (to hopefully fix [npm compatibility](https://github.com/jsr-io/jsr/issues/446)).

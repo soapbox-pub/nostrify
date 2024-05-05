@@ -8,6 +8,7 @@ export { NKinds } from './src/NKinds.ts';
 export { NPhraseSigner, type NPhraseSignerOpts } from './src/NPhraseSigner.ts';
 export { NPool, type NPoolOpts } from './src/NPool.ts';
 export { NRelay1, type NRelay1Opts } from './src/NRelay1.ts';
+export { NSimplePool, type NSimplePoolOpts } from './src/NSimplePool.ts';
 export { NSchema } from './src/NSchema.ts';
 export { NSecSigner } from './src/NSecSigner.ts';
 export { NSeedSigner } from './src/NSeedSigner.ts';

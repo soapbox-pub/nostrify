@@ -1,5 +1,6 @@
 import { publish, PublishStatus, subscribe, SubscriptionEvent } from '@welshman/net';
-import { Router, RouterScenario } from '@welshman/util';
+import { sortBy, splitAt } from 'npm:@welshman/lib';
+import { Router, Filter, RouterScenario, mergeFilters, getFilterId, isContextAddress, decodeAddress } from '@welshman/util';
 
 import { NRelay } from '../interfaces/NRelay.ts';
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
@@ -7,11 +8,17 @@ import { NostrFilter } from '../interfaces/NostrFilter.ts';
 import { NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT } from '../interfaces/NostrRelayMsg.ts';
 import { Machina } from '../src/utils/Machina.ts';
 
+type NWelshmanOpts = {
+  router: Router,
+  relayLimit?: number
+  relayRedundancy?: number
+}
+
 export class NWelshman implements NRelay {
-  constructor(private router: Router) {}
+  constructor(private opts: NWelshmanOpts) {}
 
   async event(event: NostrEvent): Promise<void> {
-    const relays = this.router.PublishEvent(event).getUrls();
+    const relays = this.opts.router.PublishEvent(event).getUrls();
 
     const { result } = publish({ event, relays });
 
@@ -27,40 +34,36 @@ export class NWelshman implements NRelay {
     opts?: { signal?: AbortSignal },
   ): AsyncIterable<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
     const machina = new Machina<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>(opts?.signal);
-    const scenarios: RouterScenario[] = [];
+    const subs = []
 
-    for (const filter of filters) {
-      if (filter.authors) {
-        scenarios.push(this.router.FromPubkeys(filter.authors));
-      } else {
-        scenarios.push(this.router.ReadRelays());
-      }
+    for (const { relay, filters: filters2 } of getFilterSelections(filters as Filter[], this.opts)) {
+      const sub = subscribe({
+        // @ts-ignore Filter keys type drama.
+        filters: filters2,
+        relays: [relay],
+      });
+
+      // @ts-ignore Upstream types missing.
+      sub.emitter.on(SubscriptionEvent.Event, (url: string, event: NostrEvent) => {
+        machina.push(['EVENT', url, event]);
+      });
+
+      // @ts-ignore Upstream types missing.
+      sub.emitter.on(SubscriptionEvent.Eose, (url: string) => {
+        machina.push(['EOSE', url]);
+      });
+
+      subs.push(sub)
     }
-
-    const scenario = this.router.merge(scenarios);
-
-    const sub = subscribe({
-      // @ts-ignore Filter keys type drama.
-      filters: filters,
-      relays: scenario.getUrls(),
-    });
-
-    // @ts-ignore Upstream types missing.
-    sub.emitter.on(SubscriptionEvent.Event, (url: string, event: NostrEvent) => {
-      machina.push(['EVENT', url, event]);
-    });
-
-    // @ts-ignore Upstream types missing.
-    sub.emitter.on(SubscriptionEvent.Eose, (url: string) => {
-      machina.push(['EOSE', url]);
-    });
 
     try {
       for await (const msg of machina) {
         yield msg;
       }
     } finally {
-      sub.close();
+      for (const sub of subs) {
+        sub.close();
+      }
     }
   }
 
@@ -76,3 +79,82 @@ export class NWelshman implements NRelay {
     return events;
   }
 }
+
+type FilterSelection = {
+  relay: string
+  filters: Filter[]
+}
+
+const getFilterSelections = (
+  filters: Filter[],
+  {router, relayLimit = 10, relayRedundancy = 3}: NWelshmanOpts
+): FilterSelection[] => {
+  const scenarios: RouterScenario[] = [];
+  const filtersById = new Map<string, Filter>();
+
+  for (const filter of filters) {
+    if (filter.search) {
+      const id = getFilterId(filter);
+
+      filtersById.set(id, filter);
+      scenarios.push(router.product([id], router.options.getSearchRelays()));
+    } else {
+      const contexts = filter['#a']?.filter((a) => isContextAddress(decodeAddress(a)));
+
+      if (contexts?.length > 0) {
+        for (
+          const { relay, values } of router
+            .WithinMultipleContexts(contexts)
+            .policy(router.addMinimalFallbacks)
+            .getSelections()
+        ) {
+          const contextFilter = { ...filter, '#a': Array.from(values) };
+          const id = getFilterId(contextFilter);
+
+          filtersById.set(id, contextFilter);
+          scenarios.push(router.product([id], [relay]));
+        }
+      } else if (filter.authors) {
+        for (
+          const { relay, values } of router
+            .FromPubkeys(filter.authors)
+            .policy(router.addMinimalFallbacks)
+            .getSelections()
+        ) {
+          const authorsFilter = { ...filter, authors: Array.from(values) };
+          const id = getFilterId(authorsFilter);
+
+          filtersById.set(id, authorsFilter);
+          scenarios.push(router.product([id], [relay]));
+        }
+      } else {
+        const id = getFilterId(filter);
+
+        filtersById.set(id, filter);
+        scenarios.push(
+          router.product([id], router.User().policy(router.addMinimalFallbacks).getUrls()),
+        );
+      }
+    }
+  }
+
+  const selections: FilterSelection[] = sortBy(
+    ({ filters }) => -filters[0].authors?.length!,
+    router
+      .merge(scenarios)
+      .getSelections()
+      .map(({ values, relay }) => ({
+        filters: values.map((id: string) => filtersById.get(id) as Filter),
+        relay,
+      })),
+  );
+
+  // Pubkey-based selections can get really big. Use the most popular relays for the long tail
+  const [keep, discard] = splitAt(relayLimit, selections);
+
+  for (const target of keep.slice(0, relayRedundancy)) {
+    target.filters = mergeFilters(discard.concat(target).flatMap(s => s.filters));
+  }
+
+  return keep;
+};

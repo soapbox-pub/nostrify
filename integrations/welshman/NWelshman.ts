@@ -52,13 +52,17 @@ export class NWelshman implements NRelay {
     opts?: { signal?: AbortSignal },
   ): AsyncIterable<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
     const machina = new Machina<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>(opts?.signal);
+
     const subs: Subscription[] = [];
+    const eoses = new Set<WebSocket['url']>();
 
     for (const selection of this.select(filters as Filter[])) {
       const sub = subscribe({
         filters: selection.filters,
         relays: [selection.relay],
       });
+
+      subs.push(sub);
 
       // @ts-ignore Upstream types missing.
       sub.emitter.on(SubscriptionEvent.Event, (url: string, event: NostrEvent) => {
@@ -67,10 +71,11 @@ export class NWelshman implements NRelay {
 
       // @ts-ignore Upstream types missing.
       sub.emitter.on(SubscriptionEvent.Eose, (url: string) => {
-        machina.push(['EOSE', url]);
+        eoses.add(url);
+        if (eoses.size === subs.length) {
+          machina.push(['EOSE', url]);
+        }
       });
-
-      subs.push(sub);
     }
 
     try {

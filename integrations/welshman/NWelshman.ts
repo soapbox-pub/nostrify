@@ -1,5 +1,5 @@
-import { publish, PublishStatus, subscribe, SubscriptionEvent } from '@welshman/net';
-import { sortBy, splitAt } from 'npm:@welshman/lib';
+import { publish, PublishStatus, subscribe, Subscription, SubscriptionEvent } from '@welshman/net';
+import { sortBy, splitAt } from '@welshman/lib';
 import {
   decodeAddress,
   Filter,
@@ -16,11 +16,11 @@ import { NostrFilter } from '../../interfaces/NostrFilter.ts';
 import { NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT } from '../../interfaces/NostrRelayMsg.ts';
 import { Machina } from '../../src/utils/Machina.ts';
 
-type NWelshmanOpts = {
+export interface NWelshmanOpts {
   router: Router;
   relayLimit?: number;
   relayRedundancy?: number;
-};
+}
 
 export class NWelshman implements NRelay {
   constructor(private opts: NWelshmanOpts) {}
@@ -42,12 +42,11 @@ export class NWelshman implements NRelay {
     opts?: { signal?: AbortSignal },
   ): AsyncIterable<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
     const machina = new Machina<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>(opts?.signal);
-    const subs = [];
+    const subs: Subscription[] = [];
 
-    for (const { relay, filters: filters2 } of getFilterSelections(filters as Filter[], this.opts)) {
+    for (const { relay, filters: _filters } of this.getFilterSelections(filters as Filter[])) {
       const sub = subscribe({
-        // @ts-ignore Filter keys type drama.
-        filters: filters2,
+        filters: _filters,
         relays: [relay],
       });
 
@@ -86,83 +85,77 @@ export class NWelshman implements NRelay {
 
     return events;
   }
-}
 
-type FilterSelection = {
-  relay: string;
-  filters: Filter[];
-};
+  /** Split up filters so they are routed to the best relays. */
+  private getFilterSelections(filters: Filter[]): Array<{ relay: string; filters: Filter[] }> {
+    const scenarios: RouterScenario[] = [];
+    const filtersById = new Map<string, Filter>();
+    const { router, relayLimit = 10, relayRedundancy = 2 } = this.opts;
 
-const getFilterSelections = (
-  filters: Filter[],
-  { router, relayLimit = 10, relayRedundancy = 3 }: NWelshmanOpts,
-): FilterSelection[] => {
-  const scenarios: RouterScenario[] = [];
-  const filtersById = new Map<string, Filter>();
-
-  for (const filter of filters) {
-    if (filter.search) {
-      const id = getFilterId(filter);
-
-      filtersById.set(id, filter);
-      scenarios.push(router.product([id], router.options.getSearchRelays()));
-    } else {
-      const contexts = filter['#a']?.filter((a) => isContextAddress(decodeAddress(a)));
-
-      if (contexts?.length > 0) {
-        for (
-          const { relay, values } of router
-            .WithinMultipleContexts(contexts)
-            .policy(router.addMinimalFallbacks)
-            .getSelections()
-        ) {
-          const contextFilter = { ...filter, '#a': Array.from(values) };
-          const id = getFilterId(contextFilter);
-
-          filtersById.set(id, contextFilter);
-          scenarios.push(router.product([id], [relay]));
-        }
-      } else if (filter.authors) {
-        for (
-          const { relay, values } of router
-            .FromPubkeys(filter.authors)
-            .policy(router.addMinimalFallbacks)
-            .getSelections()
-        ) {
-          const authorsFilter = { ...filter, authors: Array.from(values) };
-          const id = getFilterId(authorsFilter);
-
-          filtersById.set(id, authorsFilter);
-          scenarios.push(router.product([id], [relay]));
-        }
-      } else {
+    for (const filter of filters) {
+      if (filter.search) {
         const id = getFilterId(filter);
 
         filtersById.set(id, filter);
-        scenarios.push(
-          router.product([id], router.User().policy(router.addMinimalFallbacks).getUrls()),
-        );
+        scenarios.push(router.product([id], router.options.getSearchRelays()));
+      } else {
+        const contexts = filter['#a']?.filter((a) => isContextAddress(decodeAddress(a)));
+
+        if (contexts?.length > 0) {
+          for (
+            const { relay, values } of router
+              .WithinMultipleContexts(contexts)
+              .policy(router.addMinimalFallbacks)
+              .getSelections()
+          ) {
+            const contextFilter = { ...filter, '#a': Array.from(values) };
+            const id = getFilterId(contextFilter);
+
+            filtersById.set(id, contextFilter);
+            scenarios.push(router.product([id], [relay]));
+          }
+        } else if (filter.authors) {
+          for (
+            const { relay, values } of router
+              .FromPubkeys(filter.authors)
+              .policy(router.addMinimalFallbacks)
+              .getSelections()
+          ) {
+            const authorsFilter = { ...filter, authors: Array.from(values) };
+            const id = getFilterId(authorsFilter);
+
+            filtersById.set(id, authorsFilter);
+            scenarios.push(router.product([id], [relay]));
+          }
+        } else {
+          const id = getFilterId(filter);
+
+          filtersById.set(id, filter);
+          scenarios.push(
+            router.product([id], router.User().policy(router.addMinimalFallbacks).getUrls()),
+          );
+        }
       }
     }
+
+    const selections = sortBy(
+      ({ filters }) => -filters[0].authors?.length!,
+      router
+        .merge(scenarios)
+        .getSelections()
+        .map(({ values, relay }) => ({
+          filters: values.map((id: string) => filtersById.get(id) as Filter),
+          relay,
+        })),
+    );
+
+    // Pubkey-based selections can get really big. Use the most popular relays for the long tail.
+    const [keep, discard] = splitAt(relayLimit, selections);
+
+    for (const target of keep.slice(0, relayRedundancy)) {
+      target.filters = mergeFilters(discard.concat(target).flatMap((s) => s.filters));
+    }
+
+    return keep;
   }
-
-  const selections: FilterSelection[] = sortBy(
-    ({ filters }) => -filters[0].authors?.length!,
-    router
-      .merge(scenarios)
-      .getSelections()
-      .map(({ values, relay }) => ({
-        filters: values.map((id: string) => filtersById.get(id) as Filter),
-        relay,
-      })),
-  );
-
-  // Pubkey-based selections can get really big. Use the most popular relays for the long tail
-  const [keep, discard] = splitAt(relayLimit, selections);
-
-  for (const target of keep.slice(0, relayRedundancy)) {
-    target.filters = mergeFilters(discard.concat(target).flatMap((s) => s.filters));
-  }
-
-  return keep;
-};
+}

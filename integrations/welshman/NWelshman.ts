@@ -1,5 +1,5 @@
-import { publish, PublishStatus, subscribe, Subscription, SubscriptionEvent } from '@welshman/net';
 import { sortBy, splitAt } from '@welshman/lib';
+import { publish, PublishStatus, subscribe, Subscription, SubscriptionEvent } from '@welshman/net';
 import {
   decodeAddress,
   Filter,
@@ -10,11 +10,11 @@ import {
   RouterScenario,
 } from '@welshman/util';
 
-import { NRelay } from '../../interfaces/NRelay.ts';
+import { Machina } from '../../src/utils/Machina.ts';
 import { NostrEvent } from '../../interfaces/NostrEvent.ts';
 import { NostrFilter } from '../../interfaces/NostrFilter.ts';
 import { NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT } from '../../interfaces/NostrRelayMsg.ts';
-import { Machina } from '../../src/utils/Machina.ts';
+import { NRelay } from '../../interfaces/NRelay.ts';
 
 export interface NWelshmanOpts {
   router: Router;

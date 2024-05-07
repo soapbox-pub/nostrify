@@ -43,7 +43,7 @@ export class NWelshman implements NRelay {
     const machina = new Machina<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>(opts?.signal);
     const subs: Subscription[] = [];
 
-    for (const { relay, filters: _filters } of this.getFilterSelections(filters as Filter[])) {
+    for (const { relay, filters: _filters } of this.select(filters as Filter[])) {
       const sub = subscribe({
         filters: _filters,
         relays: [relay],
@@ -86,7 +86,7 @@ export class NWelshman implements NRelay {
   }
 
   /** Split up filters so they are routed to the best relays. */
-  private getFilterSelections(filters: Filter[]): Array<{ relay: string; filters: Filter[] }> {
+  private select(filters: Filter[]): Array<{ relay: string; filters: Filter[] }> {
     const scenarios: RouterScenario[] = [];
     const filtersById = new Map<string, Filter>();
     const { router, relayLimit = 10, relayRedundancy = 2 } = this.opts;

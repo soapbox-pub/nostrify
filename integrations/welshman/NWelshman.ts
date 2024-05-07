@@ -16,17 +16,28 @@ import { NostrFilter } from '../../interfaces/NostrFilter.ts';
 import { NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT } from '../../interfaces/NostrRelayMsg.ts';
 import { NRelay } from '../../interfaces/NRelay.ts';
 
+/** Options for the NWelshman class. */
 export interface NWelshmanOpts {
-  router: Router;
   relayLimit?: number;
   relayRedundancy?: number;
 }
 
+/**
+ * NWelshman is a relay pool using the [Welshman](https://github.com/coracle-social/welshman) library by [Coracle](https://coracle.social/).
+ *
+ * It accepts a Welshman `Router` object which is used to intelligently route requests to the best relays.
+ * This enables outbox support and more.
+ */
 export class NWelshman implements NRelay {
-  constructor(private opts: NWelshmanOpts) {}
+  constructor(
+    /** Welshman Router object to determine which relays to use for each request. */
+    private router: Router,
+    /** Additional options for the Welshman relay pool. */
+    private opts: NWelshmanOpts = {},
+  ) {}
 
   async event(event: NostrEvent): Promise<void> {
-    const relays = this.opts.router.PublishEvent(event).getUrls();
+    const relays = this.router.PublishEvent(event).getUrls();
 
     const { result } = publish({ event, relays });
     const statuses = Array.from((await result).values());
@@ -87,7 +98,8 @@ export class NWelshman implements NRelay {
 
   /** Split up filters so they are routed to the best relays. */
   private select(filters: Filter[]): Array<{ relay: string; filters: Filter[] }> {
-    const { router, relayLimit = 10, relayRedundancy = 2 } = this.opts;
+    const router = this.router;
+    const { relayLimit = 10, relayRedundancy = 2 } = this.opts;
 
     const scenarios: RouterScenario[] = [];
     const filtersById = new Map<string, Filter>();

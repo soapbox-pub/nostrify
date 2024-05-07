@@ -1,18 +1,26 @@
 import { publish, PublishStatus, subscribe, SubscriptionEvent } from '@welshman/net';
 import { sortBy, splitAt } from 'npm:@welshman/lib';
-import { Router, Filter, RouterScenario, mergeFilters, getFilterId, isContextAddress, decodeAddress } from '@welshman/util';
+import {
+  decodeAddress,
+  Filter,
+  getFilterId,
+  isContextAddress,
+  mergeFilters,
+  Router,
+  RouterScenario,
+} from '@welshman/util';
 
-import { NRelay } from '../interfaces/NRelay.ts';
-import { NostrEvent } from '../interfaces/NostrEvent.ts';
-import { NostrFilter } from '../interfaces/NostrFilter.ts';
-import { NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT } from '../interfaces/NostrRelayMsg.ts';
-import { Machina } from '../src/utils/Machina.ts';
+import { NRelay } from '../../interfaces/NRelay.ts';
+import { NostrEvent } from '../../interfaces/NostrEvent.ts';
+import { NostrFilter } from '../../interfaces/NostrFilter.ts';
+import { NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT } from '../../interfaces/NostrRelayMsg.ts';
+import { Machina } from '../../src/utils/Machina.ts';
 
 type NWelshmanOpts = {
-  router: Router,
-  relayLimit?: number
-  relayRedundancy?: number
-}
+  router: Router;
+  relayLimit?: number;
+  relayRedundancy?: number;
+};
 
 export class NWelshman implements NRelay {
   constructor(private opts: NWelshmanOpts) {}
@@ -34,7 +42,7 @@ export class NWelshman implements NRelay {
     opts?: { signal?: AbortSignal },
   ): AsyncIterable<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
     const machina = new Machina<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>(opts?.signal);
-    const subs = []
+    const subs = [];
 
     for (const { relay, filters: filters2 } of getFilterSelections(filters as Filter[], this.opts)) {
       const sub = subscribe({
@@ -53,7 +61,7 @@ export class NWelshman implements NRelay {
         machina.push(['EOSE', url]);
       });
 
-      subs.push(sub)
+      subs.push(sub);
     }
 
     try {
@@ -81,13 +89,13 @@ export class NWelshman implements NRelay {
 }
 
 type FilterSelection = {
-  relay: string
-  filters: Filter[]
-}
+  relay: string;
+  filters: Filter[];
+};
 
 const getFilterSelections = (
   filters: Filter[],
-  {router, relayLimit = 10, relayRedundancy = 3}: NWelshmanOpts
+  { router, relayLimit = 10, relayRedundancy = 3 }: NWelshmanOpts,
 ): FilterSelection[] => {
   const scenarios: RouterScenario[] = [];
   const filtersById = new Map<string, Filter>();
@@ -153,7 +161,7 @@ const getFilterSelections = (
   const [keep, discard] = splitAt(relayLimit, selections);
 
   for (const target of keep.slice(0, relayRedundancy)) {
-    target.filters = mergeFilters(discard.concat(target).flatMap(s => s.filters));
+    target.filters = mergeFilters(discard.concat(target).flatMap((s) => s.filters));
   }
 
   return keep;

@@ -29,10 +29,9 @@ export class NWelshman implements NRelay {
     const relays = this.opts.router.PublishEvent(event).getUrls();
 
     const { result } = publish({ event, relays });
+    const statuses = Array.from((await result).values());
 
-    const map = await result;
-
-    if ([...map.values()].every((value) => value === PublishStatus.Failure)) {
+    if (statuses.every((status) => status === PublishStatus.Failure)) {
       throw new Error('Failed to publish event');
     }
   }

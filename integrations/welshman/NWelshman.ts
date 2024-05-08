@@ -1,3 +1,5 @@
+import { NostrEvent, NostrFilter, NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT, NRelay } from '@nostrify/nostrify';
+import { Machina } from '@nostrify/nostrify/utils';
 import { sortBy, splitAt } from '@welshman/lib';
 import { publish, PublishStatus, subscribe, Subscription, SubscriptionEvent } from '@welshman/net';
 import {
@@ -9,12 +11,6 @@ import {
   Router,
   RouterScenario,
 } from '@welshman/util';
-
-import { Machina } from '../../src/utils/Machina.ts';
-import { NostrEvent } from '../../interfaces/NostrEvent.ts';
-import { NostrFilter } from '../../interfaces/NostrFilter.ts';
-import { NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT } from '../../interfaces/NostrRelayMsg.ts';
-import { NRelay } from '../../interfaces/NRelay.ts';
 
 /** Options for the NWelshman class. */
 export interface NWelshmanOpts {

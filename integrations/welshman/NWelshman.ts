@@ -115,43 +115,45 @@ export class NWelshman implements NRelay {
 
         filtersById.set(id, filter);
         scenarios.push(router.product([id], router.options.getSearchRelays()));
-      } else {
-        const contexts = filter['#a']?.filter((a) => isContextAddress(decodeAddress(a)));
 
-        if (contexts?.length > 0) {
-          for (
-            const { relay, values } of router
-              .WithinMultipleContexts(contexts)
-              .policy(router.addMinimalFallbacks)
-              .getSelections()
-          ) {
-            const contextFilter = { ...filter, '#a': Array.from(values) };
-            const id = getFilterId(contextFilter);
+        continue;
+      }
 
-            filtersById.set(id, contextFilter);
-            scenarios.push(router.product([id], [relay]));
-          }
-        } else if (filter.authors) {
-          for (
-            const { relay, values } of router
-              .FromPubkeys(filter.authors)
-              .policy(router.addMinimalFallbacks)
-              .getSelections()
-          ) {
-            const authorsFilter = { ...filter, authors: Array.from(values) };
-            const id = getFilterId(authorsFilter);
+      const contexts = filter['#a']?.filter((a) => isContextAddress(decodeAddress(a)));
 
-            filtersById.set(id, authorsFilter);
-            scenarios.push(router.product([id], [relay]));
-          }
-        } else {
-          const id = getFilterId(filter);
+      if (contexts?.length > 0) {
+        for (
+          const { relay, values } of router
+            .WithinMultipleContexts(contexts)
+            .policy(router.addMinimalFallbacks)
+            .getSelections()
+        ) {
+          const contextFilter = { ...filter, '#a': Array.from(values) };
+          const id = getFilterId(contextFilter);
 
-          filtersById.set(id, filter);
-          scenarios.push(
-            router.product([id], router.User().policy(router.addMinimalFallbacks).getUrls()),
-          );
+          filtersById.set(id, contextFilter);
+          scenarios.push(router.product([id], [relay]));
         }
+      } else if (filter.authors) {
+        for (
+          const { relay, values } of router
+            .FromPubkeys(filter.authors)
+            .policy(router.addMinimalFallbacks)
+            .getSelections()
+        ) {
+          const authorsFilter = { ...filter, authors: Array.from(values) };
+          const id = getFilterId(authorsFilter);
+
+          filtersById.set(id, authorsFilter);
+          scenarios.push(router.product([id], [relay]));
+        }
+      } else {
+        const id = getFilterId(filter);
+
+        filtersById.set(id, filter);
+        scenarios.push(
+          router.product([id], router.User().policy(router.addMinimalFallbacks).getUrls()),
+        );
       }
     }
 
@@ -161,7 +163,7 @@ export class NWelshman implements NRelay {
         .merge(scenarios)
         .getSelections()
         .map(({ values, relay }) => ({
-          filters: values.map((id: string) => filtersById.get(id) as Filter),
+          filters: values.map((id) => filtersById.get(id)!),
           relay,
         })),
     );

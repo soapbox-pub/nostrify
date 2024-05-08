@@ -21,6 +21,7 @@ Deno.test({
   },
   sanitizeOps: false,
   sanitizeResources: false,
+  ignore: Deno.env.get('CI') === 'true',
 });
 
 Deno.test({
@@ -45,6 +46,7 @@ Deno.test({
   },
   sanitizeOps: false,
   sanitizeResources: false,
+  ignore: Deno.env.get('CI') === 'true',
 });
 
 Deno.test({
@@ -68,4 +70,5 @@ Deno.test({
   },
   sanitizeOps: false,
   sanitizeResources: false,
+  ignore: Deno.env.get('CI') === 'true',
 });

@@ -29,9 +29,6 @@
     "singleQuote": true,
     "proseWrap": "preserve"
   },
-  "test": {
-    "exclude": ["integrations/"]
-  },
   "unstable": ["ffi", "kv"],
   "imports": {
     "@db/sqlite": "jsr:@db/sqlite@^0.11.1",

@@ -17,7 +17,7 @@ const router = new Router({
   getIndexerRelays: (): string[] => relays,
   getSearchRelays: (): string[] => relays,
   getRelayQuality: (): number => 1,
-  getRedundancy: (): number => 0,
+  getRedundancy: (): number => 2,
   getLimit: (): number => 10,
 });
 

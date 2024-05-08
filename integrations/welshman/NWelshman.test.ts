@@ -1,20 +1,30 @@
-import NDK from '@nostr-dev-kit/ndk';
 import { assert } from '@std/assert';
+import { Router } from '@welshman/util';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
 import { NostrEvent } from '../../interfaces/NostrEvent.ts';
 
-import { NDKStore } from './NDKStore.ts';
+import { NWelshman } from './NWelshman.ts';
+
+const relays = ['wss://relay.mostr.pub'];
+
+const router = new Router({
+  getUserPubkey: (): string | null => null,
+  getGroupRelays: (): string[] => relays,
+  getCommunityRelays: (): string[] => relays,
+  getPubkeyRelays: (): string[] => relays,
+  getStaticRelays: (): string[] => relays,
+  getIndexerRelays: (): string[] => relays,
+  getSearchRelays: (): string[] => relays,
+  getRelayQuality: (): number => 1,
+  getRedundancy: (): number => 2,
+  getLimit: (): number => 10,
+});
 
 Deno.test({
-  name: 'NDKStore.query',
+  name: 'NWelshman.query',
   fn: async () => {
-    const ndk = new NDK({
-      explicitRelayUrls: ['wss://relay.mostr.pub', 'wss://relay.primal.net', 'wss://relay.nostr.band'],
-    });
-    await ndk.connect(3000);
-
-    const relay = new NDKStore(ndk);
+    const relay = new NWelshman(router);
     const events = await relay.query([{ kinds: [1], limit: 3 }]);
 
     assert(events.length);
@@ -25,14 +35,9 @@ Deno.test({
 });
 
 Deno.test({
-  name: 'NDKStore.req',
+  name: 'NWelshman.req',
   fn: async () => {
-    const ndk = new NDK({
-      explicitRelayUrls: ['wss://relay.mostr.pub', 'wss://relay.primal.net', 'wss://relay.nostr.band'],
-    });
-    await ndk.connect(3000);
-
-    const relay = new NDKStore(ndk);
+    const relay = new NWelshman(router);
     const events: NostrEvent[] = [];
 
     for await (const msg of relay.req([{ kinds: [1], limit: 3 }])) {
@@ -50,14 +55,9 @@ Deno.test({
 });
 
 Deno.test({
-  name: 'NDKStore.event',
+  name: 'NWelshman.event',
   fn: async () => {
-    const ndk = new NDK({
-      explicitRelayUrls: ['wss://relay.mostr.pub'],
-    });
-    await ndk.connect(3000);
-
-    const relay = new NDKStore(ndk);
+    const relay = new NWelshman(router);
 
     const event: NostrEvent = finalizeEvent({
       kind: 1,

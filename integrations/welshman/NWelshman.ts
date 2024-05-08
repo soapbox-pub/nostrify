@@ -55,8 +55,14 @@ export class NWelshman implements NRelay {
 
     const subs: Subscription[] = [];
     const eoses = new Set<WebSocket['url']>();
+    const selections = this.select(filters as Filter[]);
 
-    for (const selection of this.select(filters as Filter[])) {
+    if (!selections.length) {
+      machina.push(['EOSE', '']);
+      return;
+    }
+
+    for (const selection of selections) {
       const sub = subscribe({
         filters: selection.filters,
         relays: [selection.relay],

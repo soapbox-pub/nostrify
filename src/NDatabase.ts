@@ -1,4 +1,5 @@
 import { type DeleteResult, Kysely, type SelectQueryBuilder, sql } from 'kysely';
+import { sortEvents } from 'nostr-tools';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NStore } from '../interfaces/NStore.ts';
@@ -216,8 +217,17 @@ export class NDatabase implements NStore {
   ): SelectQueryBuilder<NDatabaseSchema, 'nostr_events', NDatabaseSchema['nostr_events']> {
     let query = db
       .selectFrom('nostr_events')
-      .selectAll()
-      .orderBy('created_at', 'desc');
+      .selectAll();
+
+    /** Whether we are querying for replaceable events by author. */
+    const isAddrQuery = filter.authors &&
+      filter.kinds &&
+      filter.kinds.every((kind) => NKinds.replaceable(kind) || NKinds.parameterizedReplaceable(kind));
+
+    // Avoid ORDER BY when querying for replaceable events by author.
+    if (!isAddrQuery) {
+      query = query.orderBy('created_at', 'desc');
+    }
 
     if (filter.ids) {
       query = query.where('id', 'in', filter.ids);
@@ -283,7 +293,7 @@ export class NDatabase implements NStore {
       query = query.limit(opts.limit);
     }
 
-    return (await query.execute()).map((row) => {
+    const events = (await query.execute()).map((row) => {
       return {
         id: row.id,
         kind: row.kind,
@@ -294,6 +304,8 @@ export class NDatabase implements NStore {
         sig: row.sig,
       };
     });
+
+    return sortEvents(events);
   }
 
   /** Delete events from each table. Should be run in a transaction! */

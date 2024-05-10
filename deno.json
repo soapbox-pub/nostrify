@@ -12,7 +12,7 @@
     "./utils": "./src/utils/mod.ts"
   },
   "tasks": {
-    "test": "deno test -A",
+    "test": "deno test -A --junit-path=./deno-test.xml",
     "check": "deno check mod.ts"
   },
   "lint": {

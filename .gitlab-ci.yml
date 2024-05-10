@@ -17,3 +17,9 @@ lint:
 test:
   stage: test
   script: deno task test
+  artifacts:
+    when: always
+    paths:
+      - deno-test.xml
+    reports:
+      junit: deno-test.xml

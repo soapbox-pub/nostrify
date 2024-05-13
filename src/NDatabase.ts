@@ -27,21 +27,25 @@ export interface NDatabaseSchema {
     event_id: string;
     content: string;
   };
+  nostr_pgfts: {
+    event_id: string;
+    search_vec: any;
+  }
 }
 
 /**
- * Describes the full-text search behaviour for NDatabase. 
+ * Describes the full-text search behaviour for NDatabase.
  * This is set to `DISABLED` by default.
- * 
+ *
  * Use:
- * * `POSTGRES` if you are using a PostgreSQL database 
+ * * `POSTGRES` if you are using a PostgreSQL database
  * * `SQLITE` if you are using the SQLite backend (this uses fts5)
  * There is no support for other databases at the moment.
  */
 export enum FtsKind {
   DISABLED,
   POSTGRES,
-  SQLITE
+  SQLITE,
 }
 
 export interface NDatabaseOpts {
@@ -204,9 +208,14 @@ export class NDatabase implements NStore {
     if (!content) return;
     switch (this.fts) {
       case FtsKind.POSTGRES: {
-
-      }
+        await trx.insertInto('nostr_pgfts')
+          .values({
+            event_id: event.id,
+            search_vec: sql`to_tsvector(${event.content} || ${event.pubkey} || ${event.tags} || ${event.id})`
+          })
+          .execute();
         break;
+      }
       case FtsKind.SQLITE:
         await trx.insertInto('nostr_fts5')
           .values({ event_id: event.id, content })
@@ -275,11 +284,13 @@ export class NDatabase implements NStore {
         query = query
           .innerJoin('nostr_fts5', 'nostr_fts5.event_id', 'nostr_events.id')
           .where('nostr_fts5.content', 'match', JSON.stringify(filter.search));
-      }
-      else if (this.fts === FtsKind.POSTGRES) {
-
-      }
-      else {
+      } else if (this.fts === FtsKind.POSTGRES) {
+        query = query
+          .innerJoin('nostr_pgfts', 'nostr_pgfts.event_id', 'nostr_events.id')
+          .where(sql`phraseto_tsquery(${filter.search})`, '@@', sql`search_vec`);
+        const compiled = query.compile();
+        console.log(compiled.sql);
+      } else {
         return db.selectFrom('nostr_events').selectAll().where('id', 'in', []);
       }
     }
@@ -342,9 +353,6 @@ export class NDatabase implements NStore {
       await db.deleteFrom('nostr_fts5')
         .where('event_id', 'in', () => query)
         .execute();
-    }
-    else if (this.fts === FtsKind.POSTGRES) {
-
     }
 
     return db.deleteFrom('nostr_events')
@@ -415,9 +423,14 @@ export class NDatabase implements NStore {
 
     if (this.fts === FtsKind.SQLITE) {
       await sql`CREATE VIRTUAL TABLE nostr_fts5 USING fts5(event_id, content)`.execute(this.db);
-    }
-    else if (this.fts === FtsKind.POSTGRES) {
-
+    } else if (this.fts === FtsKind.POSTGRES) {
+      schema.createTable('nostr_pgfts')
+        .ifNotExists()
+        .addColumn('event_id', 'text', c => c.primaryKey()
+          .references('nostr_events.id')
+          .onDelete('cascade'))
+        .addColumn('search_vec', sql`tsvector`, c => c.notNull())
+        .execute();
     }
   }
 }

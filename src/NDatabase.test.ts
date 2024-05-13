@@ -3,10 +3,11 @@ import { assertEquals, assertRejects } from '@std/assert';
 import { DenoSqlite3Dialect } from '@soapbox/kysely-deno-sqlite';
 import { Kysely } from 'kysely';
 
-import { NDatabase, NDatabaseOpts, NDatabaseSchema } from './NDatabase.ts';
+import { FtsKind, NDatabase, NDatabaseOpts, NDatabaseSchema } from './NDatabase.ts';
 
 import event0 from '../fixtures/event-0.json' with { type: 'json' };
 import event1 from '../fixtures/event-1.json' with { type: 'json' };
+import { createPgKysely } from './utils/postgres-kysely-driver.ts';
 
 /** Create in-memory database for testing. */
 const createDB = async (opts?: NDatabaseOpts) => {
@@ -20,12 +21,25 @@ const createDB = async (opts?: NDatabaseOpts) => {
   return db;
 };
 
+const createPostgresDB = async (opts?: NDatabaseOpts) => {
+  const kysely = createPgKysely({
+    database: 'nostrify-ndatabase-pg-testing',
+    host: '127.0.0.1',
+    port: 5432,
+    password: '1234',
+    username: 'postgres',
+  });
+  const db = new NDatabase(kysely, opts);
+  await db.migrate();
+  return { db, kysely };
+}
+
 Deno.test('NDatabase.migrate', async () => {
   await createDB();
 });
 
-Deno.test('NDatabase.migrate with FTS5', async () => {
-  await createDB({ fts5: true });
+Deno.test('NDatabase.migrate with sqlite fts', async () => {
+  await createDB({ fts: FtsKind.SQLITE });
 });
 
 Deno.test('NDatabase.migrate twice', async () => {
@@ -66,7 +80,7 @@ Deno.test("NDatabase.query with multiple tags doesn't crash", async () => {
 });
 
 Deno.test('NDatabase.query with search', async () => {
-  const db = await createDB({ fts5: true });
+  const db = await createDB({ fts: FtsKind.SQLITE });
 
   await db.event(event0);
   await db.event(event1);
@@ -75,8 +89,19 @@ Deno.test('NDatabase.query with search', async () => {
   assertEquals(await db.query([{ search: 'Fediverse' }]), [event0]);
 });
 
-Deno.test('NDatabase.query with search and fts5 disabled', async () => {
-  const db = await createDB({ fts5: false });
+Deno.test('NDatabase.query with postgres fts', async () => {
+  const { db, kysely } = await createPostgresDB({ fts: FtsKind.POSTGRES });
+
+  await db.event(event0);
+  await db.event(event1);
+
+  assertEquals(await db.query([{ search: 'vegan' }]), [event0, event1]);
+  assertEquals(await db.query([{ search: 'Fediverse' }]), [event0]);
+  await kysely.destroy();
+});
+
+Deno.test('NDatabase.query with search and fts disabled', async () => {
+  const db = await createDB({ fts: FtsKind.DISABLED });
 
   await db.event(event1);
 

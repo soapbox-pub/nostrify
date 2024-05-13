@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Improved performance of NDatabase when querying replaceable events by author.
+- NConnect.signEvent now throws if the connect message was rejected by the relay.
 
 ## [0.18.0] - 2024-05-04
 

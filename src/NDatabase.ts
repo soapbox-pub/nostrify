@@ -29,9 +29,23 @@ export interface NDatabaseSchema {
   };
 }
 
+/**
+ * Describes the full-text search behaviour for NDatabase. 
+ * This is set to `DISABLED` by default.
+ * 
+ * Use:
+ * * `POSTGRES` if you are using a PostgreSQL database 
+ * * `SQLITE` if you are using the SQLite backend (this uses fts5)
+ * There is no support for other databases at the moment.
+ */
+export enum FtsKind {
+  DISABLED,
+  POSTGRES,
+  SQLITE
+}
+
 export interface NDatabaseOpts {
-  /** Whether or not to enable full-text search with SQLite FTS5. */
-  fts5?: boolean;
+  fts?: FtsKind;
   /**
    * Function that returns which tags to index so tag queries like `{ "#p": ["123"] }` will work.
    * By default, all single-letter tags are indexed.
@@ -71,13 +85,13 @@ export interface NDatabaseOpts {
  */
 export class NDatabase implements NStore {
   private db: Kysely<NDatabaseSchema>;
-  private fts5: boolean;
+  private fts: FtsKind;
   private indexTags: (event: NostrEvent) => string[][];
   private searchText: (event: NostrEvent) => string | undefined;
 
   constructor(db: Kysely<any>, opts?: NDatabaseOpts) {
     this.db = db as Kysely<NDatabaseSchema>;
-    this.fts5 = opts?.fts5 ?? false;
+    this.fts = opts?.fts ?? FtsKind.DISABLED;
     this.indexTags = opts?.indexTags ?? NDatabase.indexTags;
     this.searchText = opts?.searchText ?? NDatabase.searchText;
   }
@@ -185,12 +199,20 @@ export class NDatabase implements NStore {
 
   /** Add search data to the FTS5 table. */
   protected async indexSearch(trx: Kysely<NDatabaseSchema>, event: NostrEvent): Promise<void> {
-    if (!this.fts5) return;
+    if (this.fts === FtsKind.DISABLED) return;
     const content = this.searchText(event);
     if (!content) return;
-    await trx.insertInto('nostr_fts5')
-      .values({ event_id: event.id, content })
-      .execute();
+    switch (this.fts) {
+      case FtsKind.POSTGRES: {
+
+      }
+        break;
+      case FtsKind.SQLITE:
+        await trx.insertInto('nostr_fts5')
+          .values({ event_id: event.id, content })
+          .execute();
+        break;
+    }
   }
 
   /** Delete events that are replaced by the new event. */
@@ -249,11 +271,15 @@ export class NDatabase implements NStore {
     }
 
     if (filter.search) {
-      if (this.fts5) {
+      if (this.fts === FtsKind.SQLITE) {
         query = query
           .innerJoin('nostr_fts5', 'nostr_fts5.event_id', 'nostr_events.id')
           .where('nostr_fts5.content', 'match', JSON.stringify(filter.search));
-      } else {
+      }
+      else if (this.fts === FtsKind.POSTGRES) {
+
+      }
+      else {
         return db.selectFrom('nostr_events').selectAll().where('id', 'in', []);
       }
     }
@@ -312,10 +338,13 @@ export class NDatabase implements NStore {
   protected async deleteEventsTrx(db: Kysely<NDatabaseSchema>, filters: NostrFilter[]): Promise<DeleteResult[]> {
     const query = this.getEventsQuery(filters).clearSelect().select('id');
 
-    if (this.fts5) {
+    if (this.fts === FtsKind.SQLITE) {
       await db.deleteFrom('nostr_fts5')
         .where('event_id', 'in', () => query)
         .execute();
+    }
+    else if (this.fts === FtsKind.POSTGRES) {
+
     }
 
     return db.deleteFrom('nostr_events')
@@ -384,8 +413,11 @@ export class NDatabase implements NStore {
       .columns(['name', 'value'])
       .execute();
 
-    if (this.fts5) {
+    if (this.fts === FtsKind.SQLITE) {
       await sql`CREATE VIRTUAL TABLE nostr_fts5 USING fts5(event_id, content)`.execute(this.db);
+    }
+    else if (this.fts === FtsKind.POSTGRES) {
+
     }
   }
 }

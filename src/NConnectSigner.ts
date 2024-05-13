@@ -123,7 +123,7 @@ export class NConnectSigner implements NostrSigner {
       { signal },
     );
 
-    this.relay.event(event, { signal });
+    await this.relay.event(event, { signal });
 
     for await (const msg of req) {
       if (msg[0] === 'CLOSED') throw new Error('Subscription closed');

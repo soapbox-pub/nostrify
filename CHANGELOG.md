@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- NDatabase: fix deleting everything for the author when they delete a single event.
+
 ## [0.19.0] - 2024-05-13
 
 ### Fixed

@@ -132,10 +132,11 @@ export class NDatabase implements NStore {
   /** Delete events referenced by kind 5. */
   protected async deleteEvents(trx: Kysely<NDatabaseSchema>, event: NostrEvent): Promise<void> {
     if (event.kind === 5) {
-      await this.deleteEventsTrx(trx, [{
-        ids: event.tags.filter(([name]) => name === 'e')?.[1],
-        authors: [event.pubkey],
-      }]);
+      const ids = event.tags
+        .filter(([name]) => name === 'e')
+        .map(([_name, value]) => value);
+
+      await this.deleteEventsTrx(trx, [{ ids, authors: [event.pubkey] }]);
     }
   }
 

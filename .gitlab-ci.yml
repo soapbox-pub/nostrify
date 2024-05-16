@@ -17,6 +17,11 @@ lint:
 test:
   stage: test
   script: deno task test
+  services:
+    - postgres:16
+  variables:
+    DATABASE_URL: postgres://postgres:postgres@postgres:5432/postgres
+    POSTGRES_HOST_AUTH_METHOD: trust
   artifacts:
     when: always
     paths:

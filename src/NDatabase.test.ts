@@ -1,7 +1,8 @@
 import { Database as Sqlite } from '@db/sqlite';
 import { assertEquals, assertRejects } from '@std/assert';
 import { DenoSqlite3Dialect } from '@soapbox/kysely-deno-sqlite';
-import { Kysely } from 'kysely';
+import { PostgreSQLDriver } from 'kysely_deno_postgres';
+import { Kysely, PostgresAdapter, PostgresIntrospector, PostgresQueryCompiler } from 'kysely';
 
 import { NDatabase, NDatabaseOpts, NDatabaseSchema } from './NDatabase.ts';
 
@@ -20,12 +21,38 @@ const createDB = async (opts?: NDatabaseOpts) => {
   return db;
 };
 
+/** Create postgres database for testing. */
+const createPostgresDB = async (opts?: NDatabaseOpts) => {
+  const kysely = new Kysely({
+    dialect: {
+      createAdapter() {
+        return new PostgresAdapter();
+      },
+      // @ts-ignore mismatched kysely versions
+      createDriver() {
+        return new PostgreSQLDriver({
+          connectionString: Deno.env.get('DATABASE_URL'),
+        });
+      },
+      createIntrospector(db: Kysely<unknown>) {
+        return new PostgresIntrospector(db);
+      },
+      createQueryCompiler() {
+        return new PostgresQueryCompiler();
+      },
+    },
+  });
+  const db = new NDatabase(kysely, opts);
+  await db.migrate();
+  return { db, kysely };
+};
+
 Deno.test('NDatabase.migrate', async () => {
   await createDB();
 });
 
-Deno.test('NDatabase.migrate with FTS5', async () => {
-  await createDB({ fts5: true });
+Deno.test('NDatabase.migrate with sqlite fts', async () => {
+  await createDB({ fts: 'sqlite' });
 });
 
 Deno.test('NDatabase.migrate twice', async () => {
@@ -56,7 +83,6 @@ Deno.test('NDatabase.query', async () => {
 
 Deno.test("NDatabase.query with multiple tags doesn't crash", async () => {
   const db = await createDB();
-
   await db.query([{
     kinds: [1985],
     authors: ['c87e0d90c7e521967a6975439ba20d9052c2b6680d8c4c80fc2943e2c726d98c'],
@@ -79,18 +105,48 @@ Deno.test("NDatabase.query tag query with non-tag query doesn't crash", async ()
   }]);
 });
 
-Deno.test('NDatabase.query with search', async () => {
-  const db = await createDB({ fts5: true });
+Deno.test('NDatabase.query with search', async (t) => {
+  const db = await createDB({ fts: 'sqlite' });
 
   await db.event(event0);
   await db.event(event1);
 
-  assertEquals(await db.query([{ search: 'vegan' }]), [event0, event1]);
-  assertEquals(await db.query([{ search: 'Fediverse' }]), [event0]);
+  await t.step('match single event', async () => {
+    assertEquals(await db.query([{ search: 'Fediverse' }]), [event0]);
+  });
+
+  await t.step('match multiple events', async () => {
+    assertEquals(await db.query([{ search: 'vegan' }]), [event0, event1]);
+  });
+
+  await t.step("don't match nonsense queries", async () => {
+    assertEquals(await db.query([{ search: "this shouldn't match" }]), []);
+  });
 });
 
-Deno.test('NDatabase.query with search and fts5 disabled', async () => {
-  const db = await createDB({ fts5: false });
+Deno.test('NDatabase.query with postgres fts', { ignore: !Deno.env.get('DATABASE_URL') }, async (t) => {
+  const { db, kysely } = await createPostgresDB({ fts: 'postgres' });
+
+  await db.event(event0);
+  await db.event(event1);
+
+  await t.step('match single event', async () => {
+    assertEquals(await db.query([{ search: 'Fediverse' }]), [event0]);
+  });
+
+  await t.step('match multiple events', async () => {
+    assertEquals(await db.query([{ search: 'vegan' }]), [event0, event1]);
+  });
+
+  await t.step("don't match nonsense queries", async () => {
+    assertEquals(await db.query([{ search: "this shouldn't match" }]), []);
+  });
+
+  await kysely.destroy();
+});
+
+Deno.test('NDatabase.query with search and fts disabled', async () => {
+  const db = await createDB();
 
   await db.event(event1);
 

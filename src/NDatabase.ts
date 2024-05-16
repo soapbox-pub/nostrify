@@ -27,11 +27,15 @@ export interface NDatabaseSchema {
     event_id: string;
     content: string;
   };
+  nostr_pgfts: {
+    event_id: string;
+    search_vec: unknown;
+  };
 }
 
 export interface NDatabaseOpts {
-  /** Whether or not to enable full-text search with SQLite FTS5. */
-  fts5?: boolean;
+  /** Enable full-text-search for Postgres or SQLite. Disabled by default. */
+  fts?: 'sqlite' | 'postgres';
   /**
    * Function that returns which tags to index so tag queries like `{ "#p": ["123"] }` will work.
    * By default, all single-letter tags are indexed.
@@ -71,13 +75,13 @@ export interface NDatabaseOpts {
  */
 export class NDatabase implements NStore {
   private db: Kysely<NDatabaseSchema>;
-  private fts5: boolean;
+  private fts?: 'sqlite' | 'postgres';
   private indexTags: (event: NostrEvent) => string[][];
   private searchText: (event: NostrEvent) => string | undefined;
 
   constructor(db: Kysely<any>, opts?: NDatabaseOpts) {
     this.db = db as Kysely<NDatabaseSchema>;
-    this.fts5 = opts?.fts5 ?? false;
+    this.fts = opts?.fts;
     this.indexTags = opts?.indexTags ?? NDatabase.indexTags;
     this.searchText = opts?.searchText ?? NDatabase.searchText;
   }
@@ -186,12 +190,25 @@ export class NDatabase implements NStore {
 
   /** Add search data to the FTS5 table. */
   protected async indexSearch(trx: Kysely<NDatabaseSchema>, event: NostrEvent): Promise<void> {
-    if (!this.fts5) return;
+    if (!this.fts) return;
+
     const content = this.searchText(event);
     if (!content) return;
-    await trx.insertInto('nostr_fts5')
-      .values({ event_id: event.id, content })
-      .execute();
+
+    if (this.fts === 'sqlite') {
+      await trx.insertInto('nostr_fts5')
+        .values({ event_id: event.id, content })
+        .execute();
+    }
+
+    if (this.fts === 'postgres') {
+      await trx.insertInto('nostr_pgfts')
+        .values({
+          event_id: event.id,
+          search_vec: sql`to_tsvector(${event.content} || ${event.pubkey} || ${event.tags} || ${event.id})`,
+        })
+        .execute();
+    }
   }
 
   /** Delete events that are replaced by the new event. */
@@ -250,12 +267,20 @@ export class NDatabase implements NStore {
     }
 
     if (filter.search) {
-      if (this.fts5) {
+      if (this.fts === 'sqlite') {
         query = query
           .innerJoin('nostr_fts5', 'nostr_fts5.event_id', 'nostr_events.id')
           .where('nostr_fts5.content', 'match', JSON.stringify(filter.search));
-      } else {
-        return db.selectFrom('nostr_events').selectAll().where('id', 'in', []);
+      }
+
+      if (this.fts === 'postgres') {
+        query = query
+          .innerJoin('nostr_pgfts', 'nostr_pgfts.event_id', 'nostr_events.id')
+          .where(sql`phraseto_tsquery(${filter.search})`, '@@', sql`search_vec`);
+      }
+
+      if (!this.fts) {
+        return db.selectFrom('nostr_events').selectAll('nostr_events').where('id', 'in', []);
       }
     }
 
@@ -313,8 +338,14 @@ export class NDatabase implements NStore {
   protected async deleteEventsTrx(db: Kysely<NDatabaseSchema>, filters: NostrFilter[]): Promise<DeleteResult[]> {
     const query = this.getEventsQuery(filters).clearSelect().select('id');
 
-    if (this.fts5) {
+    if (this.fts === 'sqlite') {
       await db.deleteFrom('nostr_fts5')
+        .where('event_id', 'in', () => query)
+        .execute();
+    }
+
+    if (this.fts === 'postgres') {
+      await db.deleteFrom('nostr_pgfts')
         .where('event_id', 'in', () => query)
         .execute();
     }
@@ -385,8 +416,16 @@ export class NDatabase implements NStore {
       .columns(['name', 'value'])
       .execute();
 
-    if (this.fts5) {
+    if (this.fts === 'sqlite') {
       await sql`CREATE VIRTUAL TABLE nostr_fts5 USING fts5(event_id, content)`.execute(this.db);
+    }
+
+    if (this.fts === 'postgres') {
+      schema.createTable('nostr_pgfts')
+        .ifNotExists()
+        .addColumn('event_id', 'text', (c) => c.primaryKey().references('nostr_events.id').onDelete('cascade'))
+        .addColumn('search_vec', sql`tsvector`, (c) => c.notNull())
+        .execute();
     }
   }
 }

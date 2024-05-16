@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## Added
+
+- NDatabase: Postgres full-text search (FTS) support.
+
+## Changed
+
+- BREAKING: NDatabase `fts5` option has been renamed to `fts`, and now accepts a string of either `'sqlite'` or `'postgres'`.
+
 ## [0.19.2] - 2024-05-16
 
 ## Fixed

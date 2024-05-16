@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0] - 2024-05-16
+
 ## Added
 
 - NDatabase: Postgres full-text search (FTS) support.
@@ -137,7 +139,8 @@ Redeploy to JSR (to hopefully fix [npm compatibility](https://github.com/jsr-io/
 
 - Added `NDenoKv` storage class, for storing events in Deno KV.
 
-[unreleased]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.19.2...HEAD
+[unreleased]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.20.0...HEAD
+[0.20.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.19.2...v0.20.0
 [0.19.2]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.19.1...v0.19.2
 [0.19.1]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.19.0...v0.19.1
 [0.19.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.18.0...0.19.0

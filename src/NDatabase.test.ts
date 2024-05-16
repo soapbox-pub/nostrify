@@ -24,7 +24,7 @@ const createDB = async (opts?: NDatabaseOpts) => {
 const createPostgresDB = async (opts?: NDatabaseOpts) => {
   const kysely = createPgKysely({
     database: 'nostrify-ndatabase-pg-testing',
-    host: '127.0.0.1',
+    host: Deno.env.get('CI') ? 'postgres' : '127.0.0.1',
     port: 5432,
     password: '1234',
     username: 'postgres',

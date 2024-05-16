@@ -2,6 +2,14 @@ image: denoland/deno:1.41.1
 
 default:
   interruptible: true
+  services:
+    - postgres
+
+variables:
+  POSTGRES_DB: nostrify-ndatabase-pg-testing
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: '1234'
+  POSTGRES_HOST_AUTH_METHOD: trust
 
 stages:
   - test

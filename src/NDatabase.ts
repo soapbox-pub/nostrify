@@ -29,7 +29,7 @@ export interface NDatabaseSchema {
   };
   nostr_pgfts: {
     event_id: string;
-    search_vec: any;
+    search_vec: unknown;
   };
 }
 
@@ -340,6 +340,12 @@ export class NDatabase implements NStore {
 
     if (this.fts === 'sqlite') {
       await db.deleteFrom('nostr_fts5')
+        .where('event_id', 'in', () => query)
+        .execute();
+    }
+
+    if (this.fts === 'postgres') {
+      await db.deleteFrom('nostr_pgfts')
         .where('event_id', 'in', () => query)
         .execute();
     }

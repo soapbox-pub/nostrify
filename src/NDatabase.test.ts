@@ -100,15 +100,15 @@ Deno.test('NDatabase.query with search', async (t) => {
 
   await t.step('match single event', async () => {
     assertEquals(await db.query([{ search: 'Fediverse' }]), [event0]);
-  })
+  });
 
   await t.step('match multiple events', async () => {
     assertEquals(await db.query([{ search: 'vegan' }]), [event0, event1]);
-  })
+  });
 
-  await t.step('don\'t match nonsense queries', async () => {
-    assertEquals(await db.query([{ search: 'this shouldn\'t match' }]), []);
-  })
+  await t.step("don't match nonsense queries", async () => {
+    assertEquals(await db.query([{ search: "this shouldn't match" }]), []);
+  });
 });
 
 Deno.test('NDatabase.query with postgres fts', async (t) => {
@@ -119,15 +119,15 @@ Deno.test('NDatabase.query with postgres fts', async (t) => {
 
   await t.step('match single event', async () => {
     assertEquals(await db.query([{ search: 'Fediverse' }]), [event0]);
-  })
+  });
 
   await t.step('match multiple events', async () => {
     assertEquals(await db.query([{ search: 'vegan' }]), [event0, event1]);
-  })
+  });
 
-  await t.step('don\'t match nonsense queries', async () => {
-    assertEquals(await db.query([{ search: 'this shouldn\'t match' }]), []);
-  })
+  await t.step("don't match nonsense queries", async () => {
+    assertEquals(await db.query([{ search: "this shouldn't match" }]), []);
+  });
 
   await kysely.destroy();
 });

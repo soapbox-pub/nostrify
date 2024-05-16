@@ -4,7 +4,7 @@ import { DenoSqlite3Dialect } from '@soapbox/kysely-deno-sqlite';
 import { PostgreSQLDriver } from 'kysely_deno_postgres';
 import { Kysely, PostgresAdapter, PostgresIntrospector, PostgresQueryCompiler } from 'kysely';
 
-import { FtsKind, NDatabase, NDatabaseOpts, NDatabaseSchema } from './NDatabase.ts';
+import { NDatabase, NDatabaseOpts, NDatabaseSchema } from './NDatabase.ts';
 
 import event0 from '../fixtures/event-0.json' with { type: 'json' };
 import event1 from '../fixtures/event-1.json' with { type: 'json' };
@@ -52,7 +52,7 @@ Deno.test('NDatabase.migrate', async () => {
 });
 
 Deno.test('NDatabase.migrate with sqlite fts', async () => {
-  await createDB({ fts: FtsKind.SQLITE });
+  await createDB({ fts: 'sqlite' });
 });
 
 Deno.test('NDatabase.migrate twice', async () => {
@@ -106,7 +106,7 @@ Deno.test("NDatabase.query tag query with non-tag query doesn't crash", async ()
 });
 
 Deno.test('NDatabase.query with search', async (t) => {
-  const db = await createDB({ fts: FtsKind.SQLITE });
+  const db = await createDB({ fts: 'sqlite' });
 
   await db.event(event0);
   await db.event(event1);
@@ -125,7 +125,7 @@ Deno.test('NDatabase.query with search', async (t) => {
 });
 
 Deno.test('NDatabase.query with postgres fts', { ignore: !Deno.env.get('DATABASE_URL') }, async (t) => {
-  const { db, kysely } = await createPostgresDB({ fts: FtsKind.POSTGRES });
+  const { db, kysely } = await createPostgresDB({ fts: 'postgres' });
 
   await db.event(event0);
   await db.event(event1);
@@ -146,7 +146,7 @@ Deno.test('NDatabase.query with postgres fts', { ignore: !Deno.env.get('DATABASE
 });
 
 Deno.test('NDatabase.query with search and fts disabled', async () => {
-  const db = await createDB({ fts: FtsKind.DISABLED });
+  const db = await createDB();
 
   await db.event(event1);
 

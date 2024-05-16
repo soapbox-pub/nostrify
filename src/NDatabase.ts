@@ -33,23 +33,9 @@ export interface NDatabaseSchema {
   };
 }
 
-/**
- * Describes the full-text search behaviour for NDatabase.
- * This is set to `DISABLED` by default.
- *
- * Use:
- * * `POSTGRES` if you are using a PostgreSQL database
- * * `SQLITE` if you are using the SQLite backend (this uses fts5)
- * There is no support for other databases at the moment.
- */
-export enum FtsKind {
-  DISABLED,
-  POSTGRES,
-  SQLITE,
-}
-
 export interface NDatabaseOpts {
-  fts?: FtsKind;
+  /** Enable full-text-search for Postgres or SQLite. Disabled by default. */
+  fts?: 'sqlite' | 'postgres';
   /**
    * Function that returns which tags to index so tag queries like `{ "#p": ["123"] }` will work.
    * By default, all single-letter tags are indexed.
@@ -89,13 +75,13 @@ export interface NDatabaseOpts {
  */
 export class NDatabase implements NStore {
   private db: Kysely<NDatabaseSchema>;
-  private fts: FtsKind;
+  private fts?: 'sqlite' | 'postgres';
   private indexTags: (event: NostrEvent) => string[][];
   private searchText: (event: NostrEvent) => string | undefined;
 
   constructor(db: Kysely<any>, opts?: NDatabaseOpts) {
     this.db = db as Kysely<NDatabaseSchema>;
-    this.fts = opts?.fts ?? FtsKind.DISABLED;
+    this.fts = opts?.fts;
     this.indexTags = opts?.indexTags ?? NDatabase.indexTags;
     this.searchText = opts?.searchText ?? NDatabase.searchText;
   }
@@ -204,24 +190,24 @@ export class NDatabase implements NStore {
 
   /** Add search data to the FTS5 table. */
   protected async indexSearch(trx: Kysely<NDatabaseSchema>, event: NostrEvent): Promise<void> {
-    if (this.fts === FtsKind.DISABLED) return;
+    if (!this.fts) return;
+
     const content = this.searchText(event);
     if (!content) return;
-    switch (this.fts) {
-      case FtsKind.POSTGRES: {
-        await trx.insertInto('nostr_pgfts')
-          .values({
-            event_id: event.id,
-            search_vec: sql`to_tsvector(${event.content} || ${event.pubkey} || ${event.tags} || ${event.id})`,
-          })
-          .execute();
-        break;
-      }
-      case FtsKind.SQLITE:
-        await trx.insertInto('nostr_fts5')
-          .values({ event_id: event.id, content })
-          .execute();
-        break;
+
+    if (this.fts === 'sqlite') {
+      await trx.insertInto('nostr_fts5')
+        .values({ event_id: event.id, content })
+        .execute();
+    }
+
+    if (this.fts === 'postgres') {
+      await trx.insertInto('nostr_pgfts')
+        .values({
+          event_id: event.id,
+          search_vec: sql`to_tsvector(${event.content} || ${event.pubkey} || ${event.tags} || ${event.id})`,
+        })
+        .execute();
     }
   }
 
@@ -281,16 +267,20 @@ export class NDatabase implements NStore {
     }
 
     if (filter.search) {
-      if (this.fts === FtsKind.SQLITE) {
+      if (this.fts === 'sqlite') {
         query = query
           .innerJoin('nostr_fts5', 'nostr_fts5.event_id', 'nostr_events.id')
           .where('nostr_fts5.content', 'match', JSON.stringify(filter.search));
-      } else if (this.fts === FtsKind.POSTGRES) {
+      }
+
+      if (this.fts === 'postgres') {
         query = query
           .innerJoin('nostr_pgfts', 'nostr_pgfts.event_id', 'nostr_events.id')
           .where(sql`phraseto_tsquery(${filter.search})`, '@@', sql`search_vec`);
-      } else {
-        return db.selectFrom('nostr_events').selectAll().where('id', 'in', []);
+      }
+
+      if (!this.fts) {
+        return db.selectFrom('nostr_events').selectAll('nostr_events').where('id', 'in', []);
       }
     }
 
@@ -348,7 +338,7 @@ export class NDatabase implements NStore {
   protected async deleteEventsTrx(db: Kysely<NDatabaseSchema>, filters: NostrFilter[]): Promise<DeleteResult[]> {
     const query = this.getEventsQuery(filters).clearSelect().select('id');
 
-    if (this.fts === FtsKind.SQLITE) {
+    if (this.fts === 'sqlite') {
       await db.deleteFrom('nostr_fts5')
         .where('event_id', 'in', () => query)
         .execute();
@@ -420,15 +410,14 @@ export class NDatabase implements NStore {
       .columns(['name', 'value'])
       .execute();
 
-    if (this.fts === FtsKind.SQLITE) {
+    if (this.fts === 'sqlite') {
       await sql`CREATE VIRTUAL TABLE nostr_fts5 USING fts5(event_id, content)`.execute(this.db);
-    } else if (this.fts === FtsKind.POSTGRES) {
+    }
+
+    if (this.fts === 'postgres') {
       schema.createTable('nostr_pgfts')
         .ifNotExists()
-        .addColumn('event_id', 'text', (c) =>
-          c.primaryKey()
-            .references('nostr_events.id')
-            .onDelete('cascade'))
+        .addColumn('event_id', 'text', (c) => c.primaryKey().references('nostr_events.id').onDelete('cascade'))
         .addColumn('search_vec', sql`tsvector`, (c) => c.notNull())
         .execute();
     }

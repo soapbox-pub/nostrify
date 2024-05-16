@@ -100,6 +100,13 @@ Deno.test('NDatabase.query with postgres fts', async () => {
   await kysely.destroy();
 });
 
+Deno.test('NDatabase.query with postgres fts', async () => {
+  const { db, kysely } = await createPostgresDB({ fts: FtsKind.POSTGRES });
+
+  assertEquals(await db.query([{ search: 'this shouldn\'t match' }]), []);
+  await kysely.destroy();
+});
+
 Deno.test('NDatabase.query with search and fts disabled', async () => {
   const db = await createDB({ fts: FtsKind.DISABLED });
 

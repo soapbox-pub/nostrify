@@ -153,7 +153,7 @@ Deno.test('NDatabase.event with replaceable event', async () => {
   assertEquals(await db.query([{ kinds: [0] }]), [changeEvent]);
 });
 
-Deno.test('NDatabase.event with parametirized replaceable event', async () => {
+Deno.test('NDatabase.event with parameterized replaceable event', async () => {
   const db = await createDB();
 
   const event0 = { id: '1', kind: 30000, pubkey: 'abc', content: '', created_at: 0, sig: '', tags: [['d', 'a']] };
@@ -171,4 +171,53 @@ Deno.test('NDatabase.event with parametirized replaceable event', async () => {
   assertEquals(await db.query([{ ids: [event0.id] }]), []);
   assertEquals(await db.query([{ ids: [event1.id] }]), []);
   assertEquals(await db.query([{ ids: [event2.id] }]), [event2]);
+});
+
+Deno.test('NDatabase.event processes deletions', async () => {
+  const db = await createDB();
+
+  const [one, two] = [
+    { id: '1', kind: 1, pubkey: 'abc', content: 'hello world', created_at: 1, sig: '', tags: [] },
+    { id: '2', kind: 1, pubkey: 'abc', content: 'yolo fam', created_at: 2, sig: '', tags: [] },
+  ];
+
+  await db.event(one);
+  await db.event(two);
+
+  // Sanity check
+  assertEquals(await db.query([{ kinds: [1] }]), [two, one]);
+
+  await db.event({
+    kind: 5,
+    pubkey: one.pubkey,
+    tags: [['e', one.id]],
+    created_at: 0,
+    content: '',
+    id: '',
+    sig: '',
+  });
+
+  assertEquals(await db.query([{ kinds: [1] }]), [two]);
+});
+
+Deno.test("NDatabase.event does not delete another user's event", async () => {
+  const db = await createDB();
+
+  const event = { id: '1', kind: 1, pubkey: 'abc', content: 'hello world', created_at: 1, sig: '', tags: [] };
+  await db.event(event);
+
+  // Sanity check
+  assertEquals(await db.query([{ kinds: [1] }]), [event]);
+
+  await db.event({
+    kind: 5,
+    pubkey: 'def', // different pubkey
+    tags: [['e', event.id]],
+    created_at: 0,
+    content: '',
+    id: '',
+    sig: '',
+  });
+
+  assertEquals(await db.query([{ kinds: [1] }]), [event]);
 });

@@ -1,3 +1,4 @@
 /npm
 *.lmdb
 *.lmdb-lock
+deno-test.xml

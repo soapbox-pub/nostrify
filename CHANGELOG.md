@@ -7,9 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.1] - 2024-05-16
+
+### Fixed
+
+- NDatabase: fix deleting everything for the author when they delete a single event.
+
+## [0.19.0] - 2024-05-13
+
 ### Fixed
 
 - Improved performance of NDatabase when querying replaceable events by author.
+- NConnect.signEvent now throws if the connect message was rejected by the relay.
 
 ## [0.18.0] - 2024-05-04
 
@@ -114,7 +123,10 @@ Redeploy to JSR (to hopefully fix [npm compatibility](https://github.com/jsr-io/
 
 - Added `NDenoKv` storage class, for storing events in Deno KV.
 
-[unreleased]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.17.1...HEAD
+[unreleased]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.19.1...HEAD
+[0.19.1]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.19.0...v0.19.1
+[0.19.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.18.0...0.19.0
+[0.18.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.17.1...0.18.0
 [0.17.1]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.17.0...0.17.1
 [0.17.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.16.0...0.17.0
 [0.16.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.15.0...0.16.0

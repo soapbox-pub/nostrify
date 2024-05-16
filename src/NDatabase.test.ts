@@ -78,6 +78,20 @@ Deno.test("NDatabase.query with multiple tags doesn't crash", async () => {
   }]);
 });
 
+Deno.test("NDatabase.query tag query with non-tag query doesn't crash", async () => {
+  const db = await createDB();
+
+  await db.query([{
+    kinds: [0],
+    authors: ['c87e0d90c7e521967a6975439ba20d9052c2b6680d8c4c80fc2943e2c726d98c'],
+  }, {
+    kinds: [1985],
+    authors: ['c87e0d90c7e521967a6975439ba20d9052c2b6680d8c4c80fc2943e2c726d98c'],
+    '#L': ['nip05'],
+    '#l': ['alex@gleasonator.com'],
+  }]);
+});
+
 Deno.test('NDatabase.query with search', async (t) => {
   const db = await createDB({ fts: FtsKind.SQLITE });
 

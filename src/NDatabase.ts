@@ -30,7 +30,7 @@ export interface NDatabaseSchema {
   nostr_pgfts: {
     event_id: string;
     search_vec: any;
-  }
+  };
 }
 
 /**
@@ -211,7 +211,7 @@ export class NDatabase implements NStore {
         await trx.insertInto('nostr_pgfts')
           .values({
             event_id: event.id,
-            search_vec: sql`to_tsvector(${event.content} || ${event.pubkey} || ${event.tags} || ${event.id})`
+            search_vec: sql`to_tsvector(${event.content} || ${event.pubkey} || ${event.tags} || ${event.id})`,
           })
           .execute();
         break;
@@ -288,8 +288,6 @@ export class NDatabase implements NStore {
         query = query
           .innerJoin('nostr_pgfts', 'nostr_pgfts.event_id', 'nostr_events.id')
           .where(sql`phraseto_tsquery(${filter.search})`, '@@', sql`search_vec`);
-        const compiled = query.compile();
-        console.log(compiled.sql);
       } else {
         return db.selectFrom('nostr_events').selectAll().where('id', 'in', []);
       }
@@ -426,10 +424,11 @@ export class NDatabase implements NStore {
     } else if (this.fts === FtsKind.POSTGRES) {
       schema.createTable('nostr_pgfts')
         .ifNotExists()
-        .addColumn('event_id', 'text', c => c.primaryKey()
-          .references('nostr_events.id')
-          .onDelete('cascade'))
-        .addColumn('search_vec', sql`tsvector`, c => c.notNull())
+        .addColumn('event_id', 'text', (c) =>
+          c.primaryKey()
+            .references('nostr_events.id')
+            .onDelete('cascade'))
+        .addColumn('search_vec', sql`tsvector`, (c) => c.notNull())
         .execute();
     }
   }

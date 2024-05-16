@@ -32,7 +32,7 @@ const createPostgresDB = async (opts?: NDatabaseOpts) => {
   const db = new NDatabase(kysely, opts);
   await db.migrate();
   return { db, kysely };
-}
+};
 
 Deno.test('NDatabase.migrate', async () => {
   await createDB();

@@ -174,3 +174,25 @@ Deno.test('NDatabase.event processes deletions', async () => {
 
   assertEquals(await db.query([{ kinds: [1] }]), [two]);
 });
+
+Deno.test("NDatabase.event does not delete another user's event", async () => {
+  const db = await createDB();
+
+  const event = { id: '1', kind: 1, pubkey: 'abc', content: 'hello world', created_at: 1, sig: '', tags: [] };
+  await db.event(event);
+
+  // Sanity check
+  assertEquals(await db.query([{ kinds: [1] }]), [event]);
+
+  await db.event({
+    kind: 5,
+    pubkey: 'def', // different pubkey
+    tags: [['e', event.id]],
+    created_at: 0,
+    content: '',
+    id: '',
+    sig: '',
+  });
+
+  assertEquals(await db.query([{ kinds: [1] }]), [event]);
+});

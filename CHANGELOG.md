@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## Fixed
+
+- NDatabase: fix crash with mixed tag filters.
+
 ## [0.19.1] - 2024-05-16
 
 ### Fixed

@@ -218,7 +218,7 @@ export class NDatabase implements NStore {
   ): SelectQueryBuilder<NDatabaseSchema, 'nostr_events', NDatabaseSchema['nostr_events']> {
     let query = db
       .selectFrom('nostr_events')
-      .selectAll();
+      .selectAll('nostr_events');
 
     /** Whether we are querying for replaceable events by author. */
     const isAddrQuery = filter.authors &&

@@ -205,7 +205,7 @@ export class NDatabase implements NStore {
       await trx.insertInto('nostr_pgfts')
         .values({
           event_id: event.id,
-          search_vec: sql`to_tsvector(${event.content} || ${event.pubkey} || ${event.tags} || ${event.id})`,
+          search_vec: sql`to_tsvector(${content})`,
         })
         .execute();
     }

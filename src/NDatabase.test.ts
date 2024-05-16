@@ -1,13 +1,13 @@
 import { Database as Sqlite } from '@db/sqlite';
 import { assertEquals, assertRejects } from '@std/assert';
 import { DenoSqlite3Dialect } from '@soapbox/kysely-deno-sqlite';
-import { Kysely } from 'kysely';
+import { PostgreSQLDriver } from 'kysely_deno_postgres';
+import { Kysely, PostgresAdapter, PostgresIntrospector, PostgresQueryCompiler } from 'kysely';
 
 import { FtsKind, NDatabase, NDatabaseOpts, NDatabaseSchema } from './NDatabase.ts';
 
 import event0 from '../fixtures/event-0.json' with { type: 'json' };
 import event1 from '../fixtures/event-1.json' with { type: 'json' };
-import { createPgKysely } from './utils/postgres-kysely-driver.ts';
 
 /** Create in-memory database for testing. */
 const createDB = async (opts?: NDatabaseOpts) => {
@@ -21,13 +21,26 @@ const createDB = async (opts?: NDatabaseOpts) => {
   return db;
 };
 
+/** Create postgres database for testing. */
 const createPostgresDB = async (opts?: NDatabaseOpts) => {
-  const kysely = createPgKysely({
-    database: 'nostrify-ndatabase-pg-testing',
-    host: Deno.env.get('CI') ? 'postgres' : '127.0.0.1',
-    port: 5432,
-    password: '1234',
-    username: 'postgres',
+  const kysely = new Kysely({
+    dialect: {
+      createAdapter() {
+        return new PostgresAdapter();
+      },
+      // @ts-ignore mismatched kysely versions
+      createDriver() {
+        return new PostgreSQLDriver({
+          connectionString: Deno.env.get('DATABASE_URL'),
+        });
+      },
+      createIntrospector(db: Kysely<unknown>) {
+        return new PostgresIntrospector(db);
+      },
+      createQueryCompiler() {
+        return new PostgresQueryCompiler();
+      },
+    },
   });
   const db = new NDatabase(kysely, opts);
   await db.migrate();
@@ -111,7 +124,7 @@ Deno.test('NDatabase.query with search', async (t) => {
   });
 });
 
-Deno.test('NDatabase.query with postgres fts', async (t) => {
+Deno.test('NDatabase.query with postgres fts', { ignore: !Deno.env.get('DATABASE_URL') }, async (t) => {
   const { db, kysely } = await createPostgresDB({ fts: FtsKind.POSTGRES });
 
   await db.event(event0);

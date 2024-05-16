@@ -2,14 +2,6 @@ image: denoland/deno:1.41.1
 
 default:
   interruptible: true
-  services:
-    - postgres
-
-variables:
-  POSTGRES_DB: nostrify-ndatabase-pg-testing
-  POSTGRES_USER: postgres
-  POSTGRES_PASSWORD: '1234'
-  POSTGRES_HOST_AUTH_METHOD: trust
 
 stages:
   - test
@@ -25,6 +17,11 @@ lint:
 test:
   stage: test
   script: deno task test
+  services:
+    - postgres:16
+  variables:
+    DATABASE_URL: postgres://postgres:postgres@postgres:5432/postgres
+    POSTGRES_HOST_AUTH_METHOD: trust
   artifacts:
     when: always
     paths:

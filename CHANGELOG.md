@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## Fixed
+
+- NDatabase: Postgres FTS now correctly uses the `searchText` option to create the search index.
+
 ## [0.20.0] - 2024-05-16
 
 ## Added

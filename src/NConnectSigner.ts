@@ -154,12 +154,13 @@ export class NConnectSigner implements NostrSigner {
     }
   }
 
-  /** Local decrypt depending on ciphertext. */
+  /** Local decrypt depending on settings. */
   private async decrypt(pubkey: string, ciphertext: string): Promise<string> {
-    if (ciphertext.includes('?iv=')) {
-      return this.signer.nip04!.decrypt(pubkey, ciphertext);
-    } else {
-      return this.signer.nip44!.decrypt(pubkey, ciphertext);
+    switch (this.encryption) {
+      case 'nip04':
+        return this.signer.nip04!.decrypt(pubkey, ciphertext);
+      case 'nip44':
+        return this.signer.nip44!.decrypt(pubkey, ciphertext);
     }
   }
 }

@@ -4,21 +4,20 @@ import { NUploader } from '../interfaces/NUploader.ts';
 
 export interface NostrBuildUploaderOpts {
   endpoint?: string;
+  fetch?: typeof fetch;
 }
 
 /** Upload files to nostr.build or another compatible server. */
 export class NostrBuildUploader implements NUploader {
-  endpoint: string;
-
-  constructor(opts: NostrBuildUploaderOpts) {
-    this.endpoint = opts.endpoint ?? 'https://nostr.build/api/v2/upload/files';
-  }
+  constructor(private opts: NostrBuildUploaderOpts) {}
 
   async upload(file: File, opts?: { signal?: AbortSignal }): Promise<[['url', string], ...string[][]]> {
+    const { endpoint = 'https://nostr.build/api/v2/upload/files', fetch = globalThis.fetch } = this.opts;
+
     const formData = new FormData();
     formData.append('fileToUpload', file);
 
-    const response = await fetch(this.endpoint, {
+    const response = await fetch(endpoint, {
       method: 'POST',
       body: formData,
       signal: opts?.signal,

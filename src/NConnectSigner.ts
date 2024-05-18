@@ -19,6 +19,8 @@ export interface NConnectSignerOpts {
   signer: NostrSigner;
   /** Timeout for requests. */
   timeout?: number;
+  /** Encryption to use when encrypting local messages. Decryption is automatic. */
+  encryption?: 'nip04' | 'nip44';
 }
 
 /** [NIP-46](https://github.com/nostr-protocol/nips/blob/master/46.md) remote signer through a relay. */
@@ -27,12 +29,14 @@ export class NConnectSigner implements NostrSigner {
   private pubkey: string;
   private signer: NostrSigner;
   private timeout?: number;
+  private encryption: 'nip04' | 'nip44';
 
-  constructor({ relay, pubkey, signer, timeout }: NConnectSignerOpts) {
+  constructor({ relay, pubkey, signer, timeout, encryption = 'nip04' }: NConnectSignerOpts) {
     this.relay = relay;
     this.pubkey = pubkey;
     this.signer = signer;
     this.timeout = timeout;
+    this.encryption = encryption;
   }
 
   async getPublicKey(): Promise<string> {
@@ -111,7 +115,7 @@ export class NConnectSigner implements NostrSigner {
 
     const event = await this.signer.signEvent({
       kind: 24133,
-      content: await this.signer.nip04!.encrypt(this.pubkey, JSON.stringify(request)),
+      content: await this.encrypt(this.pubkey, JSON.stringify(request)),
       created_at: Math.floor(Date.now() / 1000),
       tags: [['p', this.pubkey]],
     });
@@ -129,7 +133,7 @@ export class NConnectSigner implements NostrSigner {
       if (msg[0] === 'CLOSED') throw new Error('Subscription closed');
       if (msg[0] === 'EVENT') {
         const event = msg[2];
-        const decrypted = await this.signer.nip04!.decrypt(this.pubkey, event.content);
+        const decrypted = await this.decrypt(this.pubkey, event.content);
         const response = n.json().pipe(n.connectResponse()).parse(decrypted);
         if (response.id === request.id) {
           return response;
@@ -138,5 +142,24 @@ export class NConnectSigner implements NostrSigner {
     }
 
     throw new Error('Unreachable');
+  }
+
+  /** Local encrypt depending on settings. */
+  private async encrypt(pubkey: string, plaintext: string): Promise<string> {
+    switch (this.encryption) {
+      case 'nip04':
+        return this.signer.nip04!.encrypt(pubkey, plaintext);
+      case 'nip44':
+        return this.signer.nip44!.encrypt(pubkey, plaintext);
+    }
+  }
+
+  /** Local decrypt depending on ciphertext. */
+  private async decrypt(pubkey: string, ciphertext: string): Promise<string> {
+    if (ciphertext.includes('?iv=')) {
+      return this.signer.nip04!.decrypt(pubkey, ciphertext);
+    } else {
+      return this.signer.nip44!.decrypt(pubkey, ciphertext);
+    }
   }
 }

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## Added
+
+- NConnectSigner: NIP-44 encryption support by setting `{ encryption: 'nip44' }` in the constructor.
+
 ## Fixed
 
 - NDatabase: Postgres FTS now correctly uses the `searchText` option to create the search index.

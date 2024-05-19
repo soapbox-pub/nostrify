@@ -1,6 +1,6 @@
-import { decodeBase64 } from '@std/encoding/base64';
+import { decodeBase64, encodeBase64 } from '@std/encoding/base64';
 import { encodeHex } from '@std/encoding/hex';
-import { verifyEvent } from 'nostr-tools';
+import { verifyEvent as _verifyEvent } from 'nostr-tools';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 
@@ -37,12 +37,36 @@ export class NIP98 {
   }
 
   /** Compare the auth event with the request, throwing a human-readable error if validation fails. */
-  async verify(request: Request, opts?: { maxAge?: number; validatePayload?: boolean }): Promise<void> {
-    const { maxAge = 60_000, validatePayload = ['POST', 'PUT', 'PATCH'].includes(request.method) } = opts ?? {};
+  static async verify(
+    request: Request,
+    opts?: {
+      maxAge?: number;
+      validatePayload?: boolean;
+      verifyEvent?: (event: NostrEvent) => boolean;
+    },
+  ): Promise<void> {
+    const {
+      maxAge = 60_000,
+      validatePayload = ['POST', 'PUT', 'PATCH'].includes(request.method),
+      verifyEvent = _verifyEvent,
+    } = opts ?? {};
 
-    const event = NIP98.event(request);
+    const header = request.headers.get('authorization');
+    if (!header) {
+      throw new Error('Missing Nostr authorization header');
+    }
+
+    const token = header.match(/^Nostr (.+)$/)?.[1];
+    if (!token) {
+      throw new Error('Missing Nostr authorization token');
+    }
+
+    const event = NIP98.decodeEvent(token);
+    if (!verifyEvent(event)) {
+      throw new Error('Event signature is invalid');
+    }
+
     const age = Date.now() - (event.created_at * 1_000);
-
     const u = event.tags.find(([name]) => name === 'u')?.[1];
     const method = event.tags.find(([name]) => name === 'method')?.[1];
     const payload = event.tags.find(([name]) => name === 'payload')?.[1];
@@ -69,17 +93,19 @@ export class NIP98 {
     }
   }
 
-  /** Get the event out of the `Authorization` header, and verify it. */
-  static event(request: Request): NostrEvent {
-    const header = request.headers.get('authorization');
-    const token = header?.match(/^Nostr (.+)$/)?.[1];
-    const bytes = decodeBase64(token!);
+  /** Encode an event as a base64 string. */
+  static encodeEvent(event: NostrEvent): string {
+    return encodeBase64(JSON.stringify(event));
+  }
+
+  /** Decode an event from a base64 string. */
+  static decodeEvent(base64: string): NostrEvent {
+    const bytes = decodeBase64(base64);
     const text = new TextDecoder().decode(bytes);
 
     return n
       .json()
       .pipe(n.event())
-      .refine(verifyEvent)
       .parse(text);
   }
 }

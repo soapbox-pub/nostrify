@@ -4,6 +4,7 @@ export { NCustodial } from './src/NCustodial.ts';
 export { NDatabase, type NDatabaseOpts, type NDatabaseSchema } from './src/NDatabase.ts';
 export { NIP05 } from './src/NIP05.ts';
 export { NIP50 } from './src/NIP50.ts';
+export { NIP98 } from './src/NIP98.ts';
 export { NKinds } from './src/NKinds.ts';
 export { NPhraseSigner, type NPhraseSignerOpts } from './src/NPhraseSigner.ts';
 export { NPool, type NPoolOpts } from './src/NPool.ts';

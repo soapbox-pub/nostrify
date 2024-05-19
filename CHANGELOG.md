@@ -7,39 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## Added
+## [0.22.0] - 2024-05-19
 
-- Added a `NIP98` module to verify NIP-98 Requests.
+### Added
+
+- `NUploader` interface and two uploader classes under `@nostrify/nostrify/uploaders`.
+- Blossom uploader (`BlossomUploader`) to upload files to Blossom servers.
+- nostr.build uploader (`NostrBuildUploader`) to upload files to nostr.build.
+- `NIP98` module to verify NIP-98 Requests.
 
 ## [0.21.1] - 2024-05-18
 
-## Changed
+### Changed
 
 - NConnectSigner: don't automatically guess the decryption method.
 
 ## [0.21.0] - 2024-05-18
 
-## Added
+### Added
 
 - NConnectSigner: NIP-44 encryption support by setting `{ encryption: 'nip44' }` in the constructor.
 
-## Fixed
+### Fixed
 
 - NDatabase: Postgres FTS now correctly uses the `searchText` option to create the search index.
 
 ## [0.20.0] - 2024-05-16
 
-## Added
+### Added
 
 - NDatabase: Postgres full-text search (FTS) support.
 
-## Changed
+### Changed
 
 - BREAKING: NDatabase `fts5` option has been renamed to `fts`, and now accepts a string of either `'sqlite'` or `'postgres'`.
 
 ## [0.19.2] - 2024-05-16
 
-## Fixed
+### Fixed
 
 - NDatabase: fix crash with mixed tag filters.
 
@@ -159,7 +164,8 @@ Redeploy to JSR (to hopefully fix [npm compatibility](https://github.com/jsr-io/
 
 - Added `NDenoKv` storage class, for storing events in Deno KV.
 
-[unreleased]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.21.1...HEAD
+[unreleased]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.22.0...HEAD
+[0.22.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.21.1...v0.22.0
 [0.21.1]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.21.0...v0.21.1
 [0.21.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.20.0...v0.21.0
 [0.20.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.19.2...v0.20.0

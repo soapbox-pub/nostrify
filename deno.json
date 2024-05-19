@@ -9,6 +9,7 @@
     "./ln": "./src/ln/mod.ts",
     "./policies": "./src/policies/mod.ts",
     "./test": "./src/test/mod.ts",
+    "./uploaders": "./src/uploaders/mod.ts",
     "./utils": "./src/utils/mod.ts"
   },
   "tasks": {

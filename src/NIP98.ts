@@ -44,7 +44,7 @@ export class NIP98 {
       validatePayload?: boolean;
       verifyEvent?: (event: NostrEvent) => boolean;
     },
-  ): Promise<void> {
+  ): Promise<NostrEvent> {
     const {
       maxAge = 60_000,
       validatePayload = ['POST', 'PUT', 'PATCH'].includes(request.method),
@@ -91,6 +91,8 @@ export class NIP98 {
         throw new Error('Event payload does not match request body');
       }
     }
+
+    return event;
   }
 
   /** Encode an event as a base64 string. */

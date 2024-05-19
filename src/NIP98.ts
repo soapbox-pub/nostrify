@@ -31,4 +31,40 @@ export class NIP98 {
       created_at: Math.floor(Date.now() / 1000),
     };
   }
+
+  /** Compare the auth event with the request, throwing a human-readable error if validation fails. */
+  async verify(
+    request: Request,
+    event: NostrEvent,
+    opts?: { maxAge?: number; validatePayload?: boolean },
+  ): Promise<void> {
+    const { maxAge = 60_000, validatePayload = ['POST', 'PUT', 'PATCH'].includes(request.method) } = opts ?? {};
+
+    const age = Date.now() - (event.created_at * 1_000);
+
+    const u = event.tags.find(([name]) => name === 'u')?.[1];
+    const method = event.tags.find(([name]) => name === 'method')?.[1];
+    const payload = event.tags.find(([name]) => name === 'payload')?.[1];
+
+    if (event.kind !== 27235) {
+      throw new Error('Event must be kind 27235');
+    }
+    if (u !== request.url) {
+      throw new Error('Event URL does not match request URL');
+    }
+    if (method !== request.method) {
+      throw new Error('Event method does not match HTTP request method');
+    }
+    if (age >= maxAge) {
+      throw new Error('Event expired');
+    }
+    if (validatePayload && payload !== undefined) {
+      const buffer = await request.clone().arrayBuffer();
+      const digest = await crypto.subtle.digest('SHA-256', buffer);
+
+      if (encodeHex(digest) !== payload) {
+        throw new Error('Event payload does not match request body');
+      }
+    }
+  }
 }

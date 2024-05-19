@@ -5,9 +5,13 @@ import { NIP98 } from '../NIP98.ts';
 import { NostrSigner } from '../../interfaces/NostrSigner.ts';
 import { NUploader } from '../../interfaces/NUploader.ts';
 
+/** NostrBuildUploader options. */
 export interface NostrBuildUploaderOpts {
+  /** nostr.build endpoint to use. Default: `https://nostr.build/api/v2/upload/files` */
   endpoint?: string;
+  /** Signer to authenticate with NIP-98 requests. */
   signer?: NostrSigner;
+  /** Custom fetch implementation. */
   fetch?: typeof fetch;
 }
 

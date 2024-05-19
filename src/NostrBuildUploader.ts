@@ -1,32 +1,46 @@
 import { z } from 'zod';
 
+import { NostrSigner } from '../interfaces/NostrSigner.ts';
 import { NUploader } from '../interfaces/NUploader.ts';
+
+import { NIP98 } from './NIP98.ts';
+import { N64 } from './utils/N64.ts';
 
 export interface NostrBuildUploaderOpts {
   endpoint?: string;
+  signer?: NostrSigner;
   fetch?: typeof fetch;
 }
 
 /** Upload files to nostr.build or another compatible server. */
 export class NostrBuildUploader implements NUploader {
   private endpoint: string;
+  private signer?: NostrSigner;
   private fetch: typeof fetch;
 
-  constructor(opts: NostrBuildUploaderOpts) {
-    this.endpoint = opts.endpoint ?? 'https://nostr.build/api/v2/upload/files';
-    this.fetch = opts.fetch ?? globalThis.fetch;
+  constructor(opts?: NostrBuildUploaderOpts) {
+    this.endpoint = opts?.endpoint ?? 'https://nostr.build/api/v2/upload/files';
+    this.signer = opts?.signer;
+    this.fetch = opts?.fetch ?? globalThis.fetch;
   }
 
   async upload(file: File, opts?: { signal?: AbortSignal }): Promise<[['url', string], ...string[][]]> {
     const formData = new FormData();
     formData.append('fileToUpload', file);
 
-    const response = await this.fetch(this.endpoint, {
+    const request = new Request(this.endpoint, {
       method: 'POST',
       body: formData,
       signal: opts?.signal,
     });
 
+    if (this.signer) {
+      const t = await NIP98.template(request);
+      const event = await this.signer.signEvent(t);
+      request.headers.set('authorization', `Nostr ${N64.encodeEvent(event)}`);
+    }
+
+    const response = await this.fetch(request);
     const json = await response.json();
     const [data] = NostrBuildUploader.schema().parse(json).data;
 

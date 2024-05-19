@@ -1,10 +1,9 @@
-import { decodeBase64, encodeBase64 } from '@std/encoding/base64';
 import { encodeHex } from '@std/encoding/hex';
 import { verifyEvent as _verifyEvent } from 'nostr-tools';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 
-import { NSchema as n } from './NSchema.ts';
+import { N64 } from './utils/N64.ts';
 
 /** [NIP-98](https://github.com/nostr-protocol/nips/blob/master/98.md) HTTP auth. */
 export class NIP98 {
@@ -61,7 +60,7 @@ export class NIP98 {
       throw new Error('Missing Nostr authorization token');
     }
 
-    const event = NIP98.decodeEvent(token);
+    const event = N64.decodeEvent(token);
     if (!verifyEvent(event)) {
       throw new Error('Event signature is invalid');
     }
@@ -93,21 +92,5 @@ export class NIP98 {
     }
 
     return event;
-  }
-
-  /** Encode an event as a base64 string. */
-  static encodeEvent(event: NostrEvent): string {
-    return encodeBase64(JSON.stringify(event));
-  }
-
-  /** Decode an event from a base64 string. */
-  static decodeEvent(base64: string): NostrEvent {
-    const bytes = decodeBase64(base64);
-    const text = new TextDecoder().decode(bytes);
-
-    return n
-      .json()
-      .pipe(n.event())
-      .parse(text);
   }
 }

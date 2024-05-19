@@ -1,6 +1,10 @@
+import { decodeBase64 } from '@std/encoding/base64';
 import { encodeHex } from '@std/encoding/hex';
+import { verifyEvent } from 'nostr-tools';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
+
+import { NSchema as n } from './NSchema.ts';
 
 /** [NIP-98](https://github.com/nostr-protocol/nips/blob/master/98.md) HTTP auth. */
 export class NIP98 {
@@ -33,13 +37,10 @@ export class NIP98 {
   }
 
   /** Compare the auth event with the request, throwing a human-readable error if validation fails. */
-  async verify(
-    request: Request,
-    event: NostrEvent,
-    opts?: { maxAge?: number; validatePayload?: boolean },
-  ): Promise<void> {
+  async verify(request: Request, opts?: { maxAge?: number; validatePayload?: boolean }): Promise<void> {
     const { maxAge = 60_000, validatePayload = ['POST', 'PUT', 'PATCH'].includes(request.method) } = opts ?? {};
 
+    const event = NIP98.event(request);
     const age = Date.now() - (event.created_at * 1_000);
 
     const u = event.tags.find(([name]) => name === 'u')?.[1];
@@ -66,5 +67,19 @@ export class NIP98 {
         throw new Error('Event payload does not match request body');
       }
     }
+  }
+
+  /** Get the event out of the `Authorization` header, and verify it. */
+  static event(request: Request): NostrEvent {
+    const header = request.headers.get('authorization');
+    const token = header?.match(/^Nostr (.+)$/)?.[1];
+    const bytes = decodeBase64(token!);
+    const text = new TextDecoder().decode(bytes);
+
+    return n
+      .json()
+      .pipe(n.event())
+      .refine(verifyEvent)
+      .parse(text);
   }
 }

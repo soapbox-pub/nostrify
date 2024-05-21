@@ -421,10 +421,17 @@ export class NDatabase implements NStore {
     }
 
     if (this.fts === 'postgres') {
-      schema.createTable('nostr_pgfts')
+      await schema.createTable('nostr_pgfts')
         .ifNotExists()
         .addColumn('event_id', 'text', (c) => c.primaryKey().references('nostr_events.id').onDelete('cascade'))
         .addColumn('search_vec', sql`tsvector`, (c) => c.notNull())
+        .execute();
+
+      await schema.createIndex('nostr_pgfts_gin_search_vec')
+        .ifNotExists()
+        .on('nostr_pgfts')
+        .using('gin')
+        .column('search_vec')
         .execute();
     }
   }

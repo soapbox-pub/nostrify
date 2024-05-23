@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.1] - 2024-05-23
+
+### Added
+
+- Added `HashtagPolicy` to block events with specific hashtags.
+
 ## [0.22.0] - 2024-05-19
 
 ### Added
@@ -164,7 +170,8 @@ Redeploy to JSR (to hopefully fix [npm compatibility](https://github.com/jsr-io/
 
 - Added `NDenoKv` storage class, for storing events in Deno KV.
 
-[unreleased]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.22.0...HEAD
+[unreleased]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.22.1...HEAD
+[0.22.1]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.22.0...v0.22.1
 [0.22.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.21.1...v0.22.0
 [0.21.1]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.21.0...v0.21.1
 [0.21.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.20.0...v0.21.0

@@ -8,7 +8,7 @@ import { NPolicy } from '../../interfaces/NPolicy.ts';
  * @example
  * ```ts
  * // Reject events with bad words.
- * keywordPolicy(msg, ['moo', 'oink', 'honk']);
+ * KeywordPolicy(['moo', 'oink', 'honk']);
  * ```
  */
 export class KeywordPolicy implements NPolicy {

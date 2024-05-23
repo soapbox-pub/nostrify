@@ -1,6 +1,7 @@
 export { AntiDuplicationPolicy } from './AntiDuplicationPolicy.ts';
 export { AnyPolicy } from './AnyPolicy.ts';
 export { FiltersPolicy } from './FiltersPolicy.ts';
+export { HashtagPolicy } from './HashtagPolicy.ts';
 export { HellthreadPolicy } from './HellthreadPolicy.ts';
 export { InvertPolicy } from './InvertPolicy.ts';
 export { KeywordPolicy } from './KeywordPolicy.ts';

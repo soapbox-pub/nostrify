@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- NostrMetadata: added `display_name` and `bot` fields.
+- NSchema: added `display_name` and `bot` fields to `n.metadata()`.
+
+### Fixed
+
+- NostrMetadata: added `website` field so `NSchema.metadata()` returns the correct type.
+
+### Changed
+
+- NSchema: stricter validation of `nip05` as an email-like address.
+- NSchema: stricter validation of `lud06` as a bech32 address.
+- NSchema: stricter validation of `lud16` as an email-like address.
+- NSchema: stricter validation of `picture` and `banner` as URLs.
+
 ## [0.22.2] - 2024-05-24
 
 ### Added

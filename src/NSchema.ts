@@ -182,13 +182,15 @@ class NSchema {
   /** Kind 0 content schema. */
   static metadata(): z.ZodType<NostrMetadata> {
     return z.object({
-      name: z.string().optional().catch(undefined),
       about: z.string().optional().catch(undefined),
-      picture: z.string().optional().catch(undefined),
-      banner: z.string().optional().catch(undefined),
-      nip05: z.string().optional().catch(undefined),
-      lud06: z.string().optional().catch(undefined),
+      banner: z.string().url().optional().catch(undefined),
+      bot: z.boolean().optional().catch(undefined),
+      display_name: z.string().optional().catch(undefined),
+      lud06: NSchema.bech32('lnurl').optional().catch(undefined),
       lud16: z.string().email().optional().catch(undefined),
+      name: z.string().optional().catch(undefined),
+      nip05: z.string().email().optional().catch(undefined),
+      picture: z.string().url().optional().catch(undefined),
       website: z.string().url().optional().catch(undefined),
     }).passthrough() as z.ZodType<NostrMetadata>;
   }

@@ -38,3 +38,25 @@ Deno.test('n.filter', () => {
   assert(!n.filter().safeParse({ ids: ['abc'] }).success);
   assert(!n.filter().safeParse({ authors: ['abc'] }).success);
 });
+
+Deno.test('n.metadata', () => {
+  // Passing
+  assertEquals(n.metadata().parse({ name: 'Alex' }).name, 'Alex');
+  assertEquals(n.metadata().parse({ about: 'I am a developer.' }).about, 'I am a developer.');
+  assertEquals(n.metadata().parse({ picture: 'https://nostrify.dev/1.png' }).picture, 'https://nostrify.dev/1.png');
+  assertEquals(n.metadata().parse({ banner: 'https://nostrify.dev/2.png' }).banner, 'https://nostrify.dev/2.png');
+  assertEquals(n.metadata().parse({ nip05: 'alex@gleasonator.dev' }).nip05, 'alex@gleasonator.dev');
+  assertEquals(n.metadata().parse({ lud06: 'lnurl1acdacd' }).lud06, 'lnurl1acdacd');
+  assertEquals(n.metadata().parse({ lud16: 'alex@alexgleason.me' }).lud16, 'alex@alexgleason.me');
+  assertEquals(n.metadata().parse({ website: 'https://nostrify.dev' }).website, 'https://nostrify.dev');
+
+  // Failing
+  assertEquals(n.metadata().parse({ name: 1 }).name, undefined);
+  assertEquals(n.metadata().parse({ about: 1 }).about, undefined);
+  assertEquals(n.metadata().parse({ picture: 'abc' }).picture, undefined);
+  assertEquals(n.metadata().parse({ banner: 'abc' }).banner, undefined);
+  assertEquals(n.metadata().parse({ nip05: 'nostrify.dev' }).nip05, undefined);
+  assertEquals(n.metadata().parse({ lud06: 'npub1abc' }).lud06, undefined);
+  assertEquals(n.metadata().parse({ lud16: 'nostrify.dev' }).lud16, undefined);
+  assertEquals(n.metadata().parse({ website: 'nostrify.dev' }).website, undefined);
+});

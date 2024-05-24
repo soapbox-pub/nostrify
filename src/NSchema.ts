@@ -188,7 +188,8 @@ class NSchema {
       banner: z.string().optional().catch(undefined),
       nip05: z.string().optional().catch(undefined),
       lud06: z.string().optional().catch(undefined),
-      lud16: z.string().optional().catch(undefined),
+      lud16: z.string().email().optional().catch(undefined),
+      website: z.string().url().optional().catch(undefined),
     }).passthrough() as z.ZodType<NostrMetadata>;
   }
 

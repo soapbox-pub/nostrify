@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Upgrade zod to v3.23.8.
+
 ## [0.22.3] - 2024-05-24
 
 ### Added

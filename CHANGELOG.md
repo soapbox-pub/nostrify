@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.3] - 2024-05-24
+
 ### Added
 
 - NostrMetadata: added `display_name` and `bot` fields.
@@ -192,7 +194,8 @@ Redeploy to JSR (to hopefully fix [npm compatibility](https://github.com/jsr-io/
 
 - Added `NDenoKv` storage class, for storing events in Deno KV.
 
-[unreleased]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.22.2...HEAD
+[unreleased]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.22.3...HEAD
+[0.22.3]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.22.2...v0.22.3
 [0.22.2]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.22.1...v0.22.2
 [0.22.1]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.22.0...v0.22.1
 [0.22.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.21.1...v0.22.0

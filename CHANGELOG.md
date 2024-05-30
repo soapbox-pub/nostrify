@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- NSchema: `created_at` must be a nonnegative integer
+- Upgrade nostr-tools to v2.7.0, remove dependency on @noble/hashes
+
 ## [0.22.4] - 2024-05-24
 
 ### Changed

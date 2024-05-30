@@ -14,7 +14,7 @@ export interface NDatabaseSchema {
     kind: number;
     pubkey: string;
     content: string;
-    created_at: number | bigint;
+    created_at: number;
     tags: string;
     sig: string;
   };
@@ -173,7 +173,7 @@ export class NDatabase implements NStore {
   /** Insert the event into the database. */
   protected async insertEvent(trx: Kysely<NDatabaseSchema>, event: NostrEvent): Promise<void> {
     await trx.insertInto('nostr_events')
-      .values({ ...event, tags: JSON.stringify(event.tags), created_at: Number(event.created_at) })
+      .values({ ...event, tags: JSON.stringify(event.tags) })
       .execute();
   }
 
@@ -325,7 +325,7 @@ export class NDatabase implements NStore {
         kind: row.kind,
         pubkey: row.pubkey,
         content: row.content,
-        created_at: Number(row.created_at),
+        created_at: row.created_at,
         tags: JSON.parse(row.tags),
         sig: row.sig,
       };
@@ -386,7 +386,7 @@ export class NDatabase implements NStore {
       .addColumn('kind', 'integer', (col) => col.notNull())
       .addColumn('pubkey', 'text', (col) => col.notNull())
       .addColumn('content', 'text', (col) => col.notNull())
-      .addColumn('created_at', 'bigint', (col) => col.notNull())
+      .addColumn('created_at', 'integer', (col) => col.notNull())
       .addColumn('tags', 'text', (col) => col.notNull())
       .addColumn('sig', 'text', (col) => col.notNull())
       .execute();

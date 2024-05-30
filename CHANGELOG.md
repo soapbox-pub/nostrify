@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - NSchema: `created_at` must be a nonnegative integer
+- NDatabase: made `created_at` a `bigint` to prepare for 2038
 - Upgrade nostr-tools to v2.7.0, remove dependency on @noble/hashes
 
 ## [0.22.4] - 2024-05-24

@@ -386,7 +386,7 @@ export class NDatabase implements NStore {
       .addColumn('kind', 'integer', (col) => col.notNull())
       .addColumn('pubkey', 'text', (col) => col.notNull())
       .addColumn('content', 'text', (col) => col.notNull())
-      .addColumn('created_at', 'integer', (col) => col.notNull())
+      .addColumn('created_at', 'bigint', (col) => col.notNull())
       .addColumn('tags', 'text', (col) => col.notNull())
       .addColumn('sig', 'text', (col) => col.notNull())
       .execute();

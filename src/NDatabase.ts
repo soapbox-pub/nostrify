@@ -14,7 +14,7 @@ export interface NDatabaseSchema {
     kind: number;
     pubkey: string;
     content: string;
-    created_at: number;
+    created_at: number | bigint;
     tags: string;
     sig: string;
   };
@@ -325,7 +325,7 @@ export class NDatabase implements NStore {
         kind: row.kind,
         pubkey: row.pubkey,
         content: row.content,
-        created_at: row.created_at,
+        created_at: Number(row.created_at),
         tags: JSON.parse(row.tags),
         sig: row.sig,
       };

@@ -39,6 +39,32 @@ Deno.test('n.filter', () => {
   assert(!n.filter().safeParse({ authors: ['abc'] }).success);
 });
 
+Deno.test('n.event', () => {
+  assert(n.event().safeParse(nostrEvent).success);
+
+  assertEquals(
+    n.event().parse(nostrEvent),
+    {
+      id: nostrEvent.id,
+      kind: nostrEvent.kind,
+      pubkey: nostrEvent.pubkey,
+      tags: nostrEvent.tags,
+      content: nostrEvent.content,
+      created_at: nostrEvent.created_at,
+      sig: nostrEvent.sig,
+    },
+  );
+
+  assert(!n.event().safeParse({}).success);
+  assert(!n.event().safeParse({ id: 'abc' }).success);
+  assert(!n.event().safeParse({ kind: 0.5 }).success);
+  assert(!n.event().safeParse({ pubkey: 'abc' }).success);
+  assert(!n.event().safeParse({ tags: ['abc'] }).success);
+  assert(!n.event().safeParse({ content: 1 }).success);
+  assert(!n.event().safeParse({ created_at: -1 }).success);
+  assert(!n.event().safeParse({ sig: 'abc' }).success);
+});
+
 Deno.test('n.metadata', () => {
   // Passing
   assertEquals(n.metadata().parse({ name: 'Alex' }).name, 'Alex');

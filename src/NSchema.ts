@@ -49,7 +49,7 @@ class NSchema {
       pubkey: NSchema.id(),
       tags: z.string().array().array(),
       content: z.string(),
-      created_at: z.number(),
+      created_at: z.number().int().nonnegative(),
       sig: z.string(),
     });
   }

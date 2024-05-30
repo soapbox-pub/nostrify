@@ -1,6 +1,5 @@
 // deno-lint-ignore-file require-await
 
-import { bytesToHex } from '@noble/hashes/utils';
 import { finalizeEvent, getPublicKey, nip04, nip44 } from 'nostr-tools';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
@@ -43,8 +42,7 @@ export class NSecSigner implements NostrSigner {
   };
 
   #getConversationKey(pubkey: string): Uint8Array {
-    const seckey = bytesToHex(this.#secretKey);
-    return nip44.v2.utils.getConversationKey(seckey, pubkey);
+    return nip44.v2.utils.getConversationKey(this.#secretKey, pubkey);
   }
 
   readonly nip44 = {

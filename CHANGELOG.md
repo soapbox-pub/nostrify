@@ -9,8 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- NSchema: `created_at` must be a nonnegative integer
-- Upgrade nostr-tools to v2.7.0, remove dependency on @noble/hashes
+- NSchema: `created_at` must be a nonnegative integer.
+- Upgrade `nostr-tools` to v2.7.0, remove dependency on `@noble/hashes`.
+- NostrBuildUploader: don't set `dim` tag if nostr.build returns 0 dimensions.
 
 ## [0.22.4] - 2024-05-24
 

@@ -77,8 +77,8 @@ export class NostrBuildUploader implements NUploader {
         mime: z.string(),
         size: z.number(),
         dimensions: z.object({
-          width: z.number(),
-          height: z.number(),
+          width: z.number().positive(),
+          height: z.number().positive(),
         }).optional().catch(undefined),
       }).array().min(1),
     });

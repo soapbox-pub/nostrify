@@ -1,4 +1,5 @@
-import { AbstractSimplePool, Nostr, verifyEvent } from 'nostr-tools';
+import { Nostr, verifyEvent } from 'nostr-tools';
+import { AbstractSimplePool } from 'nostr-tools/pool';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NostrFilter } from '../interfaces/NostrFilter.ts';

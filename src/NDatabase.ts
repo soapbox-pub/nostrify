@@ -127,20 +127,62 @@ export class NDatabase implements NStore {
 
   /** Check if an event has been deleted. */
   protected async isDeleted(event: NostrEvent): Promise<boolean> {
-    const [deletion] = await this.query([
+    const filters: NostrFilter[] = [
       { kinds: [5], authors: [event.pubkey], '#e': [event.id], limit: 1 },
-    ]);
-    return !!deletion;
+    ];
+
+    if (NKinds.replaceable(event.kind) || NKinds.parameterizedReplaceable(event.kind)) {
+      const d = event.tags.find(([tag]) => tag === 'd')?.[1] ?? '';
+
+      filters.push({
+        kinds: [5],
+        authors: [event.pubkey],
+        '#a': [`${event.kind}:${event.pubkey}:${d}`],
+        since: event.created_at,
+        limit: 1,
+      });
+    }
+
+    const events = await this.query(filters);
+    return events.length > 0;
   }
 
   /** Delete events referenced by kind 5. */
   protected async deleteEvents(trx: Kysely<NDatabaseSchema>, event: NostrEvent): Promise<void> {
     if (event.kind === 5) {
-      const ids = event.tags
-        .filter(([name]) => name === 'e')
-        .map(([_name, value]) => value);
+      const ids = new Set(event.tags.filter(([name]) => name === 'e').map(([_name, value]) => value));
+      const addrs = new Set(event.tags.filter(([name]) => name === 'a').map(([_name, value]) => value));
 
-      await this.deleteEventsTrx(trx, [{ ids, authors: [event.pubkey] }]);
+      const filters: NostrFilter[] = [];
+
+      if (ids.size) {
+        filters.push({ ids: [...ids], authors: [event.pubkey] });
+      }
+
+      for (const addr of addrs) {
+        const [k, pubkey, d] = addr.split(':');
+        const kind = Number(k);
+
+        if (pubkey !== event.pubkey) continue;
+        if (!(Number.isInteger(kind) && kind >= 0)) continue;
+        if (d === undefined) continue;
+
+        const filter: NostrFilter = {
+          kinds: [kind],
+          authors: [event.pubkey],
+          until: event.created_at,
+        };
+
+        if (d) {
+          filter['#d'] = [d];
+        }
+
+        filters.push(filter);
+      }
+
+      if (filters.length) {
+        await this.deleteEventsTrx(trx, filters);
+      }
     }
   }
 
@@ -230,10 +272,10 @@ export class NDatabase implements NStore {
 
   /** Build the query for a filter. */
   protected getFilterQuery(
-    db: Kysely<NDatabaseSchema>,
+    trx: Kysely<NDatabaseSchema>,
     filter: NostrFilter,
   ): SelectQueryBuilder<NDatabaseSchema, 'nostr_events', NDatabaseSchema['nostr_events']> {
-    let query = db
+    let query = trx
       .selectFrom('nostr_events')
       .selectAll('nostr_events');
 
@@ -280,7 +322,7 @@ export class NDatabase implements NStore {
       }
 
       if (!this.fts) {
-        return db.selectFrom('nostr_events').selectAll('nostr_events').where('id', 'in', []);
+        return trx.selectFrom('nostr_events').selectAll('nostr_events').where('id', 'in', []);
       }
     }
 
@@ -300,12 +342,13 @@ export class NDatabase implements NStore {
 
   /** Combine filter queries into a single union query. */
   protected getEventsQuery(
+    trx: Kysely<NDatabaseSchema>,
     filters: NostrFilter[],
   ): SelectQueryBuilder<NDatabaseSchema, 'nostr_events', NDatabaseSchema['nostr_events']> {
     return filters
       .map((filter) =>
-        this.db
-          .selectFrom(() => this.getFilterQuery(this.db, filter).as('nostr_events'))
+        trx
+          .selectFrom(() => this.getFilterQuery(trx, filter).as('nostr_events'))
           .selectAll()
       )
       .reduce((result, query) => result.unionAll(query));
@@ -313,7 +356,7 @@ export class NDatabase implements NStore {
 
   /** Get events for filters from the database. */
   async query(filters: NostrFilter[], opts: { signal?: AbortSignal; limit?: number } = {}): Promise<NostrEvent[]> {
-    let query = this.getEventsQuery(filters);
+    let query = this.getEventsQuery(this.db, filters);
 
     if (typeof opts.limit === 'number') {
       query = query.limit(opts.limit);
@@ -335,22 +378,22 @@ export class NDatabase implements NStore {
   }
 
   /** Delete events from each table. Should be run in a transaction! */
-  protected async deleteEventsTrx(db: Kysely<NDatabaseSchema>, filters: NostrFilter[]): Promise<DeleteResult[]> {
-    const query = this.getEventsQuery(filters).clearSelect().select('id');
+  protected async deleteEventsTrx(trx: Kysely<NDatabaseSchema>, filters: NostrFilter[]): Promise<DeleteResult[]> {
+    const query = this.getEventsQuery(trx, filters).clearSelect().select('id');
 
     if (this.fts === 'sqlite') {
-      await db.deleteFrom('nostr_fts5')
+      await trx.deleteFrom('nostr_fts5')
         .where('event_id', 'in', () => query)
         .execute();
     }
 
     if (this.fts === 'postgres') {
-      await db.deleteFrom('nostr_pgfts')
+      await trx.deleteFrom('nostr_pgfts')
         .where('event_id', 'in', () => query)
         .execute();
     }
 
-    return db.deleteFrom('nostr_events')
+    return trx.deleteFrom('nostr_events')
       .where('id', 'in', () => query)
       .execute();
   }
@@ -362,7 +405,7 @@ export class NDatabase implements NStore {
 
   /** Get number of events that would be returned by filters. */
   async count(filters: NostrFilter[]): Promise<{ count: number; approximate: false }> {
-    const query = this.getEventsQuery(filters);
+    const query = this.getEventsQuery(this.db, filters);
 
     const [{ count }] = await query
       .clearSelect()

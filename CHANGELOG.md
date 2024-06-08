@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.0] - 2024-06-07
+
 ### Added
 
 - NDatabase: support replaceable event deletions.
@@ -212,7 +214,8 @@ Redeploy to JSR (to hopefully fix [npm compatibility](https://github.com/jsr-io/
 
 - Added `NDenoKv` storage class, for storing events in Deno KV.
 
-[unreleased]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.22.5...HEAD
+[unreleased]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.23.0...HEAD
+[0.23.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.22.5...v0.23.0
 [0.22.5]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.22.4...v0.22.5
 [0.22.4]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.22.3...v0.22.4
 [0.22.3]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.22.2...v0.22.3

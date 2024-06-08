@@ -15,6 +15,11 @@ const createDB = async (opts?: NDatabaseOpts) => {
     dialect: new DenoSqlite3Dialect({
       database: new Sqlite(':memory:'),
     }),
+    log(event): void {
+      if (event.level === 'query') {
+        console.log(event.query.sql, JSON.stringify(event.query.parameters));
+      }
+    },
   });
   const db = new NDatabase(kysely, opts);
   await db.migrate();
@@ -243,6 +248,65 @@ Deno.test('NDatabase.event processes deletions', async () => {
   });
 
   assertEquals(await db.query([{ kinds: [1] }]), [two]);
+});
+
+Deno.test('NDatabase.event with a replaceable deleted event', async () => {
+  const db = await createDB();
+
+  assertEquals(await db.query([{ kinds: [0] }]), []);
+
+  await db.event(event0);
+
+  assertEquals(await db.query([{ kinds: [0] }]), [event0]);
+
+  await db.event({
+    kind: 5,
+    pubkey: event0.pubkey,
+    tags: [['a', `0:${event0.pubkey}:`]],
+    created_at: 1699398370,
+    content: '',
+    id: '1',
+    sig: '',
+  });
+
+  assertEquals(await db.query([{ kinds: [0] }]), [event0]);
+
+  await db.event({
+    kind: 5,
+    pubkey: event0.pubkey,
+    tags: [['a', `0:${event0.pubkey}:`]],
+    created_at: 1699398377,
+    content: '',
+    id: '2',
+    sig: '',
+  });
+
+  assertEquals(await db.query([{ kinds: [0] }]), []);
+});
+
+Deno.test('NDatabase.event with a parameterized-replaceable deleted event', async () => {
+  const db = await createDB();
+
+  const eventA = { id: '1', kind: 30000, pubkey: 'abc', content: '', created_at: 0, sig: '', tags: [['d', 'a']] };
+  const eventB = { id: '2', kind: 30000, pubkey: 'abc', content: '', created_at: 2, sig: '', tags: [['d', 'a']] };
+
+  await db.event(eventA);
+  assertEquals(await db.query([{ ids: [eventA.id] }]), [eventA]);
+
+  await db.event({
+    kind: 5,
+    pubkey: eventA.pubkey,
+    tags: [['a', `30000:${eventA.pubkey}:a`]],
+    created_at: 1,
+    content: '',
+    id: '',
+    sig: '',
+  });
+
+  assertEquals(await db.query([{ ids: [eventA.id] }]), []);
+
+  await db.event(eventB);
+  assertEquals(await db.query([{ ids: [eventB.id] }]), [eventB]);
 });
 
 Deno.test("NDatabase.event does not delete another user's event", async () => {

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- NDatabase: support replaceable event deletions.
+
 ## [0.22.5] - 2024-06-01
 
 ### Fixed

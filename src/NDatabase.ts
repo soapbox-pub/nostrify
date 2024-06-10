@@ -284,8 +284,8 @@ export class NDatabase implements NStore {
       filter.kinds &&
       filter.kinds.every((kind) => NKinds.replaceable(kind) || NKinds.parameterizedReplaceable(kind));
 
-    // Avoid ORDER BY when querying for replaceable events by author.
-    if (!isAddrQuery) {
+    // Avoid ORDER BY for certain queries.
+    if (!isAddrQuery && !filter.ids) {
       query = query.orderBy('created_at', 'desc');
     }
 

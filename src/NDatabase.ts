@@ -418,6 +418,19 @@ export class NDatabase implements NStore {
     };
   }
 
+  /** Execute NDatabase functions in a transaction. */
+  async trx(callback: (store: NDatabase) => Promise<void>): Promise<void> {
+    await this.db.transaction().execute(async (trx) => {
+      const store = new NDatabase(trx as Kysely<NDatabaseSchema>, {
+        fts: this.fts,
+        indexTags: this.indexTags,
+        searchText: this.searchText,
+      });
+
+      await callback(store);
+    });
+  }
+
   /** Migrate the database schema. */
   async migrate(): Promise<void> {
     const schema = this.db.schema;

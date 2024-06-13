@@ -326,14 +326,16 @@ export class NDatabase implements NStore {
       }
     }
 
-    const joinedQuery = query.leftJoin('nostr_tags', 'nostr_tags.event_id', 'nostr_events.id');
-
+    let i = 0;
     for (const [key, value] of Object.entries(filter)) {
       if (key.startsWith('#') && Array.isArray(value)) {
         const name = key.replace(/^#/, '');
-        query = joinedQuery
-          .where('nostr_tags.name', '=', name)
-          .where('nostr_tags.value', 'in', value);
+        const alias = `tag${i++}` as const;
+        // @ts-ignore String interpolation confuses Kysely.
+        query = query
+          .innerJoin(`nostr_tags as ${alias}`, `${alias}.event_id`, 'nostr_events.id')
+          .where(`${alias}.name`, '=', name)
+          .where(`${alias}.value`, 'in', value);
       }
     }
 

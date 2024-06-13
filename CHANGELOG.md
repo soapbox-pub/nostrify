@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- NDatabase: fix querying by multiple tags.
+
 ## [0.23.1] - 2024-06-09
 
 ### Fixed

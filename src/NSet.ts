@@ -170,6 +170,34 @@ class NSet implements Set<NostrEvent> {
       return a.id.localeCompare(b.id);
     });
   }
+
+  union<U>(_other: Set<U>): Set<NostrEvent | U> {
+    throw new Error('Method not implemented.');
+  }
+
+  intersection<U>(_other: Set<U>): Set<NostrEvent & U> {
+    throw new Error('Method not implemented.');
+  }
+
+  difference<U>(_other: Set<U>): Set<NostrEvent> {
+    throw new Error('Method not implemented.');
+  }
+
+  symmetricDifference<U>(_other: Set<U>): Set<NostrEvent | U> {
+    throw new Error('Method not implemented.');
+  }
+
+  isSubsetOf(_other: Set<unknown>): boolean {
+    throw new Error('Method not implemented.');
+  }
+
+  isSupersetOf(_other: Set<unknown>): boolean {
+    throw new Error('Method not implemented.');
+  }
+
+  isDisjointFrom(_other: Set<unknown>): boolean {
+    throw new Error('Method not implemented.');
+  }
 }
 
 export { NSet };

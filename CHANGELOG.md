@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- NDatabase: add intrinsic limits to filters when applicable, skip 0 limit filters.
+
 ## [0.23.2] - 2024-06-13
 
 ### Fixed

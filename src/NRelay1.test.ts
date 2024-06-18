@@ -7,8 +7,8 @@ import { NRelay1 } from './NRelay1.ts';
 import events from '../fixtures/events.json' with { type: 'json' };
 
 const event1s = events
-  .filter(e => e.kind === 1)
-  .toSorted(_ => 0.5 - Math.random())
+  .filter((e) => e.kind === 1)
+  .toSorted((_) => 0.5 - Math.random())
   .slice(0, 10);
 
 Deno.test('NRelay1.query', async () => {

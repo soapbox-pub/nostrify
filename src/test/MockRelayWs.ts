@@ -26,7 +26,7 @@ export class MockRelayWs {
     this.events = preloaded || [];
     this.server = new Server(url);
     this.server.on('connection', (conn) => {
-      const subscriptions: Map<string, { socket: typeof conn, filters: NostrFilter[] }> = new Map();
+      const subscriptions: Map<string, { socket: typeof conn; filters: NostrFilter[] }> = new Map();
 
       conn.on('message', (msg) => {
         const parsed = JSON.parse(msg as string);
@@ -37,8 +37,8 @@ export class MockRelayWs {
             subscriptions.set(id, { socket: conn, filters });
 
             this.events
-              .filter(evt => matchFilters(filters, evt))
-              .forEach(evt => MockRelayWs.send(conn, id, evt));
+              .filter((evt) => matchFilters(filters, evt))
+              .forEach((evt) => MockRelayWs.send(conn, id, evt));
 
             if (this.events.length && this.first) {
               this.first = !this.first;
@@ -65,6 +65,6 @@ export class MockRelayWs {
           }
         }
       });
-    })
+    });
   }
 }

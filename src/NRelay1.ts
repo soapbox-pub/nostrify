@@ -73,7 +73,7 @@ export class NRelay1 implements NRelay {
             this.ee.dispatchEvent(new CustomEvent(`count:${msg[1]}`, { detail: msg }));
             break;
           case 'AUTH':
-            auth?.(msg[1]).then((event) => this.send(['AUTH', event])).catch(() => {});
+            auth?.(msg[1]).then((event) => this.send(['AUTH', event])).catch(() => { });
         }
       })
       .build();
@@ -100,7 +100,7 @@ export class NRelay1 implements NRelay {
   async *req(
     filters: NostrFilter[],
     opts: { signal?: AbortSignal } = {},
-  ): AsyncIterable<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
+  ): AsyncGenerator<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
     const { signal } = opts;
     const subscriptionId = crypto.randomUUID();
 

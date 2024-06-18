@@ -2,12 +2,13 @@ import { Server } from 'mock-socket';
 import { NostrFilter } from '../../interfaces/NostrFilter.ts';
 import { matchFilters } from 'nostr-tools';
 import { NostrEvent } from '../../interfaces/NostrEvent.ts';
+import { NostrRelayOK } from '../../interfaces/NostrRelayMsg.ts';
 
 interface WsSender {
   send(data: any): void;
 }
 
-export class MockWsServer {
+export class MockRelayWs {
   server: Server;
   events: NostrEvent[];
   first: boolean;
@@ -34,11 +35,10 @@ export class MockWsServer {
           case 'REQ': {
             const [_, id, ...filters] = parsed;
             subscriptions.set(id, { socket: conn, filters });
-            console.log('new req', filters);
 
             this.events
               .filter(evt => matchFilters(filters, evt))
-              .forEach(evt => MockWsServer.send(conn, id, evt));
+              .forEach(evt => MockRelayWs.send(conn, id, evt));
 
             if (this.events.length && this.first) {
               this.first = !this.first;
@@ -55,9 +55,10 @@ export class MockWsServer {
 
           case 'EVENT': {
             const [_, evt] = parsed;
-            conn.send(JSON.stringify(['OK', evt.id, 'true']));
+            const ok: NostrRelayOK = ['OK', evt.id, true, ''];
+            conn.send(JSON.stringify(ok));
             for (const [id, { filters, socket }] of subscriptions.entries()) {
-              if (matchFilters(filters, evt)) MockWsServer.send(socket, id, evt);
+              if (matchFilters(filters, evt)) MockRelayWs.send(socket, id, evt);
             }
             this.events.push(evt);
             break;

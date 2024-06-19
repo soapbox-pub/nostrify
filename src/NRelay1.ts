@@ -100,7 +100,7 @@ export class NRelay1 implements NRelay {
   async *req(
     filters: NostrFilter[],
     opts: { signal?: AbortSignal } = {},
-  ): AsyncIterable<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
+  ): AsyncGenerator<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
     const { signal } = opts;
     const subscriptionId = crypto.randomUUID();
 

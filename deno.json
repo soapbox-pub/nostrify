@@ -2,7 +2,7 @@
   "$schema": "https://deno.land/x/deno@v1.41.0/cli/schemas/config-file.v1.json",
   "lock": false,
   "name": "@nostrify/nostrify",
-  "version": "0.23.1",
+  "version": "0.23.3",
   "exports": {
     ".": "./mod.ts",
     "./denokv": "./src/denokv/mod.ts",
@@ -49,6 +49,7 @@
     "kysely": "npm:kysely@^0.27.3",
     "kysely_deno_postgres": "https://deno.land/x/kysely_deno_postgres@v0.4.0/mod.ts",
     "lru-cache": "npm:lru-cache@^10.2.0",
+    "mock-socket": "npm:mock-socket@9.3.1",
     "nostr-tools": "npm:nostr-tools@^2.7.0",
     "websocket-ts": "npm:websocket-ts@^2.1.5",
     "zod": "npm:zod@^3.23.8"

@@ -90,6 +90,23 @@ Deno.bench('NDatabase.query by multiple authors', async () => {
   }]);
 });
 
+Deno.bench('NDatabase.query replaceable event by author', async () => {
+  await db.query([{
+    kinds: [0],
+    authors: ['9887797d06372fa7aa79950328e0754277ee748efa2222204c713ac03f1a5a81'],
+    limit: 1,
+  }]);
+});
+
+Deno.bench('NDatabase.query parameterized replaceable event by author', async () => {
+  await db.query([{
+    kinds: [30078],
+    authors: ['bac7a8b8b0bb6b4194969254a5223a1f13b8d01c5bd18f65d5cefc41525ae54f'],
+    '#d': ['snort'],
+    limit: 1,
+  }]);
+});
+
 Deno.bench('NDatabase.query by single tag', async () => {
   await db.query([{
     '#p': ['be49045474d8234adbd38dff67bbb9ae2a6d0696bf809e44e9cd12aac0ea6318'],

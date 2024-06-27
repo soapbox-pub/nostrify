@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.3] - 2024-06-17
+
+### Fixed
+
+- NDatabase: add intrinsic limits to filters when applicable, skip 0 limit filters.
+
+## [0.23.2] - 2024-06-13
+
+### Fixed
+
+- NDatabase: fix querying by multiple tags.
+
 ## [0.23.1] - 2024-06-09
 
 ### Fixed
@@ -220,7 +232,9 @@ Redeploy to JSR (to hopefully fix [npm compatibility](https://github.com/jsr-io/
 
 - Added `NDenoKv` storage class, for storing events in Deno KV.
 
-[unreleased]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.23.1...HEAD
+[unreleased]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.23.3...HEAD
+[0.23.3]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.23.2...v0.23.3
+[0.23.2]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.23.1...v0.23.2
 [0.23.1]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.23.0...v0.23.1
 [0.23.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.22.5...v0.23.0
 [0.22.5]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.22.4...v0.22.5

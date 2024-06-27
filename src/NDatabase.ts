@@ -1,5 +1,5 @@
 import { type DeleteResult, Kysely, type SelectQueryBuilder, sql } from 'kysely';
-import { sortEvents } from 'nostr-tools';
+import { getFilterLimit, sortEvents } from 'nostr-tools';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NStore } from '../interfaces/NStore.ts';
@@ -326,14 +326,16 @@ export class NDatabase implements NStore {
       }
     }
 
-    const joinedQuery = query.leftJoin('nostr_tags', 'nostr_tags.event_id', 'nostr_events.id');
-
+    let i = 0;
     for (const [key, value] of Object.entries(filter)) {
       if (key.startsWith('#') && Array.isArray(value)) {
         const name = key.replace(/^#/, '');
-        query = joinedQuery
-          .where('nostr_tags.name', '=', name)
-          .where('nostr_tags.value', 'in', value);
+        const alias = `tag${i++}` as const;
+        // @ts-ignore String interpolation confuses Kysely.
+        query = query
+          .innerJoin(`nostr_tags as ${alias}`, `${alias}.event_id`, 'nostr_events.id')
+          .where(`${alias}.name`, '=', name)
+          .where(`${alias}.value`, 'in', value);
       }
     }
 
@@ -356,6 +358,12 @@ export class NDatabase implements NStore {
 
   /** Get events for filters from the database. */
   async query(filters: NostrFilter[], opts: { signal?: AbortSignal; limit?: number } = {}): Promise<NostrEvent[]> {
+    filters = this.normalizeFilters(filters);
+
+    if (!filters.length) {
+      return [];
+    }
+
     let query = this.getEventsQuery(this.db, filters);
 
     if (typeof opts.limit === 'number') {
@@ -375,6 +383,17 @@ export class NDatabase implements NStore {
     });
 
     return sortEvents(events);
+  }
+
+  /** Normalize the `limit` of each filter, and remove filters that can't produce any events. */
+  protected normalizeFilters(filters: NostrFilter[]): NostrFilter[] {
+    return filters.reduce<NostrFilter[]>((acc, filter) => {
+      const limit = getFilterLimit(filter);
+      if (limit > 0) {
+        acc.push(limit === Infinity ? filter : { ...filter, limit });
+      }
+      return acc;
+    }, []);
   }
 
   /** Delete events from each table. Should be run in a transaction! */

@@ -4,6 +4,7 @@ import { DenoSqlite3Dialect } from '@soapbox/kysely-deno-sqlite';
 import { PostgreSQLDriver } from 'kysely_deno_postgres';
 import { Kysely, PostgresAdapter, PostgresIntrospector, PostgresQueryCompiler } from 'kysely';
 
+import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NDatabase, NDatabaseOpts, NDatabaseSchema } from './NDatabase.ts';
 
 import event0 from '../fixtures/event-0.json' with { type: 'json' };
@@ -52,6 +53,12 @@ const createPostgresDB = async (opts?: NDatabaseOpts) => {
   return { db, kysely };
 };
 
+/** Import a JSONL fixture by name in tests. */
+export async function jsonlEvents(path: string): Promise<NostrEvent[]> {
+  const data = await Deno.readTextFile(path);
+  return data.split('\n').map((line) => JSON.parse(line));
+}
+
 Deno.test('NDatabase.migrate', async () => {
   await createDB();
 });
@@ -84,6 +91,35 @@ Deno.test('NDatabase.query', async () => {
     await db.query([{ '#proxy': ['https://gleasonator.com/objects/8f6fac53-4f66-4c6e-ac7d-92e5e78c3e79'] }]),
     [event1],
   );
+});
+
+Deno.test('NDatabase.query with tag filters and limit', async () => {
+  const db = await createDB();
+
+  for (const event of await jsonlEvents('./fixtures/events-3036.jsonl')) {
+    await db.event(event);
+  }
+
+  const events = await db.query([{
+    kinds: [30383],
+    authors: ['db0e60d10b9555a39050c258d460c5c461f6d18f467aa9f62de1a728b8a891a4'],
+    '#k': ['3036'],
+    '#p': ['0461fcbecc4c3374439932d6b8f11269ccdb7cc973ad7a50ae362db135a474dd'],
+    '#n': ['approved'],
+    limit: 20,
+  }]);
+
+  assertEquals(events.length, 1);
+
+  const pubkeys = new Set<string>();
+
+  for (const event of events) {
+    for (const tag of event.tags.filter(([name]) => name === 'p')) {
+      pubkeys.add(tag[1]);
+    }
+  }
+
+  assertEquals([...pubkeys], ['0461fcbecc4c3374439932d6b8f11269ccdb7cc973ad7a50ae362db135a474dd']);
 });
 
 Deno.test("NDatabase.query with multiple tags doesn't crash", async () => {

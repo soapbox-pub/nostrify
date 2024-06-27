@@ -446,7 +446,7 @@ export class NDatabase implements NStore {
         searchText: this.searchText,
       });
 
-      await callback(store, this.db);
+      await callback(store, trx);
     });
   }
 

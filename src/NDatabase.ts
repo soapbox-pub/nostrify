@@ -450,6 +450,7 @@ export class NDatabase implements NStore {
     });
   }
 
+  /** Execute the callback in a new transaction, unless the Kysely instance is already a transaction. */
   private trx(callback: (trx: Kysely<NDatabaseSchema>) => Promise<void>): Promise<void> {
     if (this.db.isTransaction) {
       return callback(this.db);

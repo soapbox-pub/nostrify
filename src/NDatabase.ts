@@ -1,4 +1,4 @@
-import { type DeleteResult, Kysely, type SelectQueryBuilder, sql } from 'kysely';
+import { Kysely, type SelectQueryBuilder, sql } from 'kysely';
 import { getFilterLimit, sortEvents } from 'nostr-tools';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
@@ -105,7 +105,7 @@ export class NDatabase implements NStore {
     if (await this.isDeleted(event)) {
       throw new Error('Cannot add a deleted event');
     }
-    return await this.db.transaction().execute(async (trx) => {
+    return await this.trx(async (trx) => {
       await Promise.all([
         this.deleteEvents(trx, event),
         this.replaceEvents(trx, event),
@@ -397,7 +397,7 @@ export class NDatabase implements NStore {
   }
 
   /** Delete events from each table. Should be run in a transaction! */
-  protected async deleteEventsTrx(trx: Kysely<NDatabaseSchema>, filters: NostrFilter[]): Promise<DeleteResult[]> {
+  protected async deleteEventsTrx(trx: Kysely<NDatabaseSchema>, filters: NostrFilter[]): Promise<void> {
     const query = this.getEventsQuery(trx, filters).clearSelect().select('id');
 
     if (this.fts === 'sqlite') {
@@ -412,14 +412,14 @@ export class NDatabase implements NStore {
         .execute();
     }
 
-    return trx.deleteFrom('nostr_events')
+    await trx.deleteFrom('nostr_events')
       .where('id', 'in', () => query)
       .execute();
   }
 
   /** Delete events based on filters from the database. */
   async remove(filters: NostrFilter[]): Promise<void> {
-    await this.db.transaction().execute((trx) => this.deleteEventsTrx(trx, filters));
+    await this.trx((trx) => this.deleteEventsTrx(trx, filters));
   }
 
   /** Get number of events that would be returned by filters. */
@@ -439,7 +439,7 @@ export class NDatabase implements NStore {
 
   /** Execute NDatabase functions in a transaction. */
   async transaction(callback: (store: NDatabase, kysely: Kysely<NDatabaseSchema>) => Promise<void>): Promise<void> {
-    await this.db.transaction().execute(async (trx) => {
+    await this.trx(async (trx) => {
       const store = new NDatabase(trx as Kysely<NDatabaseSchema>, {
         fts: this.fts,
         indexTags: this.indexTags,
@@ -448,6 +448,14 @@ export class NDatabase implements NStore {
 
       await callback(store, this.db);
     });
+  }
+
+  private trx(callback: (trx: Kysely<NDatabaseSchema>) => Promise<void>): Promise<void> {
+    if (this.db.isTransaction) {
+      return callback(this.db);
+    } else {
+      return this.db.transaction().execute((trx) => callback(trx));
+    }
   }
 
   /** Migrate the database schema. */

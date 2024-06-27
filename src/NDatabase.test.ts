@@ -367,10 +367,10 @@ Deno.test("NDatabase.event does not delete another user's event", async () => {
   assertEquals(await db.query([{ kinds: [1] }]), [event]);
 });
 
-Deno.test('NDatabase.trx', async () => {
+Deno.test('NDatabase.transaction', async () => {
   const db = await createDB();
 
-  await db.trx(async (store) => {
+  await db.transaction(async (store) => {
     await store.event(event0);
     await store.event(event1);
   });

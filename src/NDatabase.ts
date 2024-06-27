@@ -438,7 +438,7 @@ export class NDatabase implements NStore {
   }
 
   /** Execute NDatabase functions in a transaction. */
-  async trx(callback: (store: NDatabase) => Promise<void>): Promise<void> {
+  async transaction(callback: (store: NDatabase, kysely: Kysely<NDatabaseSchema>) => Promise<void>): Promise<void> {
     await this.db.transaction().execute(async (trx) => {
       const store = new NDatabase(trx as Kysely<NDatabaseSchema>, {
         fts: this.fts,
@@ -446,7 +446,7 @@ export class NDatabase implements NStore {
         searchText: this.searchText,
       });
 
-      await callback(store);
+      await callback(store, this.db);
     });
   }
 

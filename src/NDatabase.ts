@@ -47,6 +47,7 @@ export interface NDatabaseOpts {
    * Only applicable if `fts5` is `true`.
    */
   searchText?(event: NostrEvent): string | undefined;
+  timeoutStrategy?: 'postgres_set_timeout' | undefined;
 }
 
 /**
@@ -78,10 +79,12 @@ export class NDatabase implements NStore {
   private fts?: 'sqlite' | 'postgres';
   private indexTags: (event: NostrEvent) => string[][];
   private searchText: (event: NostrEvent) => string | undefined;
+  private timeoutStrategy: 'postgres_set_timeout' | undefined;
 
   constructor(db: Kysely<any>, opts?: NDatabaseOpts) {
     this.db = db as Kysely<NDatabaseSchema>;
     this.fts = opts?.fts;
+    this.timeoutStrategy = opts?.timeoutStrategy;
     this.indexTags = opts?.indexTags ?? NDatabase.indexTags;
     this.searchText = opts?.searchText ?? NDatabase.searchText;
   }
@@ -357,21 +360,22 @@ export class NDatabase implements NStore {
   }
 
   /** Get events for filters from the database. */
-  async query(filters: NostrFilter[], opts: { signal?: AbortSignal; limit?: number } = {}): Promise<NostrEvent[]> {
+  async query(
+    filters: NostrFilter[],
+    opts: { timeoutMs?: number; signal?: AbortSignal; limit?: number } = {},
+  ): Promise<NostrEvent[]> {
     filters = this.normalizeFilters(filters);
 
-    if (!filters.length) {
-      return [];
+    if (!filters.length) return [];
+
+    const query = (k: Kysely<NDatabaseSchema>) => {
+      let q = this.getEventsQuery(k, filters);
+      if (typeof opts.limit === 'number') q = q.limit(opts.limit);
+      return q;
     }
 
-    let query = this.getEventsQuery(this.db, filters);
-
-    if (typeof opts.limit === 'number') {
-      query = query.limit(opts.limit);
-    }
-
-    const events = (await query.execute()).map((row) => {
-      return {
+    const transformQueried = (queried: NDatabaseSchema['nostr_events'][]) =>
+      sortEvents(queried.map((row) => ({
         id: row.id,
         kind: row.kind,
         pubkey: row.pubkey,
@@ -379,10 +383,18 @@ export class NDatabase implements NStore {
         created_at: row.created_at,
         tags: JSON.parse(row.tags),
         sig: row.sig,
-      };
-    });
+      })));
 
-    return sortEvents(events);
+    if (!(!this.db.isTransaction && this.timeoutStrategy === 'postgres_set_timeout' && opts.timeoutMs)) {
+      return transformQueried(await query(this.db).execute());
+    }
+
+    const timeout = opts.timeoutMs.toString();
+    return await this.trx(async txn => {
+      await sql`set local statement_timeout = ${sql.raw(timeout)}`.execute(txn);
+      const r = await query(txn).execute();
+      return r;
+    }).then(r => transformQueried(r));
   }
 
   /** Normalize the `limit` of each filter, and remove filters that can't produce any events. */
@@ -451,11 +463,11 @@ export class NDatabase implements NStore {
   }
 
   /** Execute the callback in a new transaction, unless the Kysely instance is already a transaction. */
-  private trx(callback: (trx: Kysely<NDatabaseSchema>) => Promise<void>): Promise<void> {
+  private async trx<T = unknown>(callback: (trx: Kysely<NDatabaseSchema>) => Promise<T>): Promise<T> {
     if (this.db.isTransaction) {
-      return callback(this.db);
+      return await callback(this.db);
     } else {
-      return this.db.transaction().execute((trx) => callback(trx));
+      return await this.db.transaction().execute((trx) => callback(trx));
     }
   }
 

@@ -402,7 +402,7 @@ Deno.test('NDatabase.query times out', {
 }, async () => {
   const { kysely, db } = await createPostgresDB({ timeoutStrategy: 'postgres_set_timeout', fts: 'postgres' });
   for (const evt of events) await db.event(evt);
-  const evt = events[Math.floor(Math.random() * events.length)];
-  await assertRejects(async () => await db.query([{ search: evt.content }], { timeoutMs: 1 }));
+  const search = "Block #: 836,386\nPrice: $70,219\nSats/$: 1,424\nFee: 23 sat/vB\nHashrate: 538 EH/s\nDifficulty: 83T nonces\nNodes: 7,685\nFull-node size: 521 GB";
+  await assertRejects(async () => await db.query([{ search }], { timeoutMs: 1 }));
   await kysely.destroy();
 });

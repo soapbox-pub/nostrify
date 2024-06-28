@@ -9,7 +9,7 @@ import { NDatabase, NDatabaseOpts, NDatabaseSchema } from './NDatabase.ts';
 
 import event0 from '../fixtures/event-0.json' with { type: 'json' };
 import event1 from '../fixtures/event-1.json' with { type: 'json' };
-import { finalizeEvent, generateSecretKey } from 'nostr-tools';
+import events from '../fixtures/events.json' with { type: 'json'};
 
 /** Create in-memory database for testing. */
 const createDB = async (opts?: NDatabaseOpts) => {
@@ -18,7 +18,7 @@ const createDB = async (opts?: NDatabaseOpts) => {
       database: new Sqlite(':memory:'),
     }),
     log(event): void {
-      if (event.level === 'query') {
+      if (Deno.env.get("DEBUG_TESTS") && event.level === 'query') {
         console.log(event.query.sql, JSON.stringify(event.query.parameters));
       }
     },
@@ -47,6 +47,11 @@ const createPostgresDB = async (opts?: NDatabaseOpts) => {
       createQueryCompiler() {
         return new PostgresQueryCompiler();
       },
+    },
+    log(event): void {
+      if (Deno.env.get("DEBUG_TESTS") && event.level === 'query') {
+        console.log(event.query.sql, JSON.stringify(event.query.parameters));
+      }
     },
   });
 
@@ -392,15 +397,10 @@ Deno.test('NDatabase.transaction', async () => {
   assertEquals(await db.query([{ kinds: [1] }]), [event1]);
 });
 
-Deno.test('NDatabase.query times out', { ignore: !Deno.env.get('DATABASE_URL') }, async (t) => {
-  const { kysely, db } = await createPostgresDB({ timeoutStrategy: 'postgres_set_timeout' });
-  const evt = finalizeEvent({
-    kind: 0,
-    content: '{}',
-    created_at: Math.round(Date.now() / 1000),
-    tags: []
-  }, generateSecretKey());
-  await db.event(evt);
-  await db.query([{ ids: [evt.id] }], { timeoutMs: 10 });
-  kysely.destroy();
+Deno.test('NDatabase.query times out', { ignore: !!Deno.env.get("SKIP_PG_TIMEOUT_TEST") || !Deno.env.get('DATABASE_URL') }, async () => {
+  const { kysely, db } = await createPostgresDB({ timeoutStrategy: 'postgres_set_timeout', fts: 'postgres' });
+  for (const evt of events) await db.event(evt);
+  const evt = events[Math.floor(Math.random() * events.length)];
+  await assertRejects(async () => await db.query([{ search: evt.content }], { timeoutMs: 1 }));
+  await kysely.destroy();
 })

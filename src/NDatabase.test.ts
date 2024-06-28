@@ -9,6 +9,7 @@ import { NDatabase, NDatabaseOpts, NDatabaseSchema } from './NDatabase.ts';
 
 import event0 from '../fixtures/event-0.json' with { type: 'json' };
 import event1 from '../fixtures/event-1.json' with { type: 'json' };
+import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
 /** Create in-memory database for testing. */
 const createDB = async (opts?: NDatabaseOpts) => {
@@ -48,7 +49,19 @@ const createPostgresDB = async (opts?: NDatabaseOpts) => {
       },
     },
   });
+
   const db = new NDatabase(kysely, opts);
+  const tables: Record<keyof NDatabaseSchema, true> = {
+    nostr_tags: true,
+    nostr_pgfts: true,
+    nostr_fts5: true,
+    nostr_events: true,
+  };
+
+  for (const table in tables) {
+    await kysely.schema.dropTable(table).ifExists().execute();
+  }
+
   await db.migrate();
   return { db, kysely };
 };
@@ -378,3 +391,16 @@ Deno.test('NDatabase.transaction', async () => {
   assertEquals(await db.query([{ kinds: [0] }]), [event0]);
   assertEquals(await db.query([{ kinds: [1] }]), [event1]);
 });
+
+Deno.test('NDatabase.query times out', { ignore: !Deno.env.get('DATABASE_URL') }, async (t) => {
+  const { kysely, db } = await createPostgresDB({ timeoutStrategy: 'postgres_set_timeout' });
+  const evt = finalizeEvent({
+    kind: 0,
+    content: '{}',
+    created_at: Math.round(Date.now() / 1000),
+    tags: []
+  }, generateSecretKey());
+  await db.event(evt);
+  await db.query([{ ids: [evt.id] }], { timeoutMs: 10 });
+  kysely.destroy();
+})

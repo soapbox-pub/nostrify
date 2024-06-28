@@ -372,7 +372,7 @@ export class NDatabase implements NStore {
       let q = this.getEventsQuery(k, filters);
       if (typeof opts.limit === 'number') q = q.limit(opts.limit);
       return q;
-    }
+    };
 
     const transformQueried = (queried: NDatabaseSchema['nostr_events'][]) =>
       sortEvents(queried.map((row) => ({
@@ -390,11 +390,11 @@ export class NDatabase implements NStore {
     }
 
     const timeout = opts.timeoutMs.toString();
-    return await this.trx(async txn => {
+    return await this.trx(async (txn) => {
       await sql`set local statement_timeout = ${sql.raw(timeout)}`.execute(txn);
       const r = await query(txn).execute();
       return r;
-    }).then(r => transformQueried(r));
+    }).then((r) => transformQueried(r));
   }
 
   /** Normalize the `limit` of each filter, and remove filters that can't produce any events. */

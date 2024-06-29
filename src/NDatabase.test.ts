@@ -470,7 +470,7 @@ Deno.test('NDatabase timeout', { ignore: !Deno.env.get('DATABASE_URL') }, async 
   await kysely.destroy();
 });
 
-Deno.test('NDatabase timeout has no affect on SQLite', async () => {
+Deno.test('NDatabase timeout has no effect on SQLite', async () => {
   const db = await createDB();
 
   await db.event(event0, { timeout: 1 });

@@ -367,35 +367,35 @@ export class NDatabase implements NStore {
   ): Promise<NostrEvent[]> {
     filters = this.normalizeFilters(filters);
 
-    if (!filters.length) return [];
-
-    const query = (k: Kysely<NDatabaseSchema>) => {
-      let q = this.getEventsQuery(k, filters);
-      if (typeof opts.limit === 'number') q = q.limit(opts.limit);
-      return q;
-    };
-
-    const transformQueried = (queried: NDatabaseSchema['nostr_events'][]) =>
-      sortEvents(queried.map((row) => ({
-        id: row.id,
-        kind: row.kind,
-        pubkey: row.pubkey,
-        content: row.content,
-        created_at: row.created_at,
-        tags: JSON.parse(row.tags),
-        sig: row.sig,
-      })));
-
-    if (!(!this.db.isTransaction && this.timeoutStrategy === 'setStatementTimeout' && opts.timeout)) {
-      return transformQueried(await query(this.db).execute());
+    if (!filters.length) {
+      return [];
     }
 
-    const timeout = opts.timeout.toString();
-    return await this.trx(async (txn) => {
-      await sql`set local statement_timeout = ${sql.raw(timeout)}`.execute(txn);
-      const r = await query(txn).execute();
-      return r;
-    }).then((r) => transformQueried(r));
+    return await this.trx(async (trx) => {
+      if (this.timeoutStrategy === 'setStatementTimeout' && typeof opts.timeout === 'number') {
+        await sql`set local statement_timeout = ${sql.raw(opts.timeout.toString())}`.execute(trx);
+      }
+
+      let query = this.getEventsQuery(trx, filters);
+
+      if (typeof opts.limit === 'number') {
+        query = query.limit(opts.limit);
+      }
+
+      const events = (await query.execute()).map((row) => {
+        return {
+          id: row.id,
+          kind: row.kind,
+          pubkey: row.pubkey,
+          content: row.content,
+          created_at: row.created_at,
+          tags: JSON.parse(row.tags),
+          sig: row.sig,
+        };
+      });
+
+      return sortEvents(events);
+    });
   }
 
   /** Normalize the `limit` of each filter, and remove filters that can't produce any events. */

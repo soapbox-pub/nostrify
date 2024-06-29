@@ -503,7 +503,7 @@ export class NDatabase implements NStore {
 
   /** Set a local variable in the current database transaction (only works with Postgres). */
   private async setLocal(trx: Kysely<NDatabaseSchema>, key: string, value: string | number): Promise<void> {
-    await sql`set local ${key} = ${value}`.execute(trx);
+    await sql`set local ${sql.raw(key)} = ${sql.raw(value.toString())}`.execute(trx);
   }
 
   /** Migrate the database schema. */

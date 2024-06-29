@@ -3,12 +3,16 @@ import { assertEquals, assertRejects } from '@std/assert';
 import { DenoSqlite3Dialect } from '@soapbox/kysely-deno-sqlite';
 import { PostgreSQLDriver } from 'kysely_deno_postgres';
 import { Kysely, PostgresAdapter, PostgresIntrospector, PostgresQueryCompiler } from 'kysely';
+import { finalizeEvent, generateSecretKey } from 'nostr-tools';
+import { TransactionError } from 'postgres';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
+import { NostrFilter } from '../interfaces/NostrFilter.ts';
 import { NDatabase, NDatabaseOpts, NDatabaseSchema } from './NDatabase.ts';
 
 import event0 from '../fixtures/event-0.json' with { type: 'json' };
 import event1 from '../fixtures/event-1.json' with { type: 'json' };
+import events from '../fixtures/events.json' with { type: 'json' };
 
 /** Create in-memory database for testing. */
 const createDB = async (opts?: NDatabaseOpts) => {
@@ -396,15 +400,61 @@ Deno.test('NDatabase.transaction', async () => {
   assertEquals(await db.query([{ kinds: [1] }]), [event1]);
 });
 
-Deno.test('NDatabase.query times out', { ignore: !Deno.env.get('DATABASE_URL') }, async () => {
-  const { kysely, db } = await createPostgresDB({ timeoutStrategy: 'setStatementTimeout', fts: 'postgres' });
+// When `statement_timeout` is 0 it's disabled, so we need to create slow queries.
+Deno.test('NDatabase.query timeout', { ignore: !Deno.env.get('DATABASE_URL') }, async (t) => {
+  const { db, kysely } = await createPostgresDB({
+    timeoutStrategy: 'setStatementTimeout',
+    fts: 'postgres',
+  });
 
-  const msg = 'canceling statement due to statement timeout';
+  // Setup
+  for (const event of events) {
+    await db.event(event);
+  }
 
-  await assertRejects(() => db.event(event0, { timeout: 0 }), msg);
-  await assertRejects(() => db.query([{ kinds: [0] }], { timeout: 0 }), msg);
-  await assertRejects(() => db.count([{ kinds: [0] }], { timeout: 0 }), msg);
-  await assertRejects(() => db.remove([{ kinds: [0] }], { timeout: 0 }), msg);
+  await t.step('Slow event (lots of tags)', async () => {
+    await assertRejects(
+      () =>
+        db.event(
+          finalizeEvent({
+            kind: 1,
+            content: 'hello world!',
+            created_at: Math.floor(Date.now() / 1000),
+            tags: new Array(300).fill(['p', '570a9c85c7dd56eca0d8c7f258d7fc178f1b2bb3aab4136ba674dc4879eee88a']),
+          }, generateSecretKey()),
+          { timeout: 1 },
+        ),
+      TransactionError,
+      'aborted',
+    );
+  });
+
+  const slowFilters: NostrFilter[] = [
+    {
+      search:
+        'Block #: 836,386\nPrice: $70,219\nSats/$: 1,424\nFee: 23 sat/vB\nHashrate: 538 EH/s\nDifficulty: 83T nonces\nNodes: 7,685\nFull-node size: 521 GB',
+    },
+  ];
+
+  await t.step('Slow query', async () => {
+    await assertRejects(
+      () => db.query(slowFilters, { timeout: 1 }),
+      TransactionError,
+      'aborted',
+    );
+  });
+
+  await t.step('Slow count', async () => {
+    await assertRejects(() => db.count(slowFilters, { timeout: 1 }), TransactionError, 'aborted');
+  });
+
+  await t.step('Slow remove', async () => {
+    await assertRejects(() => db.remove(slowFilters, { timeout: 1 }), TransactionError, 'aborted');
+  });
+
+  await t.step("Sanity check that a query with timeout doesn't throw an error", async () => {
+    await db.event(event0, { timeout: 999 });
+  });
 
   await kysely.destroy();
 });

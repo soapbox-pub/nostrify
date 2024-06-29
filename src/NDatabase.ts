@@ -109,7 +109,7 @@ export class NDatabase implements NStore {
     if (await this.isDeleted(event)) {
       throw new Error('Cannot add a deleted event');
     }
-    return await this.trx(this.db, (trx) => {
+    return await NDatabase.trx(this.db, (trx) => {
       return this.withTimeout(trx, async (trx) => {
         await Promise.all([
           this.deleteEvents(trx, event),
@@ -154,7 +154,7 @@ export class NDatabase implements NStore {
   }
 
   /** Delete events referenced by kind 5. */
-  protected async deleteEvents(trx: Kysely<NDatabaseSchema>, event: NostrEvent): Promise<void> {
+  protected async deleteEvents(db: Kysely<NDatabaseSchema>, event: NostrEvent): Promise<void> {
     if (event.kind === 5) {
       const ids = new Set(event.tags.filter(([name]) => name === 'e').map(([_name, value]) => value));
       const addrs = new Set(event.tags.filter(([name]) => name === 'a').map(([_name, value]) => value));
@@ -187,7 +187,7 @@ export class NDatabase implements NStore {
       }
 
       if (filters.length) {
-        await this.removeEvents(trx, filters);
+        await this.removeEvents(db, filters);
       }
     }
   }
@@ -407,30 +407,32 @@ export class NDatabase implements NStore {
     }, []);
   }
 
-  /** Delete events from each table. Should be run in a transaction! */
-  protected async removeEvents(trx: Kysely<NDatabaseSchema>, filters: NostrFilter[]): Promise<void> {
-    const query = this.getEventsQuery(trx, filters).clearSelect().select('id');
+  /** Remove events from the database. */
+  protected async removeEvents(db: Kysely<NDatabaseSchema>, filters: NostrFilter[]): Promise<void> {
+    return await NDatabase.trx(db, async (trx) => {
+      const query = this.getEventsQuery(trx, filters).clearSelect().select('id');
 
-    if (this.fts === 'sqlite') {
-      await trx.deleteFrom('nostr_fts5')
-        .where('event_id', 'in', () => query)
+      if (this.fts === 'sqlite') {
+        await trx.deleteFrom('nostr_fts5')
+          .where('event_id', 'in', () => query)
+          .execute();
+      }
+
+      if (this.fts === 'postgres') {
+        await trx.deleteFrom('nostr_pgfts')
+          .where('event_id', 'in', () => query)
+          .execute();
+      }
+
+      await trx.deleteFrom('nostr_events')
+        .where('id', 'in', () => query)
         .execute();
-    }
-
-    if (this.fts === 'postgres') {
-      await trx.deleteFrom('nostr_pgfts')
-        .where('event_id', 'in', () => query)
-        .execute();
-    }
-
-    await trx.deleteFrom('nostr_events')
-      .where('id', 'in', () => query)
-      .execute();
+    });
   }
 
   /** Delete events based on filters from the database. */
   async remove(filters: NostrFilter[], opts: { signal?: AbortSignal; timeout?: number } = {}): Promise<void> {
-    await this.trx(this.db, (trx1) => this.withTimeout(trx1, (trx2) => this.removeEvents(trx2, filters), opts.timeout));
+    await this.withTimeout(this.db, (trx) => this.removeEvents(trx, filters), opts.timeout);
   }
 
   /** Get number of events that would be returned by filters. */
@@ -454,7 +456,7 @@ export class NDatabase implements NStore {
 
   /** Execute NDatabase functions in a transaction. */
   async transaction(callback: (store: NDatabase, kysely: Kysely<NDatabaseSchema>) => Promise<void>): Promise<void> {
-    await this.trx(this.db, async (trx) => {
+    await NDatabase.trx(this.db, async (trx) => {
       const store = new NDatabase(trx as Kysely<NDatabaseSchema>, {
         fts: this.fts,
         indexTags: this.indexTags,
@@ -466,7 +468,7 @@ export class NDatabase implements NStore {
   }
 
   /** Execute the callback in a new transaction, unless the Kysely instance is already a transaction. */
-  private async trx<T = unknown>(
+  private static async trx<T = unknown>(
     db: Kysely<NDatabaseSchema>,
     callback: (trx: Kysely<NDatabaseSchema>) => Promise<T>,
   ): Promise<T> {
@@ -484,7 +486,7 @@ export class NDatabase implements NStore {
     timeout: number | undefined,
   ): Promise<T> {
     if (typeof timeout === 'number') {
-      return await this.trx(db, async (trx) => {
+      return await NDatabase.trx(db, async (trx) => {
         await this.setTimeout(trx, timeout);
         return await callback(trx);
       });

@@ -4,7 +4,7 @@ import { DenoSqlite3Dialect } from '@soapbox/kysely-deno-sqlite';
 import { PostgreSQLDriver } from 'kysely_deno_postgres';
 import { Kysely, LogConfig, LogEvent, PostgresAdapter, PostgresIntrospector, PostgresQueryCompiler } from 'kysely';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
-import { TransactionError } from 'postgres';
+import { Pool, TransactionError } from 'postgres';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NostrFilter } from '../interfaces/NostrFilter.ts';
@@ -43,9 +43,10 @@ const createPostgresDB = async (opts?: NDatabaseOpts) => {
       },
       // @ts-ignore mismatched kysely versions
       createDriver() {
-        return new PostgreSQLDriver({
-          connectionString: Deno.env.get('DATABASE_URL'),
-        });
+        return new PostgreSQLDriver(
+          // @ts-ignore mismatched deno-postgres versions
+          new Pool(Deno.env.get('DATABASE_URL'), 1),
+        );
       },
       createIntrospector(db: Kysely<unknown>) {
         return new PostgresIntrospector(db);

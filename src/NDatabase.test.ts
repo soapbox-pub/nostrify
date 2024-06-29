@@ -2,7 +2,7 @@ import { Database as Sqlite } from '@db/sqlite';
 import { assertEquals, assertRejects } from '@std/assert';
 import { DenoSqlite3Dialect } from '@soapbox/kysely-deno-sqlite';
 import { PostgreSQLDriver } from 'kysely_deno_postgres';
-import { Kysely, PostgresAdapter, PostgresIntrospector, PostgresQueryCompiler } from 'kysely';
+import { Kysely, LogConfig, LogEvent, PostgresAdapter, PostgresIntrospector, PostgresQueryCompiler } from 'kysely';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 import { TransactionError } from 'postgres';
 
@@ -14,17 +14,20 @@ import event0 from '../fixtures/event-0.json' with { type: 'json' };
 import event1 from '../fixtures/event-1.json' with { type: 'json' };
 import events from '../fixtures/events.json' with { type: 'json' };
 
+/** Kysely console logger. */
+const log: LogConfig = (event: LogEvent): void => {
+  if (Deno.env.get('DEBUG') && event.level === 'query') {
+    console.log(event.query.sql, JSON.stringify(event.query.parameters));
+  }
+};
+
 /** Create in-memory database for testing. */
 const createDB = async (opts?: NDatabaseOpts) => {
   const kysely = new Kysely<NDatabaseSchema>({
     dialect: new DenoSqlite3Dialect({
       database: new Sqlite(':memory:'),
     }),
-    log(event): void {
-      if (Deno.env.get('DEBUG') && event.level === 'query') {
-        console.log(event.query.sql, JSON.stringify(event.query.parameters));
-      }
-    },
+    log,
   });
   const db = new NDatabase(kysely, opts);
   await db.migrate();
@@ -51,11 +54,7 @@ const createPostgresDB = async (opts?: NDatabaseOpts) => {
         return new PostgresQueryCompiler();
       },
     },
-    log(event): void {
-      if (Deno.env.get('DEBUG') && event.level === 'query') {
-        console.log(event.query.sql, JSON.stringify(event.query.parameters));
-      }
-    },
+    log,
   });
 
   const db = new NDatabase(kysely, opts);
@@ -448,12 +447,16 @@ Deno.test('NDatabase.query timeout', { ignore: !Deno.env.get('DATABASE_URL') }, 
     await assertRejects(() => db.count(slowFilters, { timeout: 1 }), TransactionError, 'aborted');
   });
 
+  await t.step("Check that the previous query's timeout doesn't impact the next query", async () => {
+    await db.count(slowFilters);
+  });
+
   await t.step('Slow remove', async () => {
     await assertRejects(() => db.remove(slowFilters, { timeout: 1 }), TransactionError, 'aborted');
   });
 
   await t.step("Sanity check that a query with timeout doesn't throw an error", async () => {
-    await db.event(event0, { timeout: 999 });
+    await db.event(event0, { timeout: 1000 });
   });
 
   await kysely.destroy();

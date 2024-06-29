@@ -103,22 +103,24 @@ export class NDatabase implements NStore {
   }
 
   /** Insert an event (and its tags) into the database. */
-  async event(event: NostrEvent): Promise<void> {
+  async event(event: NostrEvent, opts: { signal?: AbortSignal; timeout?: number } = {}): Promise<void> {
     if (NKinds.ephemeral(event.kind)) return;
 
     if (await this.isDeleted(event)) {
       throw new Error('Cannot add a deleted event');
     }
-    return await this.trx(async (trx) => {
-      await Promise.all([
-        this.deleteEvents(trx, event),
-        this.replaceEvents(trx, event),
-      ]);
-      await this.insertEvent(trx, event);
-      await Promise.all([
-        this.insertTags(trx, event),
-        this.indexSearch(trx, event),
-      ]);
+    return await this.trx(this.db, (trx) => {
+      return this.withTimeout(trx, async (trx) => {
+        await Promise.all([
+          this.deleteEvents(trx, event),
+          this.replaceEvents(trx, event),
+        ]);
+        await this.insertEvent(trx, event);
+        await Promise.all([
+          this.insertTags(trx, event),
+          this.indexSearch(trx, event),
+        ]);
+      }, opts.timeout);
     }).catch((error) => {
       // Don't throw for duplicate events.
       if (error.message.includes('UNIQUE constraint failed')) {
@@ -185,7 +187,7 @@ export class NDatabase implements NStore {
       }
 
       if (filters.length) {
-        await this.deleteEventsTrx(trx, filters);
+        await this.removeEvents(trx, filters);
       }
     }
   }
@@ -271,7 +273,7 @@ export class NDatabase implements NStore {
         throw new Error(error);
       }
     }
-    await this.deleteEventsTrx(trx, [filter]);
+    await this.removeEvents(trx, [filter]);
   }
 
   /** Build the query for a filter. */
@@ -371,11 +373,7 @@ export class NDatabase implements NStore {
       return [];
     }
 
-    return await this.trx(async (trx) => {
-      if (this.timeoutStrategy === 'setStatementTimeout' && typeof opts.timeout === 'number') {
-        await sql`set local statement_timeout = ${sql.raw(opts.timeout.toString())}`.execute(trx);
-      }
-
+    return await this.withTimeout(this.db, async (trx) => {
       let query = this.getEventsQuery(trx, filters);
 
       if (typeof opts.limit === 'number') {
@@ -395,7 +393,7 @@ export class NDatabase implements NStore {
       });
 
       return sortEvents(events);
-    });
+    }, opts.timeout);
   }
 
   /** Normalize the `limit` of each filter, and remove filters that can't produce any events. */
@@ -410,7 +408,7 @@ export class NDatabase implements NStore {
   }
 
   /** Delete events from each table. Should be run in a transaction! */
-  protected async deleteEventsTrx(trx: Kysely<NDatabaseSchema>, filters: NostrFilter[]): Promise<void> {
+  protected async removeEvents(trx: Kysely<NDatabaseSchema>, filters: NostrFilter[]): Promise<void> {
     const query = this.getEventsQuery(trx, filters).clearSelect().select('id');
 
     if (this.fts === 'sqlite') {
@@ -431,28 +429,32 @@ export class NDatabase implements NStore {
   }
 
   /** Delete events based on filters from the database. */
-  async remove(filters: NostrFilter[]): Promise<void> {
-    await this.trx((trx) => this.deleteEventsTrx(trx, filters));
+  async remove(filters: NostrFilter[], opts: { signal?: AbortSignal; timeout?: number } = {}): Promise<void> {
+    await this.trx(this.db, (trx1) => this.withTimeout(trx1, (trx2) => this.removeEvents(trx2, filters), opts.timeout));
   }
 
   /** Get number of events that would be returned by filters. */
-  async count(filters: NostrFilter[]): Promise<{ count: number; approximate: false }> {
-    const query = this.getEventsQuery(this.db, filters);
+  async count(
+    filters: NostrFilter[],
+    opts: { signal?: AbortSignal; timeout?: number } = {},
+  ): Promise<{ count: number; approximate: false }> {
+    return await this.withTimeout(this.db, async (trx) => {
+      const query = this.getEventsQuery(trx, filters);
+      const [{ count }] = await query
+        .clearSelect()
+        .select((eb) => eb.fn.count('id').as('count'))
+        .execute();
 
-    const [{ count }] = await query
-      .clearSelect()
-      .select((eb) => eb.fn.count('id').as('count'))
-      .execute();
-
-    return {
-      count: Number(count),
-      approximate: false,
-    };
+      return {
+        count: Number(count),
+        approximate: false,
+      };
+    }, opts.timeout);
   }
 
   /** Execute NDatabase functions in a transaction. */
   async transaction(callback: (store: NDatabase, kysely: Kysely<NDatabaseSchema>) => Promise<void>): Promise<void> {
-    await this.trx(async (trx) => {
+    await this.trx(this.db, async (trx) => {
       const store = new NDatabase(trx as Kysely<NDatabaseSchema>, {
         fts: this.fts,
         indexTags: this.indexTags,
@@ -464,12 +466,44 @@ export class NDatabase implements NStore {
   }
 
   /** Execute the callback in a new transaction, unless the Kysely instance is already a transaction. */
-  private async trx<T = unknown>(callback: (trx: Kysely<NDatabaseSchema>) => Promise<T>): Promise<T> {
-    if (this.db.isTransaction) {
-      return await callback(this.db);
+  private async trx<T = unknown>(
+    db: Kysely<NDatabaseSchema>,
+    callback: (trx: Kysely<NDatabaseSchema>) => Promise<T>,
+  ): Promise<T> {
+    if (db.isTransaction) {
+      return await callback(db);
     } else {
-      return await this.db.transaction().execute((trx) => callback(trx));
+      return await db.transaction().execute((trx) => callback(trx));
     }
+  }
+
+  /** Maybe execute the callback in a transaction with a timeout, if a timeout is provided. */
+  private async withTimeout<T>(
+    db: Kysely<NDatabaseSchema>,
+    callback: (trx: Kysely<NDatabaseSchema>) => Promise<T>,
+    timeout: number | undefined,
+  ): Promise<T> {
+    if (typeof timeout === 'number') {
+      return await this.trx(db, async (trx) => {
+        await this.setTimeout(trx, timeout);
+        return await callback(trx);
+      });
+    } else {
+      return await callback(db);
+    }
+  }
+
+  /** Set a timeout in the current database transaction, if applicable. */
+  private async setTimeout(trx: Kysely<NDatabaseSchema>, timeout: number): Promise<void> {
+    switch (this.timeoutStrategy) {
+      case 'setStatementTimeout':
+        await this.setLocal(trx, 'statement_timeout', timeout);
+    }
+  }
+
+  /** Set a local variable in the current database transaction (only works with Postgres). */
+  private async setLocal(trx: Kysely<NDatabaseSchema>, key: string, value: string | number): Promise<void> {
+    await sql`set local ${key} = ${value}`.execute(trx);
   }
 
   /** Migrate the database schema. */

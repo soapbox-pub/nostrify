@@ -9,7 +9,6 @@ import { NDatabase, NDatabaseOpts, NDatabaseSchema } from './NDatabase.ts';
 
 import event0 from '../fixtures/event-0.json' with { type: 'json' };
 import event1 from '../fixtures/event-1.json' with { type: 'json' };
-import events from '../fixtures/events.json' with { type: 'json' };
 
 /** Create in-memory database for testing. */
 const createDB = async (opts?: NDatabaseOpts) => {
@@ -18,7 +17,7 @@ const createDB = async (opts?: NDatabaseOpts) => {
       database: new Sqlite(':memory:'),
     }),
     log(event): void {
-      if (Deno.env.get('DEBUG_TESTS') && event.level === 'query') {
+      if (Deno.env.get('DEBUG') && event.level === 'query') {
         console.log(event.query.sql, JSON.stringify(event.query.parameters));
       }
     },
@@ -49,7 +48,7 @@ const createPostgresDB = async (opts?: NDatabaseOpts) => {
       },
     },
     log(event): void {
-      if (Deno.env.get('DEBUG_TESTS') && event.level === 'query') {
+      if (Deno.env.get('DEBUG') && event.level === 'query') {
         console.log(event.query.sql, JSON.stringify(event.query.parameters));
       }
     },
@@ -397,14 +396,15 @@ Deno.test('NDatabase.transaction', async () => {
   assertEquals(await db.query([{ kinds: [1] }]), [event1]);
 });
 
-Deno.test('NDatabase.query times out', {
-  ignore: !!Deno.env.get('SKIP_PG_TIMEOUT_TEST') || !Deno.env.get('DATABASE_URL'),
-}, async () => {
-  const { kysely, db } = await createPostgresDB({ timeoutStrategy: 'postgres_set_timeout', fts: 'postgres' });
-  for (const evt of events) await db.event(evt);
-  // 9c32a4a93628bbfbb0c00d33f0726bdb8f5f5f8b16017efcb685107780188300 in events.json
-  const search =
-    'Block #: 836,386\nPrice: $70,219\nSats/$: 1,424\nFee: 23 sat/vB\nHashrate: 538 EH/s\nDifficulty: 83T nonces\nNodes: 7,685\nFull-node size: 521 GB';
-  await assertRejects(async () => await db.query([{ search }], { timeoutMs: 1 }));
+Deno.test('NDatabase.query times out', { ignore: !Deno.env.get('DATABASE_URL') }, async () => {
+  const { kysely, db } = await createPostgresDB({ timeoutStrategy: 'setStatementTimeout', fts: 'postgres' });
+
+  const msg = 'canceling statement due to statement timeout';
+
+  await assertRejects(() => db.event(event0, { timeout: 0 }), msg);
+  await assertRejects(() => db.query([{ kinds: [0] }], { timeout: 0 }), msg);
+  await assertRejects(() => db.count([{ kinds: [0] }], { timeout: 0 }), msg);
+  await assertRejects(() => db.remove([{ kinds: [0] }], { timeout: 0 }), msg);
+
   await kysely.destroy();
 });

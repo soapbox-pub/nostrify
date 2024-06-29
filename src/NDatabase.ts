@@ -47,7 +47,8 @@ export interface NDatabaseOpts {
    * Only applicable if `fts5` is `true`.
    */
   searchText?(event: NostrEvent): string | undefined;
-  timeoutStrategy?: 'postgres_set_timeout' | undefined;
+  /** Strategy to use for handling the `timeout` opt. */
+  timeoutStrategy?: 'setStatementTimeout' | undefined;
 }
 
 /**
@@ -79,7 +80,7 @@ export class NDatabase implements NStore {
   private fts?: 'sqlite' | 'postgres';
   private indexTags: (event: NostrEvent) => string[][];
   private searchText: (event: NostrEvent) => string | undefined;
-  private timeoutStrategy: 'postgres_set_timeout' | undefined;
+  private timeoutStrategy: 'setStatementTimeout' | undefined;
 
   constructor(db: Kysely<any>, opts?: NDatabaseOpts) {
     this.db = db as Kysely<NDatabaseSchema>;
@@ -362,7 +363,7 @@ export class NDatabase implements NStore {
   /** Get events for filters from the database. */
   async query(
     filters: NostrFilter[],
-    opts: { timeoutMs?: number; signal?: AbortSignal; limit?: number } = {},
+    opts: { timeout?: number; signal?: AbortSignal; limit?: number } = {},
   ): Promise<NostrEvent[]> {
     filters = this.normalizeFilters(filters);
 
@@ -385,11 +386,11 @@ export class NDatabase implements NStore {
         sig: row.sig,
       })));
 
-    if (!(!this.db.isTransaction && this.timeoutStrategy === 'postgres_set_timeout' && opts.timeoutMs)) {
+    if (!(!this.db.isTransaction && this.timeoutStrategy === 'setStatementTimeout' && opts.timeout)) {
       return transformQueried(await query(this.db).execute());
     }
 
-    const timeout = opts.timeoutMs.toString();
+    const timeout = opts.timeout.toString();
     return await this.trx(async (txn) => {
       await sql`set local statement_timeout = ${sql.raw(timeout)}`.execute(txn);
       const r = await query(txn).execute();

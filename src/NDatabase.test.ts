@@ -30,7 +30,7 @@ const createDB = async (opts?: NDatabaseOpts) => {
     log,
   });
   const db = new NDatabase(kysely, opts);
-  await db.migrate();
+  await withoutDebug(() => db.migrate());
   return db;
 };
 
@@ -58,20 +58,28 @@ const createPostgresDB = async (opts?: NDatabaseOpts) => {
   });
 
   const db = new NDatabase(kysely, opts);
-  const tables: Record<keyof NDatabaseSchema, true> = {
-    nostr_tags: true,
-    nostr_pgfts: true,
-    nostr_fts5: true,
-    nostr_events: true,
-  };
 
-  for (const table in tables) {
-    await kysely.schema.dropTable(table).ifExists().execute();
-  }
+  await withoutDebug(async () => {
+    for (const table of ['nostr_events', 'nostr_tags', 'nostr_pgfts']) {
+      await kysely.schema.dropTable(table).ifExists().cascade().execute();
+    }
+    await db.migrate();
+  });
 
-  await db.migrate();
   return { db, kysely };
 };
+
+/** Run an async function with the Kysely logger disabled. */
+async function withoutDebug(callback: () => Promise<void>) {
+  const DEBUG = Deno.env.get('DEBUG');
+  Deno.env.delete('DEBUG');
+
+  await callback();
+
+  if (typeof DEBUG === 'string') {
+    Deno.env.set('DEBUG', DEBUG);
+  }
+}
 
 /** Import a JSONL fixture by name in tests. */
 export async function jsonlEvents(path: string): Promise<NostrEvent[]> {
@@ -407,9 +415,9 @@ Deno.test('NDatabase.query timeout', { ignore: !Deno.env.get('DATABASE_URL') }, 
   });
 
   // Setup
-  for (const event of events) {
-    await db.event(event);
-  }
+  await withoutDebug(async () => {
+    await Promise.all(events.map((event) => db.event(event)));
+  });
 
   await t.step('Slow event (lots of tags)', async () => {
     await assertRejects(

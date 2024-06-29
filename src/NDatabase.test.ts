@@ -408,7 +408,7 @@ Deno.test('NDatabase.transaction', async () => {
 });
 
 // When `statement_timeout` is 0 it's disabled, so we need to create slow queries.
-Deno.test('NDatabase.query timeout', { ignore: !Deno.env.get('DATABASE_URL') }, async (t) => {
+Deno.test('NDatabase timeout', { ignore: !Deno.env.get('DATABASE_URL') }, async (t) => {
   const { db, kysely } = await createPostgresDB({
     timeoutStrategy: 'setStatementTimeout',
     fts: 'postgres',
@@ -468,4 +468,13 @@ Deno.test('NDatabase.query timeout', { ignore: !Deno.env.get('DATABASE_URL') }, 
   });
 
   await kysely.destroy();
+});
+
+Deno.test('NDatabase timeout has no affect on SQLite', async () => {
+  const db = await createDB();
+
+  await db.event(event0, { timeout: 1 });
+  await db.query([{ kinds: [0] }], { timeout: 1 });
+  await db.count([{ kinds: [0] }], { timeout: 1 });
+  await db.remove([{ kinds: [0] }], { timeout: 1 });
 });

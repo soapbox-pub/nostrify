@@ -1,10 +1,10 @@
 import { Database as Sqlite } from '@db/sqlite';
 import { assertEquals, assertRejects } from '@std/assert';
 import { DenoSqlite3Dialect } from '@soapbox/kysely-deno-sqlite';
-import { PostgreSQLDriver } from 'kysely_deno_postgres';
-import { Kysely, LogConfig, LogEvent, PostgresAdapter, PostgresIntrospector, PostgresQueryCompiler } from 'kysely';
+import { Kysely, LogConfig, LogEvent } from 'kysely';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
-import { Pool, TransactionError } from 'postgres';
+import postgres from 'postgres';
+import { PostgresJSDialect } from 'kysely-postgres-js';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NostrFilter } from '../interfaces/NostrFilter.ts';
@@ -39,7 +39,7 @@ const log: LogConfig = (event: LogEvent): void => {
 /** Create in-memory database for testing. */
 async function createDB(
   opts?: NDatabaseOpts,
-): Promise<{ store: NDatabase; kysely: Kysely<NDatabaseSchema>; [Symbol.asyncDispose]: () => Promise<void> }> {
+): Promise<{ store: NDatabase; kysely: Kysely<NDatabaseSchema>;[Symbol.asyncDispose]: () => Promise<void> }> {
   let kysely: Kysely<NDatabaseSchema>;
 
   switch (dialect) {
@@ -53,25 +53,9 @@ async function createDB(
       break;
     case 'postgres':
       kysely = new Kysely({
-        dialect: {
-          createAdapter() {
-            return new PostgresAdapter();
-          },
-          // @ts-ignore mismatched kysely versions
-          createDriver() {
-            return new PostgreSQLDriver(
-              // @ts-ignore mismatched deno-postgres versions
-              new Pool(databaseUrl, 1),
-            );
-          },
-          createIntrospector(db: Kysely<unknown>) {
-            return new PostgresIntrospector(db);
-          },
-          createQueryCompiler() {
-            return new PostgresQueryCompiler();
-          },
-        },
-        log,
+        dialect: new PostgresJSDialect({
+          postgres: postgres(Deno.env.get("DATABASE_URL")!) as any
+        })
       });
       break;
   }
@@ -494,8 +478,8 @@ Deno.test('NDatabase timeout', { ignore: dialect !== 'postgres' }, async (t) => 
           }, generateSecretKey()),
           { timeout: 1 },
         ),
-      TransactionError,
-      'aborted',
+      postgres.PostgresError,
+      'canceling statement due to statement timeout',
     );
   });
 
@@ -508,14 +492,14 @@ Deno.test('NDatabase timeout', { ignore: dialect !== 'postgres' }, async (t) => 
 
   await t.step('Slow query', async () => {
     await assertRejects(
-      () => store.query(slowFilters, { timeout: 1 }),
-      TransactionError,
-      'aborted',
+      () => db.store.query(slowFilters, { timeout: 1 }),
+      postgres.PostgresError,
+      'canceling statement due to statement timeout',
     );
   });
 
   await t.step('Slow count', async () => {
-    await assertRejects(() => store.count(slowFilters, { timeout: 1 }), TransactionError, 'aborted');
+    await assertRejects(() => db.store.count(slowFilters, { timeout: 1 }), postgres.PostgresError, 'canceling statement due to statement timeout');
   });
 
   await t.step("Check that the previous query's timeout doesn't impact the next query", async () => {
@@ -523,7 +507,7 @@ Deno.test('NDatabase timeout', { ignore: dialect !== 'postgres' }, async (t) => 
   });
 
   await t.step('Slow remove', async () => {
-    await assertRejects(() => store.remove(slowFilters, { timeout: 1 }), TransactionError, 'aborted');
+    await assertRejects(() => db.store.remove(slowFilters, { timeout: 1 }), postgres.PostgresError, 'canceling statement due to statement timeout');
   });
 
   await t.step("Sanity check that a query with timeout doesn't throw an error", async () => {

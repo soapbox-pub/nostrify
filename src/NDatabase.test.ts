@@ -90,7 +90,6 @@ async function createDB(
             await kysely.schema.dropTable(table).ifExists().cascade().execute();
           }
         });
-        ``;
       }
       await kysely.destroy();
     },

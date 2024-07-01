@@ -528,7 +528,7 @@ Deno.test('NDatabase timeout', { ignore: dialect !== 'postgres' }, async (t) => 
   });
 });
 
-Deno.test('NDatabase timeout has no effect on SQLite', async () => {
+Deno.test('NDatabase timeout has no effect on SQLite', { ignore: dialect === 'postgres' }, async () => {
   await using db = await createDB();
   const { store } = db;
 

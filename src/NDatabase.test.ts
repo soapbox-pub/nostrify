@@ -28,9 +28,9 @@ const dialect: 'sqlite' | 'postgres' = (() => {
       throw new Error(`Unsupported protocol: ${protocol}`);
   }
 })();
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-if (Deno.env.get("CI") && Deno.env.get("DATABASE_URL")?.startsWith('postgres')) {
-  console.info("Waiting 15 seconds for postgres to start...");
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+if (Deno.env.get('CI') && Deno.env.get('DATABASE_URL')?.startsWith('postgres')) {
+  console.info('Waiting 15 seconds for postgres to start...');
   await delay(15000);
 }
 
@@ -44,7 +44,7 @@ const log: LogConfig = (event: LogEvent): void => {
 /** Create in-memory database for testing. */
 async function createDB(
   opts?: NDatabaseOpts,
-): Promise<{ store: NDatabase; kysely: Kysely<NDatabaseSchema>;[Symbol.asyncDispose]: () => Promise<void> }> {
+): Promise<{ store: NDatabase; kysely: Kysely<NDatabaseSchema>; [Symbol.asyncDispose]: () => Promise<void> }> {
   let kysely: Kysely<NDatabaseSchema>;
 
   switch (dialect) {
@@ -59,7 +59,7 @@ async function createDB(
     case 'postgres':
       kysely = new Kysely({
         dialect: new PostgresJSDialect({
-          postgres: postgres(Deno.env.get('DATABASE_URL')!),
+          postgres: postgres(Deno.env.get('DATABASE_URL')!) as any,
         }),
       });
       break;

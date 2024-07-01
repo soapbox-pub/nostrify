@@ -328,7 +328,7 @@ export class NDatabase implements NStore {
       }
 
       if (!this.fts) {
-        return trx.selectFrom('nostr_events').selectAll('nostr_events').where('id', 'in', []);
+        return trx.selectFrom('nostr_events').selectAll('nostr_events').where('id', '=', null);
       }
     }
 

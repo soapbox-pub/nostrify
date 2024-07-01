@@ -14,6 +14,21 @@ import event0 from '../fixtures/event-0.json' with { type: 'json' };
 import event1 from '../fixtures/event-1.json' with { type: 'json' };
 import events from '../fixtures/events.json' with { type: 'json' };
 
+const databaseUrl = Deno.env.get('DATABASE_URL') ?? 'sqlite://:memory:';
+
+const dialect: 'sqlite' | 'postgres' = (() => {
+  const protocol = databaseUrl.split(':')[0];
+  switch (protocol) {
+    case 'sqlite':
+    case 'postgres':
+      return protocol;
+    case 'postgresql':
+      return 'postgres';
+    default:
+      throw new Error(`Unsupported protocol: ${protocol}`);
+  }
+})();
+
 /** Kysely console logger. */
 const log: LogConfig = (event: LogEvent): void => {
   if (Deno.env.get('DEBUG') && event.level === 'query') {
@@ -22,53 +37,64 @@ const log: LogConfig = (event: LogEvent): void => {
 };
 
 /** Create in-memory database for testing. */
-const createDB = async (opts?: NDatabaseOpts) => {
-  const kysely = new Kysely<NDatabaseSchema>({
-    dialect: new DenoSqlite3Dialect({
-      database: new Sqlite(':memory:'),
-    }),
-    log,
-  });
-  const db = new NDatabase(kysely, opts);
-  await withoutDebug(() => db.migrate());
-  return db;
-};
+async function createDB(
+  opts?: NDatabaseOpts,
+): Promise<{ store: NDatabase; kysely: Kysely<NDatabaseSchema>; [Symbol.asyncDispose]: () => Promise<void> }> {
+  let kysely: Kysely<NDatabaseSchema>;
 
-/** Create postgres database for testing. */
-const createPostgresDB = async (opts?: NDatabaseOpts) => {
-  const kysely = new Kysely({
-    dialect: {
-      createAdapter() {
-        return new PostgresAdapter();
-      },
-      // @ts-ignore mismatched kysely versions
-      createDriver() {
-        return new PostgreSQLDriver(
-          // @ts-ignore mismatched deno-postgres versions
-          new Pool(Deno.env.get('DATABASE_URL'), 1),
-        );
-      },
-      createIntrospector(db: Kysely<unknown>) {
-        return new PostgresIntrospector(db);
-      },
-      createQueryCompiler() {
-        return new PostgresQueryCompiler();
-      },
+  switch (dialect) {
+    case 'sqlite':
+      kysely = new Kysely<NDatabaseSchema>({
+        dialect: new DenoSqlite3Dialect({
+          database: new Sqlite(databaseUrl.replace('sqlite://', '')),
+        }),
+        log,
+      });
+      break;
+    case 'postgres':
+      kysely = new Kysely({
+        dialect: {
+          createAdapter() {
+            return new PostgresAdapter();
+          },
+          // @ts-ignore mismatched kysely versions
+          createDriver() {
+            return new PostgreSQLDriver(
+              // @ts-ignore mismatched deno-postgres versions
+              new Pool(databaseUrl, 1),
+            );
+          },
+          createIntrospector(db: Kysely<unknown>) {
+            return new PostgresIntrospector(db);
+          },
+          createQueryCompiler() {
+            return new PostgresQueryCompiler();
+          },
+        },
+        log,
+      });
+      break;
+  }
+
+  const store = new NDatabase(kysely, opts);
+
+  await withoutDebug(() => store.migrate());
+
+  return {
+    store,
+    kysely,
+    [Symbol.asyncDispose]: async () => {
+      if (databaseUrl !== 'sqlite://:memory:') {
+        await withoutDebug(async () => {
+          for (const table of ['nostr_events', 'nostr_tags', 'nostr_pgfts']) {
+            await kysely.schema.dropTable(table).ifExists().cascade().execute();
+          }
+        });
+      }
+      await kysely.destroy();
     },
-    log,
-  });
-
-  const db = new NDatabase(kysely, opts);
-
-  await withoutDebug(async () => {
-    for (const table of ['nostr_events', 'nostr_tags', 'nostr_pgfts']) {
-      await kysely.schema.dropTable(table).ifExists().cascade().execute();
-    }
-    await db.migrate();
-  });
-
-  return { db, kysely };
-};
+  };
+}
 
 /** Run an async function with the Kysely logger disabled. */
 async function withoutDebug(callback: () => Promise<void>) {
@@ -89,47 +115,54 @@ export async function jsonlEvents(path: string): Promise<NostrEvent[]> {
 }
 
 Deno.test('NDatabase.migrate', async () => {
-  await createDB();
+  await using _db = await createDB();
 });
 
-Deno.test('NDatabase.migrate with sqlite fts', async () => {
-  await createDB({ fts: 'sqlite' });
+Deno.test('NDatabase.migrate with fts', async () => {
+  await using _db = await createDB({ fts: dialect });
 });
 
 Deno.test('NDatabase.migrate twice', async () => {
-  const db = await createDB();
-  await db.migrate();
+  await using db = await createDB();
+  const { store } = db;
+
+  await store.migrate();
 });
 
 Deno.test('NDatabase.count', async () => {
-  const db = await createDB();
-  assertEquals((await db.count([{ kinds: [1] }])).count, 0);
-  await db.event(event1);
-  assertEquals((await db.count([{ kinds: [1] }])).count, 1);
+  await using db = await createDB();
+  const { store } = db;
+
+  assertEquals((await store.count([{ kinds: [1] }])).count, 0);
+  await store.event(event1);
+  assertEquals((await store.count([{ kinds: [1] }])).count, 1);
 });
 
 Deno.test('NDatabase.query', async () => {
-  const db = await createDB({ indexTags: ({ tags }) => tags });
-  await db.event(event1);
+  await using db = await createDB({ indexTags: ({ tags }) => tags });
+  const { store } = db;
 
-  assertEquals(await db.query([{ kinds: [1] }]), [event1]);
-  assertEquals(await db.query([{ kinds: [3] }]), []);
-  assertEquals(await db.query([{ since: 1691091000 }]), [event1]);
-  assertEquals(await db.query([{ until: 1691091000 }]), []);
+  await store.event(event1);
+
+  assertEquals(await store.query([{ kinds: [1] }]), [event1]);
+  assertEquals(await store.query([{ kinds: [3] }]), []);
+  assertEquals(await store.query([{ since: 1691091000 }]), [event1]);
+  assertEquals(await store.query([{ until: 1691091000 }]), []);
   assertEquals(
-    await db.query([{ '#proxy': ['https://gleasonator.com/objects/8f6fac53-4f66-4c6e-ac7d-92e5e78c3e79'] }]),
+    await store.query([{ '#proxy': ['https://gleasonator.com/objects/8f6fac53-4f66-4c6e-ac7d-92e5e78c3e79'] }]),
     [event1],
   );
 });
 
 Deno.test('NDatabase.query with tag filters and limit', async () => {
-  const db = await createDB();
+  await using db = await createDB();
+  const { store } = db;
 
   for (const event of await jsonlEvents('./fixtures/events-3036.jsonl')) {
-    await db.event(event);
+    await store.event(event);
   }
 
-  const events = await db.query([{
+  const events = await store.query([{
     kinds: [30383],
     authors: ['db0e60d10b9555a39050c258d460c5c461f6d18f467aa9f62de1a728b8a891a4'],
     '#k': ['3036'],
@@ -152,8 +185,10 @@ Deno.test('NDatabase.query with tag filters and limit', async () => {
 });
 
 Deno.test("NDatabase.query with multiple tags doesn't crash", async () => {
-  const db = await createDB();
-  await db.query([{
+  await using db = await createDB();
+  const { store } = db;
+
+  await store.query([{
     kinds: [1985],
     authors: ['c87e0d90c7e521967a6975439ba20d9052c2b6680d8c4c80fc2943e2c726d98c'],
     '#L': ['nip05'],
@@ -162,9 +197,10 @@ Deno.test("NDatabase.query with multiple tags doesn't crash", async () => {
 });
 
 Deno.test("NDatabase.query tag query with non-tag query doesn't crash", async () => {
-  const db = await createDB();
+  await using db = await createDB();
+  const { store } = db;
 
-  await db.query([{
+  await store.query([{
     kinds: [0],
     authors: ['c87e0d90c7e521967a6975439ba20d9052c2b6680d8c4c80fc2943e2c726d98c'],
   }, {
@@ -176,69 +212,53 @@ Deno.test("NDatabase.query tag query with non-tag query doesn't crash", async ()
 });
 
 Deno.test('NDatabase.query with search', async (t) => {
-  const db = await createDB({ fts: 'sqlite' });
+  await using db = await createDB({ fts: dialect });
+  const { store } = db;
 
-  await db.event(event0);
-  await db.event(event1);
+  await store.event(event0);
+  await store.event(event1);
 
   await t.step('match single event', async () => {
-    assertEquals(await db.query([{ search: 'Fediverse' }]), [event0]);
+    assertEquals(await store.query([{ search: 'Fediverse' }]), [event0]);
   });
 
   await t.step('match multiple events', async () => {
-    assertEquals(await db.query([{ search: 'vegan' }]), [event0, event1]);
+    assertEquals(await store.query([{ search: 'vegan' }]), [event0, event1]);
   });
 
   await t.step("don't match nonsense queries", async () => {
-    assertEquals(await db.query([{ search: "this shouldn't match" }]), []);
+    assertEquals(await store.query([{ search: "this shouldn't match" }]), []);
   });
-});
-
-Deno.test('NDatabase.query with postgres fts', { ignore: !Deno.env.get('DATABASE_URL') }, async (t) => {
-  const { db, kysely } = await createPostgresDB({ fts: 'postgres' });
-
-  await db.event(event0);
-  await db.event(event1);
-
-  await t.step('match single event', async () => {
-    assertEquals(await db.query([{ search: 'Fediverse' }]), [event0]);
-  });
-
-  await t.step('match multiple events', async () => {
-    assertEquals(await db.query([{ search: 'vegan' }]), [event0, event1]);
-  });
-
-  await t.step("don't match nonsense queries", async () => {
-    assertEquals(await db.query([{ search: "this shouldn't match" }]), []);
-  });
-
-  await kysely.destroy();
 });
 
 Deno.test('NDatabase.query with search and fts disabled', async () => {
-  const db = await createDB();
+  await using db = await createDB();
+  const { store } = db;
 
-  await db.event(event1);
+  await store.event(event1);
 
-  assertEquals(await db.query([{ kinds: [1], search: 'vegan' }]), []);
+  assertEquals(await store.query([{ kinds: [1], search: 'vegan' }]), []);
 });
 
 Deno.test('NDatabase.remove', async () => {
-  const db = await createDB();
-  await db.event(event1);
-  assertEquals(await db.query([{ kinds: [1] }]), [event1]);
-  await db.remove([{ kinds: [1] }]);
-  assertEquals(await db.query([{ kinds: [1] }]), []);
+  await using db = await createDB();
+  const { store } = db;
+
+  await store.event(event1);
+  assertEquals(await store.query([{ kinds: [1] }]), [event1]);
+  await store.remove([{ kinds: [1] }]);
+  assertEquals(await store.query([{ kinds: [1] }]), []);
 });
 
 Deno.test('NDatabase.event with a deleted event', async () => {
-  const db = await createDB();
+  await using db = await createDB();
+  const { store } = db;
 
-  await db.event(event1);
+  await store.event(event1);
 
-  assertEquals(await db.query([{ kinds: [1] }]), [event1]);
+  assertEquals(await store.query([{ kinds: [1] }]), [event1]);
 
-  await db.event({
+  await store.event({
     kind: 5,
     pubkey: event1.pubkey,
     tags: [['e', event1.id]],
@@ -248,61 +268,65 @@ Deno.test('NDatabase.event with a deleted event', async () => {
     sig: '',
   });
 
-  assertEquals(await db.query([{ kinds: [1] }]), []);
+  assertEquals(await store.query([{ kinds: [1] }]), []);
 
-  await assertRejects(() => db.event(event1));
+  await assertRejects(() => store.event(event1));
 
-  assertEquals(await db.query([{ kinds: [1] }]), []);
+  assertEquals(await store.query([{ kinds: [1] }]), []);
 });
 
 Deno.test('NDatabase.event with replaceable event', async () => {
-  const db = await createDB();
-  assertEquals((await db.count([{ kinds: [0], authors: [event0.pubkey] }])).count, 0);
+  await using db = await createDB();
+  const { store } = db;
 
-  await db.event(event0);
-  await assertRejects(() => db.event(event0));
-  assertEquals((await db.count([{ kinds: [0], authors: [event0.pubkey] }])).count, 1);
+  assertEquals((await store.count([{ kinds: [0], authors: [event0.pubkey] }])).count, 0);
+
+  await store.event(event0);
+  await assertRejects(() => store.event(event0));
+  assertEquals((await store.count([{ kinds: [0], authors: [event0.pubkey] }])).count, 1);
 
   const changeEvent = { ...event0, id: '123', created_at: event0.created_at + 1 };
-  await db.event(changeEvent);
-  assertEquals(await db.query([{ kinds: [0] }]), [changeEvent]);
+  await store.event(changeEvent);
+  assertEquals(await store.query([{ kinds: [0] }]), [changeEvent]);
 });
 
 Deno.test('NDatabase.event with parameterized replaceable event', async () => {
-  const db = await createDB();
+  await using db = await createDB();
+  const { store } = db;
 
   const event0 = { id: '1', kind: 30000, pubkey: 'abc', content: '', created_at: 0, sig: '', tags: [['d', 'a']] };
   const event1 = { id: '2', kind: 30000, pubkey: 'abc', content: '', created_at: 1, sig: '', tags: [['d', 'a']] };
   const event2 = { id: '3', kind: 30000, pubkey: 'abc', content: '', created_at: 2, sig: '', tags: [['d', 'a']] };
 
-  await db.event(event0);
-  assertEquals(await db.query([{ ids: [event0.id] }]), [event0]);
+  await store.event(event0);
+  assertEquals(await store.query([{ ids: [event0.id] }]), [event0]);
 
-  await db.event(event1);
-  assertEquals(await db.query([{ ids: [event0.id] }]), []);
-  assertEquals(await db.query([{ ids: [event1.id] }]), [event1]);
+  await store.event(event1);
+  assertEquals(await store.query([{ ids: [event0.id] }]), []);
+  assertEquals(await store.query([{ ids: [event1.id] }]), [event1]);
 
-  await db.event(event2);
-  assertEquals(await db.query([{ ids: [event0.id] }]), []);
-  assertEquals(await db.query([{ ids: [event1.id] }]), []);
-  assertEquals(await db.query([{ ids: [event2.id] }]), [event2]);
+  await store.event(event2);
+  assertEquals(await store.query([{ ids: [event0.id] }]), []);
+  assertEquals(await store.query([{ ids: [event1.id] }]), []);
+  assertEquals(await store.query([{ ids: [event2.id] }]), [event2]);
 });
 
 Deno.test('NDatabase.event processes deletions', async () => {
-  const db = await createDB();
+  await using db = await createDB();
+  const { store } = db;
 
   const [one, two] = [
     { id: '1', kind: 1, pubkey: 'abc', content: 'hello world', created_at: 1, sig: '', tags: [] },
     { id: '2', kind: 1, pubkey: 'abc', content: 'yolo fam', created_at: 2, sig: '', tags: [] },
   ];
 
-  await db.event(one);
-  await db.event(two);
+  await store.event(one);
+  await store.event(two);
 
   // Sanity check
-  assertEquals(await db.query([{ kinds: [1] }]), [two, one]);
+  assertEquals(await store.query([{ kinds: [1] }]), [two, one]);
 
-  await db.event({
+  await store.event({
     kind: 5,
     pubkey: one.pubkey,
     tags: [['e', one.id]],
@@ -312,19 +336,20 @@ Deno.test('NDatabase.event processes deletions', async () => {
     sig: '',
   });
 
-  assertEquals(await db.query([{ kinds: [1] }]), [two]);
+  assertEquals(await store.query([{ kinds: [1] }]), [two]);
 });
 
 Deno.test('NDatabase.event with a replaceable deleted event', async () => {
-  const db = await createDB();
+  await using db = await createDB();
+  const { store } = db;
 
-  assertEquals(await db.query([{ kinds: [0] }]), []);
+  assertEquals(await store.query([{ kinds: [0] }]), []);
 
-  await db.event(event0);
+  await store.event(event0);
 
-  assertEquals(await db.query([{ kinds: [0] }]), [event0]);
+  assertEquals(await store.query([{ kinds: [0] }]), [event0]);
 
-  await db.event({
+  await store.event({
     kind: 5,
     pubkey: event0.pubkey,
     tags: [['a', `0:${event0.pubkey}:`]],
@@ -334,9 +359,9 @@ Deno.test('NDatabase.event with a replaceable deleted event', async () => {
     sig: '',
   });
 
-  assertEquals(await db.query([{ kinds: [0] }]), [event0]);
+  assertEquals(await store.query([{ kinds: [0] }]), [event0]);
 
-  await db.event({
+  await store.event({
     kind: 5,
     pubkey: event0.pubkey,
     tags: [['a', `0:${event0.pubkey}:`]],
@@ -346,19 +371,20 @@ Deno.test('NDatabase.event with a replaceable deleted event', async () => {
     sig: '',
   });
 
-  assertEquals(await db.query([{ kinds: [0] }]), []);
+  assertEquals(await store.query([{ kinds: [0] }]), []);
 });
 
 Deno.test('NDatabase.event with a parameterized-replaceable deleted event', async () => {
-  const db = await createDB();
+  await using db = await createDB();
+  const { store } = db;
 
   const eventA = { id: '1', kind: 30000, pubkey: 'abc', content: '', created_at: 0, sig: '', tags: [['d', 'a']] };
   const eventB = { id: '2', kind: 30000, pubkey: 'abc', content: '', created_at: 2, sig: '', tags: [['d', 'a']] };
 
-  await db.event(eventA);
-  assertEquals(await db.query([{ ids: [eventA.id] }]), [eventA]);
+  await store.event(eventA);
+  assertEquals(await store.query([{ ids: [eventA.id] }]), [eventA]);
 
-  await db.event({
+  await store.event({
     kind: 5,
     pubkey: eventA.pubkey,
     tags: [['a', `30000:${eventA.pubkey}:a`]],
@@ -368,22 +394,23 @@ Deno.test('NDatabase.event with a parameterized-replaceable deleted event', asyn
     sig: '',
   });
 
-  assertEquals(await db.query([{ ids: [eventA.id] }]), []);
+  assertEquals(await store.query([{ ids: [eventA.id] }]), []);
 
-  await db.event(eventB);
-  assertEquals(await db.query([{ ids: [eventB.id] }]), [eventB]);
+  await store.event(eventB);
+  assertEquals(await store.query([{ ids: [eventB.id] }]), [eventB]);
 });
 
 Deno.test("NDatabase.event does not delete another user's event", async () => {
-  const db = await createDB();
+  await using db = await createDB();
+  const { store } = db;
 
   const event = { id: '1', kind: 1, pubkey: 'abc', content: 'hello world', created_at: 1, sig: '', tags: [] };
-  await db.event(event);
+  await store.event(event);
 
   // Sanity check
-  assertEquals(await db.query([{ kinds: [1] }]), [event]);
+  assertEquals(await store.query([{ kinds: [1] }]), [event]);
 
-  await db.event({
+  await store.event({
     kind: 5,
     pubkey: 'def', // different pubkey
     tags: [['e', event.id]],
@@ -393,37 +420,40 @@ Deno.test("NDatabase.event does not delete another user's event", async () => {
     sig: '',
   });
 
-  assertEquals(await db.query([{ kinds: [1] }]), [event]);
+  assertEquals(await store.query([{ kinds: [1] }]), [event]);
 });
 
 Deno.test('NDatabase.transaction', async () => {
-  const db = await createDB();
+  await using db = await createDB();
+  const { store } = db;
 
-  await db.transaction(async (store) => {
+  await store.transaction(async (store) => {
     await store.event(event0);
     await store.event(event1);
   });
 
-  assertEquals(await db.query([{ kinds: [0] }]), [event0]);
-  assertEquals(await db.query([{ kinds: [1] }]), [event1]);
+  assertEquals(await store.query([{ kinds: [0] }]), [event0]);
+  assertEquals(await store.query([{ kinds: [1] }]), [event1]);
 });
 
 // When `statement_timeout` is 0 it's disabled, so we need to create slow queries.
-Deno.test('NDatabase timeout', { ignore: !Deno.env.get('DATABASE_URL') }, async (t) => {
-  const { db, kysely } = await createPostgresDB({
+Deno.test('NDatabase timeout', { ignore: dialect !== 'postgres' }, async (t) => {
+  await using db = await createDB({
     timeoutStrategy: 'setStatementTimeout',
     fts: 'postgres',
   });
 
+  const { store } = db;
+
   // Setup
   await withoutDebug(async () => {
-    await Promise.all(events.map((event) => db.event(event)));
+    await Promise.all(events.map((event) => store.event(event)));
   });
 
   await t.step('Slow event (lots of tags)', async () => {
     await assertRejects(
       () =>
-        db.event(
+        store.event(
           finalizeEvent({
             kind: 1,
             content: 'hello world!',
@@ -446,36 +476,35 @@ Deno.test('NDatabase timeout', { ignore: !Deno.env.get('DATABASE_URL') }, async 
 
   await t.step('Slow query', async () => {
     await assertRejects(
-      () => db.query(slowFilters, { timeout: 1 }),
+      () => store.query(slowFilters, { timeout: 1 }),
       TransactionError,
       'aborted',
     );
   });
 
   await t.step('Slow count', async () => {
-    await assertRejects(() => db.count(slowFilters, { timeout: 1 }), TransactionError, 'aborted');
+    await assertRejects(() => store.count(slowFilters, { timeout: 1 }), TransactionError, 'aborted');
   });
 
   await t.step("Check that the previous query's timeout doesn't impact the next query", async () => {
-    await db.count(slowFilters);
+    await store.count(slowFilters);
   });
 
   await t.step('Slow remove', async () => {
-    await assertRejects(() => db.remove(slowFilters, { timeout: 1 }), TransactionError, 'aborted');
+    await assertRejects(() => store.remove(slowFilters, { timeout: 1 }), TransactionError, 'aborted');
   });
 
   await t.step("Sanity check that a query with timeout doesn't throw an error", async () => {
-    await db.event(event0, { timeout: 1000 });
+    await store.event(event0, { timeout: 1000 });
   });
-
-  await kysely.destroy();
 });
 
 Deno.test('NDatabase timeout has no effect on SQLite', async () => {
-  const db = await createDB();
+  await using db = await createDB();
+  const { store } = db;
 
-  await db.event(event0, { timeout: 1 });
-  await db.query([{ kinds: [0] }], { timeout: 1 });
-  await db.count([{ kinds: [0] }], { timeout: 1 });
-  await db.remove([{ kinds: [0] }], { timeout: 1 });
+  await store.event(event0, { timeout: 1 });
+  await store.query([{ kinds: [0] }], { timeout: 1 });
+  await store.count([{ kinds: [0] }], { timeout: 1 });
+  await store.remove([{ kinds: [0] }], { timeout: 1 });
 });

@@ -54,8 +54,8 @@ async function createDB(
     case 'postgres':
       kysely = new Kysely({
         dialect: new PostgresJSDialect({
-          postgres: postgres(Deno.env.get("DATABASE_URL")!) as any
-        })
+          postgres: postgres(Deno.env.get('DATABASE_URL')!),
+        }),
       });
       break;
   }
@@ -499,7 +499,11 @@ Deno.test('NDatabase timeout', { ignore: dialect !== 'postgres' }, async (t) => 
   });
 
   await t.step('Slow count', async () => {
-    await assertRejects(() => db.store.count(slowFilters, { timeout: 1 }), postgres.PostgresError, 'canceling statement due to statement timeout');
+    await assertRejects(
+      () => db.store.count(slowFilters, { timeout: 1 }),
+      postgres.PostgresError,
+      'canceling statement due to statement timeout',
+    );
   });
 
   await t.step("Check that the previous query's timeout doesn't impact the next query", async () => {
@@ -507,7 +511,11 @@ Deno.test('NDatabase timeout', { ignore: dialect !== 'postgres' }, async (t) => 
   });
 
   await t.step('Slow remove', async () => {
-    await assertRejects(() => db.store.remove(slowFilters, { timeout: 1 }), postgres.PostgresError, 'canceling statement due to statement timeout');
+    await assertRejects(
+      () => db.store.remove(slowFilters, { timeout: 1 }),
+      postgres.PostgresError,
+      'canceling statement due to statement timeout',
+    );
   });
 
   await t.step("Sanity check that a query with timeout doesn't throw an error", async () => {

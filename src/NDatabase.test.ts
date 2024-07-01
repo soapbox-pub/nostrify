@@ -119,8 +119,8 @@ Deno.test('NDatabase.migrate', async () => {
   await using _db = await createDB();
 });
 
-Deno.test('NDatabase.migrate with SQLite fts', { ignore: dialect !== 'sqlite' }, async () => {
-  await using _db = await createDB({ fts: 'sqlite' });
+Deno.test('NDatabase.migrate with fts', async () => {
+  await using _db = await createDB({ fts: dialect });
 });
 
 Deno.test('NDatabase.migrate twice', async () => {

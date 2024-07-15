@@ -13,7 +13,7 @@ export interface NPoolOpts {
   /** Creates an `NRelay` instance for the given URL. */
   open(url: WebSocket['url']): NRelay;
   /** Determines the relays to use for making `REQ`s to the given filters. To support the Outbox model, it should analyze the `authors` field of the filters. */
-  reqRelays(filters: NostrFilter[]): Promise<WebSocket['url'][]>;
+  routeFiltersToRelays(filters: NostrFilter[]): Promise<Map<WebSocket['url'], NostrFilter[]>>;
   /** Determines the relays to use for publishing the given event. To support the Outbox model, it should analyze the `pubkey` field of the event. */
   eventRelays(event: NostrEvent): Promise<WebSocket['url'][]>;
 }
@@ -24,7 +24,10 @@ export interface NPoolOpts {
  * ```ts
  * const pool = new NPool({
  *   open: (url) => new NRelay1(url),
- *   reqRelays: async (filters) => ['wss://relay1.mostr.pub', 'wss://relay2.mostr.pub'],
+ *   routeFiltersToRelays: async (filters) => new Map([
+ *     ['wss://relay1.mostr.pub', filters],
+ *     ['wss://relay2.mostr.pub', filters],
+ *   ]),
  *   eventRelays: async (event) => ['wss://relay1.mostr.pub', 'wss://relay2.mostr.pub'],
  * });
  *
@@ -46,14 +49,14 @@ export interface NPoolOpts {
  */
 export class NPool implements NRelay {
   private open: (url: WebSocket['url']) => NRelay;
-  private reqRelays: (filters: NostrFilter[]) => Promise<WebSocket['url'][]>;
+  private routeFiltersToRelays: (filters: NostrFilter[]) => Promise<Map<WebSocket['url'], NostrFilter[]>>;
   private eventRelays: (event: NostrEvent) => Promise<WebSocket['url'][]>;
 
   private relays: Map<WebSocket['url'], NRelay> = new Map();
 
-  constructor({ open, eventRelays, reqRelays }: NPoolOpts) {
+  constructor({ open, eventRelays, routeFiltersToRelays }: NPoolOpts) {
     this.open = open;
-    this.reqRelays = reqRelays;
+    this.routeFiltersToRelays = routeFiltersToRelays;
     this.eventRelays = eventRelays;
   }
 
@@ -77,7 +80,10 @@ export class NPool implements NRelay {
     const controller = new AbortController();
     const signal = opts?.signal ? AbortSignal.any([opts.signal, controller.signal]) : controller.signal;
 
-    const relayUrls = new Set(await this.reqRelays(filters));
+    const relaysToFilters = await this.routeFiltersToRelays(filters);
+    const relayUrls = relaysToFilters.keys();
+    const relayUrlsSize = relaysToFilters.size;
+
     const machina = new Machina<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>(signal);
 
     const eoses = new Set<WebSocket['url']>();
@@ -89,13 +95,13 @@ export class NPool implements NRelay {
         for await (const msg of relay.req(filters, { signal })) {
           if (msg[0] === 'EOSE') {
             eoses.add(url);
-            if (eoses.size === relayUrls.size) {
+            if (eoses.size === relayUrlsSize) {
               machina.push(msg);
             }
           }
           if (msg[0] === 'CLOSED') {
             closes.add(url);
-            if (closes.size === relayUrls.size) {
+            if (closes.size === relayUrlsSize) {
               machina.push(msg);
             }
           }

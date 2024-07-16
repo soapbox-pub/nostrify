@@ -4,6 +4,7 @@ import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { MockRelayWs } from './test/MockRelayWs.ts';
 import { NRelay1 } from './NRelay1.ts';
+
 import events from '../fixtures/events.json' with { type: 'json' };
 
 const event1s = events

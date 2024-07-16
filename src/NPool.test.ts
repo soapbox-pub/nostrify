@@ -4,9 +4,10 @@ import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { MockRelayWs } from './test/MockRelayWs.ts';
+import { NPool } from './NPool.ts';
 import { NRelay1 } from './NRelay1.ts';
+
 import events from '../fixtures/events.json' with { type: 'json' };
-import { NPool } from '../mod.ts';
 
 const event1s = events
   .filter((e) => e.kind === 1)

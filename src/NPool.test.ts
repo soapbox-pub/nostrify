@@ -1,3 +1,4 @@
+// deno-lint-ignore-file require-await
 import { assert, assertEquals } from '@std/assert';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
@@ -20,14 +21,12 @@ Deno.test('NRelay1.query', { sanitizeResources: false, sanitizeOps: false }, asy
   const server2 = new MockRelayWs('wss://relay2.mostr.pub', event1s);
   const pool = new NPool({
     open: (url) => new NRelay1(url),
-    // deno-lint-ignore require-await
-    routeFiltersToRelays: async (filters) =>
+    reqRouter: async (filters) =>
       new Map([
         ['wss://relay1.mostr.pub', filters],
         ['wss://relay2.mostr.pub', filters],
       ]),
-    // deno-lint-ignore require-await
-    eventRelays: async (_event) => ['wss://relay1.mostr.pub'],
+    eventRouter: async () => ['wss://relay1.mostr.pub'],
   });
   const events = await pool.query([{ kinds: [1], limit: 15 }], { signal: controller.signal });
 
@@ -51,14 +50,12 @@ Deno.test('NPool.req', { sanitizeResources: false, sanitizeOps: false }, async (
 
   const pool = new NPool({
     open: (url) => new NRelay1(url),
-    // deno-lint-ignore require-await
-    routeFiltersToRelays: async (filters) =>
+    reqRouter: async (filters) =>
       new Map([
         ['wss://relay1.mostr.pub', filters],
         ['wss://relay2.mostr.pub', filters],
       ]),
-    // deno-lint-ignore require-await
-    eventRelays: async (_event) => ['wss://relay1.mostr.pub'],
+    eventRouter: async () => ['wss://relay1.mostr.pub'],
   });
 
   for await (const msg of pool.req([{ kinds: [1], limit: 3 }], { signal: controller.signal })) {
@@ -93,14 +90,12 @@ Deno.test('NPool.event', { sanitizeResources: false, sanitizeOps: false }, async
 
   const pool = new NPool({
     open: (url) => new NRelay1(url),
-    // deno-lint-ignore require-await
-    routeFiltersToRelays: async (filters) =>
+    reqRouter: async (filters) =>
       new Map([
         ['wss://relay1.mostr.pub', filters],
         ['wss://relay2.mostr.pub', filters],
       ]),
-    // deno-lint-ignore require-await
-    eventRelays: async (_event) => ['wss://relay1.mostr.pub'],
+    eventRouter: async () => ['wss://relay1.mostr.pub'],
   });
   await pool.event(event, { signal: controller.signal });
 

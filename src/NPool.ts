@@ -13,9 +13,9 @@ export interface NPoolOpts {
   /** Creates an `NRelay` instance for the given URL. */
   open(url: WebSocket['url']): NRelay;
   /** Determines the relays to use for making `REQ`s to the given filters. To support the Outbox model, it should analyze the `authors` field of the filters. */
-  routeFiltersToRelays(filters: NostrFilter[]): Promise<Map<WebSocket['url'], NostrFilter[]>>;
+  reqRouter(filters: NostrFilter[]): Promise<ReadonlyMap<WebSocket['url'], NostrFilter[]>>;
   /** Determines the relays to use for publishing the given event. To support the Outbox model, it should analyze the `pubkey` field of the event. */
-  eventRelays(event: NostrEvent): Promise<WebSocket['url'][]>;
+  eventRouter(event: NostrEvent): Promise<WebSocket['url'][]>;
 }
 
 /**
@@ -24,11 +24,11 @@ export interface NPoolOpts {
  * ```ts
  * const pool = new NPool({
  *   open: (url) => new NRelay1(url),
- *   routeFiltersToRelays: async (filters) => new Map([
+ *   reqRouter: async (filters) => new Map([
  *     ['wss://relay1.mostr.pub', filters],
  *     ['wss://relay2.mostr.pub', filters],
  *   ]),
- *   eventRelays: async (event) => ['wss://relay1.mostr.pub', 'wss://relay2.mostr.pub'],
+ *   eventRouter: async (event) => ['wss://relay1.mostr.pub', 'wss://relay2.mostr.pub'],
  * });
  *
  * // Now you can use the pool like a regular relay.
@@ -48,17 +48,8 @@ export interface NPoolOpts {
  * `pool.req` will only emit an `EOSE` when all relays in its set have emitted an `EOSE`, and likewise for `CLOSED`.
  */
 export class NPool implements NRelay {
-  private open: (url: WebSocket['url']) => NRelay;
-  private routeFiltersToRelays: (filters: NostrFilter[]) => Promise<Map<WebSocket['url'], NostrFilter[]>>;
-  private eventRelays: (event: NostrEvent) => Promise<WebSocket['url'][]>;
-
   private relays: Map<WebSocket['url'], NRelay> = new Map();
-
-  constructor({ open, eventRelays, routeFiltersToRelays }: NPoolOpts) {
-    this.open = open;
-    this.routeFiltersToRelays = routeFiltersToRelays;
-    this.eventRelays = eventRelays;
-  }
+  constructor(private opts: NPoolOpts) {}
 
   /** Get or create a relay instance for the given URL. */
   relay(url: WebSocket['url']): NRelay {
@@ -67,7 +58,7 @@ export class NPool implements NRelay {
     if (relay) {
       return relay;
     } else {
-      const relay = this.open(url);
+      const relay = this.opts.open(url);
       this.relays.set(url, relay);
       return relay;
     }
@@ -80,28 +71,25 @@ export class NPool implements NRelay {
     const controller = new AbortController();
     const signal = opts?.signal ? AbortSignal.any([opts.signal, controller.signal]) : controller.signal;
 
-    const relaysToFilters = await this.routeFiltersToRelays(filters);
-    const relayUrls = relaysToFilters.keys();
-    const relayUrlsSize = relaysToFilters.size;
-
+    const routes = await this.opts.reqRouter(filters);
     const machina = new Machina<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>(signal);
 
     const eoses = new Set<WebSocket['url']>();
     const closes = new Set<WebSocket['url']>();
 
-    for (const url of relayUrls) {
+    for (const url of routes.keys()) {
       const relay = this.relay(url);
       (async () => {
         for await (const msg of relay.req(filters, { signal })) {
           if (msg[0] === 'EOSE') {
             eoses.add(url);
-            if (eoses.size === relayUrlsSize) {
+            if (eoses.size === routes.size) {
               machina.push(msg);
             }
           }
           if (msg[0] === 'CLOSED') {
             closes.add(url);
-            if (closes.size === relayUrlsSize) {
+            if (closes.size === routes.size) {
               machina.push(msg);
             }
           }
@@ -122,7 +110,7 @@ export class NPool implements NRelay {
   }
 
   async event(event: NostrEvent, opts?: { signal?: AbortSignal }): Promise<void> {
-    const relayUrls = await this.eventRelays(event);
+    const relayUrls = await this.opts.eventRouter(event);
 
     await Promise.any(
       relayUrls.map((url) => this.relay(url).event(event, opts)),

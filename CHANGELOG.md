@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- BREAKING: NPool: remove `reqRelays` option, add `reqRouter`. Rename `eventRelays` to `eventRouter`.
+
 ## [0.25.0] - 2024-06-29
 
 ### Added

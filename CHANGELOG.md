@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.1] - 2024-07-17
+
 ### Fixed
 
 - NDatabase: fix order of results when the results length exceeds the limit.
@@ -254,7 +256,8 @@ Redeploy to JSR (to hopefully fix [npm compatibility](https://github.com/jsr-io/
 
 - Added `NDenoKv` storage class, for storing events in Deno KV.
 
-[unreleased]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.26.0...HEAD
+[unreleased]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.26.1...HEAD
+[0.26.1]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.26.0...v0.26.1
 [0.26.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.25.0...v0.26.0
 [0.25.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.24.0...v0.25.0
 [0.24.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.23.3...v0.24.0

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- NDatabase: fix order of results when the results length exceeds the limit.
+
 ## [0.26.0] - 2024-07-16
 
 ### Changed

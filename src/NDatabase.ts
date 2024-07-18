@@ -276,6 +276,21 @@ export class NDatabase implements NStore {
     await this.removeEvents(trx, [filter]);
   }
 
+  /** Whether results should be sorted reverse-chronologically by the database. */
+  static shouldOrder(filter: NostrFilter): boolean {
+    // deno-lint-ignore no-unused-vars
+    const { limit, ...rest } = filter;
+
+    const intrinsicLimit = getFilterLimit(filter);
+    const potentialLimit = getFilterLimit(rest);
+
+    if (intrinsicLimit === Infinity && potentialLimit === Infinity) {
+      return true;
+    } else {
+      return intrinsicLimit < potentialLimit;
+    }
+  }
+
   /** Build the query for a filter. */
   protected getFilterQuery(
     trx: Kysely<NDatabaseSchema>,
@@ -285,13 +300,8 @@ export class NDatabase implements NStore {
       .selectFrom('nostr_events')
       .selectAll('nostr_events');
 
-    /** Whether we are querying for replaceable events by author. */
-    const isAddrQuery = filter.authors &&
-      filter.kinds &&
-      filter.kinds.every((kind) => NKinds.replaceable(kind) || NKinds.parameterizedReplaceable(kind));
-
     // Avoid ORDER BY for certain queries.
-    if (!isAddrQuery && !filter.ids) {
+    if (NDatabase.shouldOrder(filter)) {
       query = query.orderBy('created_at', 'desc');
     }
 

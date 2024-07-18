@@ -240,6 +240,33 @@ Deno.test('NDatabase.query with search and fts disabled', async () => {
   assertEquals(await store.query([{ kinds: [1], search: 'vegan' }]), []);
 });
 
+Deno.test('NDatabase.query by id returns sorted results', async () => {
+  await using db = await createDB();
+  const { store } = db;
+
+  for (const event of events) {
+    await store.event(event);
+  }
+
+  const ids = [
+    '2ec9f6674ddc165a83b44150725f9ace4f076215e1ecce6987cf2f648b4f8acd', // 1711468992
+    'bef55b59cc332d6aa3902ba9d69a3c8f477c88fe0017f74bff3ebc55f152a668', // 1711468855
+    '8e1b98146eee8a2dbfc4eb68323a81d38278bfdcfa848f0e8e8da7799e719af8', // 1711469117
+    '84e857340fd1136ba2ab7db8383ef5d9a0d6ca750c7a22e8deac1ad34e93a4ac', // 1711468765
+    '1dd49619b558cc202b00c982922526d4bbb6dab09d5debbc2be3d3fd49b1db3b', // 1711469125
+    '638b1e9ccc69ecc674ad004c4c92f5a43d1d50ef673150ce8664d8e108cc85e5', // 1711469103
+  ];
+
+  const expected = [
+    '1dd49619b558cc202b00c982922526d4bbb6dab09d5debbc2be3d3fd49b1db3b', // 1711469125
+    '8e1b98146eee8a2dbfc4eb68323a81d38278bfdcfa848f0e8e8da7799e719af8', // 1711469117
+    '638b1e9ccc69ecc674ad004c4c92f5a43d1d50ef673150ce8664d8e108cc85e5', // 1711469103
+  ];
+
+  const results = await store.query([{ ids, limit: 3 }]);
+  assertEquals(results.map((event) => event.id), expected);
+});
+
 Deno.test('NDatabase.remove', async () => {
   await using db = await createDB();
   const { store } = db;
@@ -507,4 +534,29 @@ Deno.test('NDatabase timeout has no effect on SQLite', async () => {
   await store.query([{ kinds: [0] }], { timeout: 1 });
   await store.count([{ kinds: [0] }], { timeout: 1 });
   await store.remove([{ kinds: [0] }], { timeout: 1 });
+});
+
+Deno.test('NDatabase.shouldOrder', () => {
+  assertEquals(NDatabase.shouldOrder({}), true);
+
+  assertEquals(NDatabase.shouldOrder({ ids: ['1', '2', '3'] }), false);
+  assertEquals(NDatabase.shouldOrder({ ids: ['1', '2', '3'], limit: 2 }), true);
+  assertEquals(NDatabase.shouldOrder({ ids: ['1', '2', '3'], limit: 3 }), false);
+  assertEquals(NDatabase.shouldOrder({ ids: ['1', '2', '3'], limit: 20 }), false);
+
+  assertEquals(NDatabase.shouldOrder({ kinds: [0], authors: ['alex'] }), false);
+  assertEquals(NDatabase.shouldOrder({ kinds: [0], authors: ['alex', 'patrick', 'shantaram'], limit: 1 }), true);
+  assertEquals(NDatabase.shouldOrder({ kinds: [0], authors: ['alex', 'patrick', 'shantaram'], limit: 20 }), false);
+  assertEquals(NDatabase.shouldOrder({ kinds: [0, 3], authors: ['alex'] }), false);
+  assertEquals(NDatabase.shouldOrder({ kinds: [0, 3], authors: ['alex'], limit: 1 }), true);
+  assertEquals(NDatabase.shouldOrder({ kinds: [0, 3], authors: ['alex'], limit: 2 }), false);
+  assertEquals(NDatabase.shouldOrder({ kinds: [0, 3], authors: ['alex'], limit: 20 }), false);
+
+  assertEquals(NDatabase.shouldOrder({ kinds: [1] }), true);
+  assertEquals(NDatabase.shouldOrder({ kinds: [1], limit: 20 }), true);
+  assertEquals(NDatabase.shouldOrder({ kinds: [1, 6] }), true);
+  assertEquals(NDatabase.shouldOrder({ kinds: [1, 6], limit: 20 }), true);
+
+  assertEquals(NDatabase.shouldOrder({ kinds: [30000], authors: ['alex'] }), true);
+  // assertEquals(NDatabase.shouldOrder({ kinds: [30000], authors: ['alex'], '#d': ['yolo'] }), false); // TODO
 });

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- NDatabase: use unambiguous column names in queries.
+
 ## [0.26.1] - 2024-07-17
 
 ### Fixed

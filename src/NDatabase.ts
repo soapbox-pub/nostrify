@@ -302,23 +302,23 @@ export class NDatabase implements NStore {
 
     // Avoid ORDER BY for certain queries.
     if (NDatabase.shouldOrder(filter)) {
-      query = query.orderBy('created_at', 'desc');
+      query = query.orderBy('nostr_events.created_at', 'desc');
     }
 
     if (filter.ids) {
-      query = query.where('id', 'in', filter.ids);
+      query = query.where('nostr_events.id', 'in', filter.ids);
     }
     if (filter.kinds) {
-      query = query.where('kind', 'in', filter.kinds);
+      query = query.where('nostr_events.kind', 'in', filter.kinds);
     }
     if (filter.authors) {
-      query = query.where('pubkey', 'in', filter.authors);
+      query = query.where('nostr_events.pubkey', 'in', filter.authors);
     }
     if (typeof filter.since === 'number') {
-      query = query.where('created_at', '>=', filter.since);
+      query = query.where('nostr_events.created_at', '>=', filter.since);
     }
     if (typeof filter.until === 'number') {
-      query = query.where('created_at', '<=', filter.until);
+      query = query.where('nostr_events.created_at', '<=', filter.until);
     }
     if (typeof filter.limit === 'number') {
       query = query.limit(filter.limit);
@@ -338,7 +338,7 @@ export class NDatabase implements NStore {
       }
 
       if (!this.fts) {
-        return trx.selectFrom('nostr_events').selectAll('nostr_events').where('id', '=', null);
+        return trx.selectFrom('nostr_events').selectAll('nostr_events').where('nostr_events.id', '=', null);
       }
     }
 
@@ -424,18 +424,18 @@ export class NDatabase implements NStore {
 
       if (this.fts === 'sqlite') {
         await trx.deleteFrom('nostr_fts5')
-          .where('event_id', 'in', () => query)
+          .where('nostr_fts5.event_id', 'in', () => query)
           .execute();
       }
 
       if (this.fts === 'postgres') {
         await trx.deleteFrom('nostr_pgfts')
-          .where('event_id', 'in', () => query)
+          .where('nostr_pgfts.event_id', 'in', () => query)
           .execute();
       }
 
       await trx.deleteFrom('nostr_events')
-        .where('id', 'in', () => query)
+        .where('nostr_events.id', 'in', () => query)
         .execute();
     });
   }
@@ -454,7 +454,7 @@ export class NDatabase implements NStore {
       const query = this.getEventsQuery(trx, filters);
       const [{ count }] = await query
         .clearSelect()
-        .select((eb) => eb.fn.count('id').as('count'))
+        .select((eb) => eb.fn.count('nostr_events.id').as('count'))
         .execute();
 
       return {

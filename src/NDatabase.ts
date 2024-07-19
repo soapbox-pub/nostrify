@@ -22,6 +22,9 @@ export interface NDatabaseSchema {
     event_id: string;
     name: string;
     value: string;
+    kind: number;
+    pubkey: string;
+    created_at: number;
   };
   nostr_fts5: {
     event_id: string;
@@ -227,8 +230,10 @@ export class NDatabase implements NStore {
 
   /** Insert event tags depending on the event and settings. */
   protected async insertTags(trx: Kysely<NDatabaseSchema>, event: NostrEvent): Promise<void> {
+    const { id, kind, pubkey, created_at } = event;
+
     const tags = this.indexTags(event);
-    const rows = tags.map(([name, value]) => ({ event_id: event.id, name, value }));
+    const rows = tags.map(([name, value]) => ({ event_id: id, name, value, kind, pubkey, created_at }));
 
     if (!tags.length) return;
     await trx.insertInto('nostr_tags')
@@ -301,7 +306,8 @@ export class NDatabase implements NStore {
       .selectAll('nostr_events');
 
     // Avoid ORDER BY for certain queries.
-    if (NDatabase.shouldOrder(filter)) {
+    const shouldOrder = NDatabase.shouldOrder(filter);
+    if (shouldOrder) {
       query = query.orderBy('nostr_events.created_at', 'desc').orderBy('nostr_events.id', 'asc');
     }
 
@@ -342,16 +348,42 @@ export class NDatabase implements NStore {
       }
     }
 
-    let i = 0;
     for (const [key, value] of Object.entries(filter)) {
       if (key.startsWith('#') && Array.isArray(value)) {
         const name = key.replace(/^#/, '');
-        const alias = `tag${i++}` as const;
-        // @ts-ignore String interpolation confuses Kysely.
-        query = query
-          .innerJoin(`nostr_tags as ${alias}`, `${alias}.event_id`, 'nostr_events.id')
-          .where(`${alias}.name`, '=', name)
-          .where(`${alias}.value`, 'in', value);
+
+        query = query.where((eb) => {
+          let tagQuery = eb
+            .selectFrom('nostr_tags')
+            .select('nostr_tags.event_id')
+            .where('nostr_tags.name', '=', name)
+            .where('nostr_tags.value', 'in', value);
+
+          if (shouldOrder) {
+            tagQuery = tagQuery.orderBy('nostr_tags.created_at', 'desc').orderBy('nostr_tags.event_id', 'asc');
+          }
+
+          if (filter.ids) {
+            tagQuery = tagQuery.where('nostr_tags.event_id', 'in', filter.ids);
+          }
+          if (filter.kinds) {
+            tagQuery = tagQuery.where('nostr_tags.kind', 'in', filter.kinds);
+          }
+          if (filter.authors) {
+            tagQuery = tagQuery.where('nostr_tags.pubkey', 'in', filter.authors);
+          }
+          if (typeof filter.since === 'number') {
+            tagQuery = tagQuery.where('nostr_tags.created_at', '>=', filter.since);
+          }
+          if (typeof filter.until === 'number') {
+            tagQuery = tagQuery.where('nostr_tags.created_at', '<=', filter.until);
+          }
+          if (typeof filter.limit === 'number') {
+            tagQuery = tagQuery.limit(filter.limit);
+          }
+
+          return eb('nostr_events.id', 'in', tagQuery);
+        });
       }
     }
 
@@ -537,9 +569,12 @@ export class NDatabase implements NStore {
     await schema
       .createTable('nostr_tags')
       .ifNotExists()
+      .addColumn('event_id', 'text', (col) => col.references('nostr_events.id').onDelete('cascade'))
       .addColumn('name', 'text', (col) => col.notNull())
       .addColumn('value', 'text', (col) => col.notNull())
-      .addColumn('event_id', 'text', (col) => col.references('nostr_events.id').onDelete('cascade'))
+      .addColumn('kind', 'integer', (col) => col.notNull())
+      .addColumn('pubkey', 'text', (col) => col.notNull())
+      .addColumn('created_at', 'integer', (col) => col.notNull())
       .execute();
 
     await schema.createIndex('nostr_events_kind').on('nostr_events').ifNotExists().column('kind').execute();
@@ -563,6 +598,20 @@ export class NDatabase implements NStore {
       .on('nostr_tags')
       .ifNotExists()
       .columns(['name', 'value'])
+      .execute();
+    await schema.createIndex('nostr_tags_kind').on('nostr_tags').ifNotExists().column('kind').execute();
+    await schema.createIndex('nostr_tags_pubkey').on('nostr_tags').ifNotExists().column('pubkey').execute();
+    await schema
+      .createIndex('nostr_tags_created_at')
+      .on('nostr_tags')
+      .ifNotExists()
+      .columns(['created_at desc', 'event_id asc'])
+      .execute();
+    await schema
+      .createIndex('nostr_tags_kind_pubkey_created_at')
+      .on('nostr_tags')
+      .ifNotExists()
+      .columns(['kind', 'pubkey', 'created_at desc', 'event_id asc'])
       .execute();
 
     if (this.fts === 'sqlite') {

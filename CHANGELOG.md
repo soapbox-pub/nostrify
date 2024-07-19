@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- NDatabase: order events by id after created_at.
+
 ## [0.26.2] - 2024-07-18
 
 ### Fixed

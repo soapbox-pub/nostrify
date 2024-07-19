@@ -302,7 +302,7 @@ export class NDatabase implements NStore {
 
     // Avoid ORDER BY for certain queries.
     if (NDatabase.shouldOrder(filter)) {
-      query = query.orderBy('nostr_events.created_at', 'desc');
+      query = query.orderBy('nostr_events.created_at', 'desc').orderBy('nostr_events.id', 'asc');
     }
 
     if (filter.ids) {
@@ -545,10 +545,16 @@ export class NDatabase implements NStore {
     await schema.createIndex('nostr_events_kind').on('nostr_events').ifNotExists().column('kind').execute();
     await schema.createIndex('nostr_events_pubkey').on('nostr_events').ifNotExists().column('pubkey').execute();
     await schema
+      .createIndex('nostr_events_created_at')
+      .on('nostr_events')
+      .ifNotExists()
+      .columns(['created_at desc', 'id asc'])
+      .execute();
+    await schema
       .createIndex('nostr_events_kind_pubkey_created_at')
       .on('nostr_events')
       .ifNotExists()
-      .columns(['kind', 'pubkey', 'created_at desc'])
+      .columns(['kind', 'pubkey', 'created_at desc', 'id asc'])
       .execute();
 
     await schema.createIndex('nostr_tags_event_id').on('nostr_tags').ifNotExists().column('event_id').execute();

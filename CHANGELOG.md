@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.3] - 2024-07-18
+
 ### Fixed
 
 - NDatabase: order events by id after created_at.
@@ -266,7 +268,8 @@ Redeploy to JSR (to hopefully fix [npm compatibility](https://github.com/jsr-io/
 
 - Added `NDenoKv` storage class, for storing events in Deno KV.
 
-[unreleased]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.26.2...HEAD
+[unreleased]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.26.3...HEAD
+[0.26.3]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.26.2...v0.26.3
 [0.26.2]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.26.1...v0.26.2
 [0.26.1]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.26.0...v0.26.1
 [0.26.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.25.0...v0.26.0

@@ -47,7 +47,7 @@
     "@welshman/net": "npm:@welshman/net@^0.0.2",
     "@welshman/util": "npm:@welshman/util@^0.0.2",
     "kysely": "npm:kysely@^0.27.3",
-    "postgres": "https://deno.land/x/postgresjs@v3.4.3/mod.js",
+    "postgres": "https://raw.githubusercontent.com/xyzshantaram/postgres.js/8a9bbce88b3f6425ecaacd99a80372338b157a53/deno/mod.js",
     "kysely-postgres-js": "npm:kysely-postgres-js@2.0.0",
     "lru-cache": "npm:lru-cache@^10.2.0",
     "mock-socket": "npm:mock-socket@9.3.1",

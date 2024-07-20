@@ -59,7 +59,8 @@ async function createDB(
     case 'postgres':
       kysely = new Kysely({
         dialect: new PostgresJSDialect({
-          postgres: postgres(Deno.env.get('DATABASE_URL')!) as any,
+          // @ts-ignore mismatched library versions
+          postgres: postgres(Deno.env.get('DATABASE_URL')!),
         }),
       });
       break;

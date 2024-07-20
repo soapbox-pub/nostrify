@@ -12,7 +12,10 @@ import postgres from 'postgres';
 const databaseUrl = Deno.env.get('DATABASE_URL');
 const kysely = databaseUrl?.startsWith('postgres')
   ? new Kysely<NDatabaseSchema>({
-    dialect: new PostgresJSDialect({ postgres: postgres(databaseUrl) }),
+    dialect: new PostgresJSDialect({
+      // @ts-ignore mismatched library versions
+      postgres: postgres(databaseUrl),
+    }),
   })
   : new Kysely<NDatabaseSchema>({
     dialect: new DenoSqlite3Dialect({

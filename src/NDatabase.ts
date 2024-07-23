@@ -600,10 +600,10 @@ export class NDatabase implements NStore {
 
     await schema.createIndex('nostr_tags_event_id').on('nostr_tags').ifNotExists().column('event_id').execute();
     await schema
-      .createIndex('nostr_tags_tag_value')
+      .createIndex('nostr_tags_value_name')
       .on('nostr_tags')
       .ifNotExists()
-      .columns(['name', 'value'])
+      .columns(['value', 'name'])
       .execute();
     await schema.createIndex('nostr_tags_kind').on('nostr_tags').ifNotExists().column('kind').execute();
     await schema.createIndex('nostr_tags_pubkey').on('nostr_tags').ifNotExists().column('pubkey').execute();
@@ -614,10 +614,16 @@ export class NDatabase implements NStore {
       .columns(['created_at desc', 'event_id asc'])
       .execute();
     await schema
+      .createIndex('nostr_tags_kind_created_at')
+      .on('nostr_tags')
+      .ifNotExists()
+      .columns(['value', 'name', 'kind', 'created_at desc', 'event_id asc'])
+      .execute();
+    await schema
       .createIndex('nostr_tags_kind_pubkey_created_at')
       .on('nostr_tags')
       .ifNotExists()
-      .columns(['kind', 'pubkey', 'created_at desc', 'event_id asc'])
+      .columns(['value', 'name', 'kind', 'pubkey', 'created_at desc', 'event_id asc'])
       .execute();
 
     if (this.fts === 'sqlite') {

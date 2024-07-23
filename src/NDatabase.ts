@@ -355,7 +355,7 @@ export class NDatabase implements NStore {
         query = query.where((eb) => {
           let tagQuery = eb
             .selectFrom('nostr_tags')
-            .select('nostr_tags.event_id')
+            .selectAll('nostr_tags')
             .where('nostr_tags.name', '=', name)
             .where('nostr_tags.value', 'in', value);
 
@@ -378,11 +378,17 @@ export class NDatabase implements NStore {
           if (typeof filter.until === 'number') {
             tagQuery = tagQuery.where('nostr_tags.created_at', '<=', filter.until);
           }
+
+          let groupedQuery = eb
+            .selectFrom(tagQuery.as('nostr_tags'))
+            .select('nostr_tags.event_id')
+            .distinct();
+
           if (typeof filter.limit === 'number') {
-            tagQuery = tagQuery.limit(filter.limit);
+            groupedQuery = groupedQuery.limit(filter.limit);
           }
 
-          return eb('nostr_events.id', 'in', tagQuery);
+          return eb('nostr_events.id', 'in', groupedQuery);
         });
       }
     }

@@ -172,6 +172,7 @@ Deno.test('NDatabase.query with tag filters and limit', async () => {
   }]);
 
   assertEquals(events.length, 1);
+  assertEquals(events[0].id, 'b745a502b455a2380019dafad64b927575cd9223f5369d9eb402b63f84847235');
 
   const pubkeys = new Set<string>();
 
@@ -184,23 +185,25 @@ Deno.test('NDatabase.query with tag filters and limit', async () => {
   assertEquals([...pubkeys], ['0461fcbecc4c3374439932d6b8f11269ccdb7cc973ad7a50ae362db135a474dd']);
 });
 
-Deno.test("NDatabase.query with multiple tags doesn't crash", async () => {
+Deno.test('NDatabase.query with multiple tags', async () => {
   await using db = await createDB();
   const { store } = db;
 
-  await store.query([{
+  const results = await store.query([{
     kinds: [1985],
     authors: ['c87e0d90c7e521967a6975439ba20d9052c2b6680d8c4c80fc2943e2c726d98c'],
     '#L': ['nip05'],
     '#l': ['alex@gleasonator.com'],
   }]);
+
+  assertEquals(results, []);
 });
 
-Deno.test("NDatabase.query tag query with non-tag query doesn't crash", async () => {
+Deno.test('NDatabase.query tag query with non-tag query', async () => {
   await using db = await createDB();
   const { store } = db;
 
-  await store.query([{
+  const results = await store.query([{
     kinds: [0],
     authors: ['c87e0d90c7e521967a6975439ba20d9052c2b6680d8c4c80fc2943e2c726d98c'],
   }, {
@@ -209,6 +212,8 @@ Deno.test("NDatabase.query tag query with non-tag query doesn't crash", async ()
     '#L': ['nip05'],
     '#l': ['alex@gleasonator.com'],
   }]);
+
+  assertEquals(results, []);
 });
 
 Deno.test('NDatabase.query with search', async (t) => {

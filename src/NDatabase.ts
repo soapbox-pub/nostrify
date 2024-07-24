@@ -22,6 +22,9 @@ export interface NDatabaseSchema {
     event_id: string;
     name: string;
     value: string;
+    kind: number;
+    pubkey: string;
+    created_at: number;
   };
   nostr_fts5: {
     event_id: string;
@@ -227,8 +230,10 @@ export class NDatabase implements NStore {
 
   /** Insert event tags depending on the event and settings. */
   protected async insertTags(trx: Kysely<NDatabaseSchema>, event: NostrEvent): Promise<void> {
+    const { id, kind, pubkey, created_at } = event;
+
     const tags = this.indexTags(event);
-    const rows = tags.map(([name, value]) => ({ event_id: event.id, name, value }));
+    const rows = tags.map(([name, value]) => ({ event_id: id, name, value, kind, pubkey, created_at }));
 
     if (!tags.length) return;
     await trx.insertInto('nostr_tags')
@@ -537,9 +542,12 @@ export class NDatabase implements NStore {
     await schema
       .createTable('nostr_tags')
       .ifNotExists()
+      .addColumn('event_id', 'text', (col) => col.references('nostr_events.id').onDelete('cascade'))
       .addColumn('name', 'text', (col) => col.notNull())
       .addColumn('value', 'text', (col) => col.notNull())
-      .addColumn('event_id', 'text', (col) => col.references('nostr_events.id').onDelete('cascade'))
+      .addColumn('kind', 'integer', (col) => col.notNull())
+      .addColumn('pubkey', 'text', (col) => col.notNull())
+      .addColumn('created_at', 'integer', (col) => col.notNull())
       .execute();
 
     await schema.createIndex('nostr_events_kind').on('nostr_events').ifNotExists().column('kind').execute();
@@ -559,10 +567,28 @@ export class NDatabase implements NStore {
 
     await schema.createIndex('nostr_tags_event_id').on('nostr_tags').ifNotExists().column('event_id').execute();
     await schema
-      .createIndex('nostr_tags_tag_value')
+      .createIndex('nostr_tags_value_name')
       .on('nostr_tags')
       .ifNotExists()
-      .columns(['name', 'value'])
+      .columns(['value', 'name'])
+      .execute();
+    await schema
+      .createIndex('nostr_tags_created_at')
+      .on('nostr_tags')
+      .ifNotExists()
+      .columns(['created_at desc', 'event_id asc'])
+      .execute();
+    await schema
+      .createIndex('nostr_tags_kind_created_at')
+      .on('nostr_tags')
+      .ifNotExists()
+      .columns(['value', 'name', 'kind', 'created_at desc', 'event_id asc'])
+      .execute();
+    await schema
+      .createIndex('nostr_tags_kind_pubkey_created_at')
+      .on('nostr_tags')
+      .ifNotExists()
+      .columns(['value', 'name', 'kind', 'pubkey', 'created_at desc', 'event_id asc'])
       .execute();
 
     if (this.fts === 'sqlite') {

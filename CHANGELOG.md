@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- BREAKING: NDatabase: add kind, pubkey, and created_at columns to nostr_tags table. These columns are non-nullable, so the old database will need to be deleted or manually migrated.
+
 ## [0.26.3] - 2024-07-18
 
 ### Fixed

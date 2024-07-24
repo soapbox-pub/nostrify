@@ -572,8 +572,6 @@ export class NDatabase implements NStore {
       .ifNotExists()
       .columns(['value', 'name'])
       .execute();
-    await schema.createIndex('nostr_tags_kind').on('nostr_tags').ifNotExists().column('kind').execute();
-    await schema.createIndex('nostr_tags_pubkey').on('nostr_tags').ifNotExists().column('pubkey').execute();
     await schema
       .createIndex('nostr_tags_created_at')
       .on('nostr_tags')

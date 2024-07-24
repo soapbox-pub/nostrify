@@ -306,8 +306,7 @@ export class NDatabase implements NStore {
       .selectAll('nostr_events');
 
     // Avoid ORDER BY for certain queries.
-    const shouldOrder = NDatabase.shouldOrder(filter);
-    if (shouldOrder) {
+    if (NDatabase.shouldOrder(filter)) {
       query = query.orderBy('nostr_events.created_at', 'desc').orderBy('nostr_events.id', 'asc');
     }
 
@@ -348,48 +347,29 @@ export class NDatabase implements NStore {
       }
     }
 
+    let i = 0;
     for (const [key, value] of Object.entries(filter)) {
       if (key.startsWith('#') && Array.isArray(value)) {
         const name = key.replace(/^#/, '');
+        const alias = `tag${i++}` as const;
 
-        query = query.where((eb) => {
-          let tagQuery = eb
-            .selectFrom('nostr_tags')
-            .selectAll('nostr_tags')
-            .where('nostr_tags.name', '=', name)
-            .where('nostr_tags.value', 'in', value);
+        let joinedQuery = query
+          .innerJoin(`nostr_tags as ${alias}`, `${alias}.event_id`, 'nostr_events.id')
+          .where(`${alias}.name`, '=', name)
+          .where(`${alias}.value`, 'in', value);
 
-          if (shouldOrder) {
-            tagQuery = tagQuery.orderBy('nostr_tags.created_at', 'desc').orderBy('nostr_tags.event_id', 'asc');
-          }
+        if (filter.ids) {
+          joinedQuery = joinedQuery.where(`${alias}.event_id`, 'in', filter.ids);
+        }
+        if (filter.kinds) {
+          joinedQuery = joinedQuery.where(`${alias}.kind`, 'in', filter.kinds);
+        }
+        if (filter.authors) {
+          joinedQuery = joinedQuery.where(`${alias}.pubkey`, 'in', filter.authors);
+        }
 
-          if (filter.ids) {
-            tagQuery = tagQuery.where('nostr_tags.event_id', 'in', filter.ids);
-          }
-          if (filter.kinds) {
-            tagQuery = tagQuery.where('nostr_tags.kind', 'in', filter.kinds);
-          }
-          if (filter.authors) {
-            tagQuery = tagQuery.where('nostr_tags.pubkey', 'in', filter.authors);
-          }
-          if (typeof filter.since === 'number') {
-            tagQuery = tagQuery.where('nostr_tags.created_at', '>=', filter.since);
-          }
-          if (typeof filter.until === 'number') {
-            tagQuery = tagQuery.where('nostr_tags.created_at', '<=', filter.until);
-          }
-
-          let groupedQuery = eb
-            .selectFrom(tagQuery.as('nostr_tags'))
-            .select('nostr_tags.event_id')
-            .distinct();
-
-          if (typeof filter.limit === 'number') {
-            groupedQuery = groupedQuery.limit(filter.limit);
-          }
-
-          return eb('nostr_events.id', 'in', groupedQuery);
-        });
+        // @ts-ignore String interpolation confuses Kysely.
+        query = joinedQuery;
       }
     }
 

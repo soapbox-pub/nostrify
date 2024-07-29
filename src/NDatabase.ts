@@ -608,18 +608,11 @@ export class NDatabase implements NStore {
       .columns(['kind', 'pubkey', 'created_at desc', 'id asc'])
       .execute();
 
-    await schema.createIndex('nostr_tags_event_id').on('nostr_tags').ifNotExists().column('event_id').execute();
-    await schema
-      .createIndex('nostr_tags_value_name')
-      .on('nostr_tags')
-      .ifNotExists()
-      .columns(['value', 'name'])
-      .execute();
     await schema
       .createIndex('nostr_tags_created_at')
       .on('nostr_tags')
       .ifNotExists()
-      .columns(['created_at desc', 'event_id asc'])
+      .columns(['value', 'name', 'created_at desc', 'event_id asc'])
       .execute();
     await schema
       .createIndex('nostr_tags_kind_created_at')

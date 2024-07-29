@@ -591,7 +591,7 @@ export class NDatabase implements NStore {
     await schema
       .createTable('nostr_tags')
       .ifNotExists()
-      .addColumn('event_id', 'text', (col) => col.references('nostr_events.id').onDelete('cascade'))
+      .addColumn('event_id', 'text', (col) => col.notNull().references('nostr_events.id').onDelete('cascade'))
       .addColumn('name', 'text', (col) => col.notNull())
       .addColumn('value', 'text', (col) => col.notNull())
       .addColumn('kind', 'integer', (col) => col.notNull())

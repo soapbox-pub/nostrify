@@ -306,7 +306,8 @@ export class NDatabase implements NStore {
       .selectAll('nostr_events');
 
     // Avoid ORDER BY for certain queries.
-    if (NDatabase.shouldOrder(filter)) {
+    const shouldOrder = NDatabase.shouldOrder(filter);
+    if (shouldOrder) {
       query = query.orderBy('nostr_events.created_at', 'desc').orderBy('nostr_events.id', 'asc');
     }
 
@@ -347,17 +348,59 @@ export class NDatabase implements NStore {
       }
     }
 
-    let i = 0;
-    for (const [key, value] of Object.entries(filter)) {
-      if (key.startsWith('#') && Array.isArray(value)) {
-        const name = key.replace(/^#/, '');
-        const alias = `tag${i++}` as const;
-        // @ts-ignore String interpolation confuses Kysely.
-        query = query
-          .innerJoin(`nostr_tags as ${alias}`, `${alias}.event_id`, 'nostr_events.id')
-          .where(`${alias}.name`, '=', name)
-          .where(`${alias}.value`, 'in', value);
-      }
+    const tagSubqueries = Object.entries(filter).reduce(
+      (acc, [key, value]) => {
+        if (key.startsWith('#') && Array.isArray(value)) {
+          const name = key.replace(/^#/, '');
+
+          let subquery = trx
+            .selectFrom('nostr_tags')
+            .select(['nostr_tags.event_id', 'nostr_tags.created_at'])
+            .where('nostr_tags.name', '=', name)
+            .where('nostr_tags.value', 'in', value);
+
+          if (filter.ids) {
+            subquery = subquery.where('nostr_tags.event_id', 'in', filter.ids);
+          }
+          if (filter.kinds) {
+            subquery = subquery.where('nostr_tags.kind', 'in', filter.kinds);
+          }
+          if (filter.authors) {
+            subquery = subquery.where('nostr_tags.pubkey', 'in', filter.authors);
+          }
+
+          acc.push(subquery);
+        }
+        return acc;
+      },
+      [] as SelectQueryBuilder<NDatabaseSchema, 'nostr_tags', { event_id: string; created_at: number }>[],
+    );
+
+    if (tagSubqueries.length) {
+      const tagSubquery = trx.selectFrom(() =>
+        tagSubqueries
+          .reduce((result, query) => result.intersect(query))
+          .as('nostr_tags')
+      )
+        .select(['nostr_tags.event_id', 'nostr_tags.created_at']);
+
+      query = query.where('nostr_events.id', 'in', (eb) => {
+        let subquery = trx
+          .selectFrom(() => tagSubquery.as('nostr_tags'))
+          .select(['nostr_tags.event_id', 'nostr_tags.created_at'])
+          .distinct();
+
+        if (shouldOrder) {
+          subquery = subquery.orderBy('nostr_tags.created_at', 'desc').orderBy('nostr_tags.event_id', 'asc');
+        }
+        if (filter.limit) {
+          subquery = subquery.limit(filter.limit);
+        }
+
+        return eb
+          .selectFrom(subquery.as('nostr_tags'))
+          .select('nostr_tags.event_id');
+      });
     }
 
     return query;

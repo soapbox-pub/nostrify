@@ -368,6 +368,12 @@ export class NDatabase implements NStore {
           if (filter.authors) {
             subquery = subquery.where('nostr_tags.pubkey', 'in', filter.authors);
           }
+          if (typeof filter.since === 'number') {
+            subquery = subquery.where('nostr_tags.created_at', '>=', filter.since);
+          }
+          if (typeof filter.until === 'number') {
+            subquery = subquery.where('nostr_tags.created_at', '<=', filter.until);
+          }
 
           acc.push(subquery);
         }
@@ -393,7 +399,7 @@ export class NDatabase implements NStore {
         if (shouldOrder) {
           subquery = subquery.orderBy('nostr_tags.created_at', 'desc').orderBy('nostr_tags.event_id', 'asc');
         }
-        if (filter.limit) {
+        if (typeof filter.limit === 'number') {
           subquery = subquery.limit(filter.limit);
         }
 

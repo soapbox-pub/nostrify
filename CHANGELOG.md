@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.0] - 2024-07-29
+
+### Fixed
+
+- NDatabase: vastly improve performance of tag queries.
+
 ### Changed
 
 - BREAKING: NDatabase: add kind, pubkey, and created_at columns to nostr_tags table. These columns are non-nullable, so the old database will need to be deleted or manually migrated.
@@ -272,7 +278,8 @@ Redeploy to JSR (to hopefully fix [npm compatibility](https://github.com/jsr-io/
 
 - Added `NDenoKv` storage class, for storing events in Deno KV.
 
-[unreleased]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.26.3...HEAD
+[unreleased]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.27.0...HEAD
+[0.27.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.26.3...v0.27.0
 [0.26.3]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.26.2...v0.26.3
 [0.26.2]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.26.1...v0.26.2
 [0.26.1]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.26.0...v0.26.1

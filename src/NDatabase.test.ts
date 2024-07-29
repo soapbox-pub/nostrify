@@ -1,9 +1,9 @@
 import { Database as Sqlite } from '@db/sqlite';
-import { assertEquals, assertRejects } from '@std/assert';
+import { assert, assertEquals, assertRejects } from '@std/assert';
 import { DenoSqlite3Dialect } from '@soapbox/kysely-deno-sqlite';
 import { PostgreSQLDriver } from 'kysely_deno_postgres';
 import { Kysely, LogConfig, LogEvent, PostgresAdapter, PostgresIntrospector, PostgresQueryCompiler } from 'kysely';
-import { finalizeEvent, generateSecretKey } from 'nostr-tools';
+import { finalizeEvent, generateSecretKey, matchFilters } from 'nostr-tools';
 import { Pool, TransactionError } from 'postgres';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
@@ -189,14 +189,78 @@ Deno.test('NDatabase.query with multiple tags', async () => {
   await using db = await createDB();
   const { store } = db;
 
-  const results = await store.query([{
-    kinds: [1985],
-    authors: ['c87e0d90c7e521967a6975439ba20d9052c2b6680d8c4c80fc2943e2c726d98c'],
-    '#L': ['nip05'],
-    '#l': ['alex@gleasonator.com'],
-  }]);
+  for (const event of await jsonlEvents('./fixtures/trends.jsonl')) {
+    await store.event(event);
+  }
 
-  assertEquals(results, []);
+  const filters = [{
+    kinds: [1985],
+    authors: ['15b68d319a088a9b0c6853d2232aff0d69c8c58f0dccceabfb9a82bd4fd19c58'],
+    '#L': ['pub.ditto.trends'],
+    '#l': ['#t'],
+  }];
+
+  const results = await store.query(filters);
+
+  for (const event of results) {
+    assert(matchFilters(filters, event));
+  }
+
+  assertEquals(results.length, 20);
+  assertEquals(results[0].tags.find(([name]) => name === 't')?.[1], 'bitcoin');
+});
+
+Deno.test('NDatabase.query with multiple tags and time window', async () => {
+  await using db = await createDB();
+  const { store } = db;
+
+  for (const event of await jsonlEvents('./fixtures/trends.jsonl')) {
+    await store.event(event);
+  }
+
+  const filters = [{
+    kinds: [1985],
+    authors: ['15b68d319a088a9b0c6853d2232aff0d69c8c58f0dccceabfb9a82bd4fd19c58'],
+    '#L': ['pub.ditto.trends'],
+    '#l': ['#t'],
+    since: 1722124800,
+    until: 1722211200,
+  }];
+
+  const results = await store.query(filters);
+
+  for (const event of results) {
+    assert(matchFilters(filters, event));
+  }
+
+  assertEquals(results.length, 2);
+  assert(matchFilters(filters, results[0]));
+  assertEquals(results[0].tags.find(([name]) => name === 't')?.[1], 'bitcoin');
+});
+
+Deno.test('NDatabase.query with multiple tags and time window and limit', async () => {
+  await using db = await createDB();
+  const { store } = db;
+
+  for (const event of await jsonlEvents('./fixtures/trends.jsonl')) {
+    await store.event(event);
+  }
+
+  const filters = [{
+    kinds: [1985],
+    authors: ['15b68d319a088a9b0c6853d2232aff0d69c8c58f0dccceabfb9a82bd4fd19c58'],
+    '#L': ['pub.ditto.trends'],
+    '#l': ['#t'],
+    since: 1722124800,
+    until: 1722211200,
+    limit: 1,
+  }];
+
+  const results = await store.query(filters);
+
+  assertEquals(results.length, 1);
+  assert(matchFilters(filters, results[0]));
+  assertEquals(results[0].tags.find(([name]) => name === 't')?.[1], 'bitcoin');
 });
 
 Deno.test('NDatabase.query tag query with non-tag query', async () => {

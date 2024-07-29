@@ -604,28 +604,3 @@ Deno.test('NDatabase timeout has no effect on SQLite', async () => {
   await store.count([{ kinds: [0] }], { timeout: 1 });
   await store.remove([{ kinds: [0] }], { timeout: 1 });
 });
-
-Deno.test('NDatabase.shouldOrder', () => {
-  assertEquals(NDatabase.shouldOrder({}), true);
-
-  assertEquals(NDatabase.shouldOrder({ ids: ['1', '2', '3'] }), false);
-  assertEquals(NDatabase.shouldOrder({ ids: ['1', '2', '3'], limit: 2 }), true);
-  assertEquals(NDatabase.shouldOrder({ ids: ['1', '2', '3'], limit: 3 }), false);
-  assertEquals(NDatabase.shouldOrder({ ids: ['1', '2', '3'], limit: 20 }), false);
-
-  assertEquals(NDatabase.shouldOrder({ kinds: [0], authors: ['alex'] }), false);
-  assertEquals(NDatabase.shouldOrder({ kinds: [0], authors: ['alex', 'patrick', 'shantaram'], limit: 1 }), true);
-  assertEquals(NDatabase.shouldOrder({ kinds: [0], authors: ['alex', 'patrick', 'shantaram'], limit: 20 }), false);
-  assertEquals(NDatabase.shouldOrder({ kinds: [0, 3], authors: ['alex'] }), false);
-  assertEquals(NDatabase.shouldOrder({ kinds: [0, 3], authors: ['alex'], limit: 1 }), true);
-  assertEquals(NDatabase.shouldOrder({ kinds: [0, 3], authors: ['alex'], limit: 2 }), false);
-  assertEquals(NDatabase.shouldOrder({ kinds: [0, 3], authors: ['alex'], limit: 20 }), false);
-
-  assertEquals(NDatabase.shouldOrder({ kinds: [1] }), true);
-  assertEquals(NDatabase.shouldOrder({ kinds: [1], limit: 20 }), true);
-  assertEquals(NDatabase.shouldOrder({ kinds: [1, 6] }), true);
-  assertEquals(NDatabase.shouldOrder({ kinds: [1, 6], limit: 20 }), true);
-
-  assertEquals(NDatabase.shouldOrder({ kinds: [30000], authors: ['alex'] }), true);
-  // assertEquals(NDatabase.shouldOrder({ kinds: [30000], authors: ['alex'], '#d': ['yolo'] }), false); // TODO
-});

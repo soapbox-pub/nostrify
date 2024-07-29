@@ -1,5 +1,5 @@
 import { Kysely, type SelectQueryBuilder, sql } from 'kysely';
-import { getFilterLimit, sortEvents } from 'nostr-tools';
+import { getFilterLimit } from 'nostr-tools';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NStore } from '../interfaces/NStore.ts';
@@ -281,21 +281,6 @@ export class NDatabase implements NStore {
     await this.removeEvents(trx, [filter]);
   }
 
-  /** Whether results should be sorted reverse-chronologically by the database. */
-  static shouldOrder(filter: NostrFilter): boolean {
-    // deno-lint-ignore no-unused-vars
-    const { limit, ...rest } = filter;
-
-    const intrinsicLimit = getFilterLimit(filter);
-    const potentialLimit = getFilterLimit(rest);
-
-    if (intrinsicLimit === Infinity && potentialLimit === Infinity) {
-      return true;
-    } else {
-      return intrinsicLimit < potentialLimit;
-    }
-  }
-
   /** Build the query for a filter. */
   protected getFilterQuery(
     trx: Kysely<NDatabaseSchema>,
@@ -303,13 +288,9 @@ export class NDatabase implements NStore {
   ): SelectQueryBuilder<NDatabaseSchema, 'nostr_events', NDatabaseSchema['nostr_events']> {
     let query = trx
       .selectFrom('nostr_events')
-      .selectAll('nostr_events');
-
-    // Avoid ORDER BY for certain queries.
-    const shouldOrder = NDatabase.shouldOrder(filter);
-    if (shouldOrder) {
-      query = query.orderBy('nostr_events.created_at', 'desc').orderBy('nostr_events.id', 'asc');
-    }
+      .selectAll('nostr_events')
+      .orderBy('nostr_events.created_at', 'desc')
+      .orderBy('nostr_events.id', 'asc');
 
     if (filter.ids) {
       query = query.where('nostr_events.id', 'in', filter.ids);
@@ -356,8 +337,11 @@ export class NDatabase implements NStore {
           let subquery = trx
             .selectFrom('nostr_tags')
             .select(['nostr_tags.event_id', 'nostr_tags.created_at'])
+            .distinct()
             .where('nostr_tags.name', '=', name)
-            .where('nostr_tags.value', 'in', value);
+            .where('nostr_tags.value', 'in', value)
+            .orderBy('nostr_tags.created_at', 'desc')
+            .orderBy('nostr_tags.event_id', 'asc');
 
           if (filter.ids) {
             subquery = subquery.where('nostr_tags.event_id', 'in', filter.ids);
@@ -373,6 +357,9 @@ export class NDatabase implements NStore {
           }
           if (typeof filter.until === 'number') {
             subquery = subquery.where('nostr_tags.created_at', '<=', filter.until);
+          }
+          if (typeof filter.limit === 'number') {
+            subquery = subquery.limit(filter.limit);
           }
 
           acc.push(subquery);
@@ -394,11 +381,10 @@ export class NDatabase implements NStore {
         let subquery = trx
           .selectFrom(() => tagSubquery.as('nostr_tags'))
           .select(['nostr_tags.event_id', 'nostr_tags.created_at'])
-          .distinct();
+          .distinct()
+          .orderBy('nostr_tags.created_at', 'desc')
+          .orderBy('nostr_tags.event_id', 'asc');
 
-        if (shouldOrder) {
-          subquery = subquery.orderBy('nostr_tags.created_at', 'desc').orderBy('nostr_tags.event_id', 'asc');
-        }
         if (typeof filter.limit === 'number') {
           subquery = subquery.limit(filter.limit);
         }
@@ -456,7 +442,7 @@ export class NDatabase implements NStore {
         };
       });
 
-      return sortEvents(events);
+      return events;
     }, opts.timeout);
   }
 
@@ -599,38 +585,30 @@ export class NDatabase implements NStore {
       .addColumn('created_at', 'integer', (col) => col.notNull())
       .execute();
 
-    await schema.createIndex('nostr_events_kind').on('nostr_events').ifNotExists().column('kind').execute();
-    await schema.createIndex('nostr_events_pubkey').on('nostr_events').ifNotExists().column('pubkey').execute();
     await schema
-      .createIndex('nostr_events_created_at')
+      .createIndex('nostr_events_kind')
       .on('nostr_events')
       .ifNotExists()
-      .columns(['created_at desc', 'id asc'])
+      .columns(['created_at desc', 'id asc', 'kind', 'pubkey'])
       .execute();
     await schema
-      .createIndex('nostr_events_kind_pubkey_created_at')
+      .createIndex('nostr_events_pubkey')
       .on('nostr_events')
       .ifNotExists()
-      .columns(['kind', 'pubkey', 'created_at desc', 'id asc'])
+      .columns(['created_at desc', 'id asc', 'pubkey', 'kind'])
       .execute();
 
     await schema
-      .createIndex('nostr_tags_created_at')
+      .createIndex('nostr_tags_kind')
       .on('nostr_tags')
       .ifNotExists()
-      .columns(['value', 'name', 'created_at desc', 'event_id asc'])
+      .columns(['created_at desc', 'event_id asc', 'value', 'name', 'kind', 'pubkey'])
       .execute();
     await schema
-      .createIndex('nostr_tags_kind_created_at')
+      .createIndex('nostr_tags_pubkey')
       .on('nostr_tags')
       .ifNotExists()
-      .columns(['value', 'name', 'kind', 'created_at desc', 'event_id asc'])
-      .execute();
-    await schema
-      .createIndex('nostr_tags_kind_pubkey_created_at')
-      .on('nostr_tags')
-      .ifNotExists()
-      .columns(['value', 'name', 'kind', 'pubkey', 'created_at desc', 'event_id asc'])
+      .columns(['created_at desc', 'event_id asc', 'value', 'name', 'pubkey', 'kind'])
       .execute();
 
     if (this.fts === 'sqlite') {

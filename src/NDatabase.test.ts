@@ -31,7 +31,7 @@ const dialect: 'sqlite' | 'postgres' = (() => {
 
 /** Kysely console logger. */
 const log: LogConfig = (event: LogEvent): void => {
-  if (Deno.env.get('DEBUG') && event.level === 'query') {
+  if (Deno.env.get('DEBUG')) {
     console.log(event.query.sql, JSON.stringify(event.query.parameters));
   }
 };

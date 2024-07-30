@@ -358,9 +358,6 @@ export class NDatabase implements NStore {
           if (typeof filter.until === 'number') {
             subquery = subquery.where('nostr_tags.created_at', '<=', filter.until);
           }
-          if (typeof filter.limit === 'number') {
-            subquery = subquery.limit(filter.limit);
-          }
 
           acc.push(subquery);
         }
@@ -372,13 +369,13 @@ export class NDatabase implements NStore {
     if (tagSubqueries.length) {
       const tagSubquery = trx.selectFrom(() =>
         tagSubqueries
-          .map((query) => trx.selectFrom(() => query.as('nostr_tags')).selectAll())
+          .map((query) => trx.selectFrom(() => query.as('nostr_tags')).selectAll('nostr_tags'))
           .reduce((result, query) => result.intersect(query))
           .as('nostr_tags')
       )
         .select(['nostr_tags.event_id', 'nostr_tags.created_at']);
 
-      return trx
+      let tagQuery = trx
         .selectFrom('nostr_events')
         .selectAll('nostr_events')
         .where('nostr_events.id', 'in', (eb) => {
@@ -399,6 +396,12 @@ export class NDatabase implements NStore {
         })
         .orderBy('nostr_events.created_at', 'desc')
         .orderBy('nostr_events.id', 'asc');
+
+      if (typeof filter.limit === 'number') {
+        tagQuery = tagQuery.limit(filter.limit);
+      }
+
+      return tagQuery;
     }
 
     return query;

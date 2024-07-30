@@ -372,27 +372,33 @@ export class NDatabase implements NStore {
     if (tagSubqueries.length) {
       const tagSubquery = trx.selectFrom(() =>
         tagSubqueries
+          .map((query) => trx.selectFrom(() => query.as('nostr_tags')).selectAll())
           .reduce((result, query) => result.intersect(query))
           .as('nostr_tags')
       )
         .select(['nostr_tags.event_id', 'nostr_tags.created_at']);
 
-      query = query.where('nostr_events.id', 'in', (eb) => {
-        let subquery = trx
-          .selectFrom(() => tagSubquery.as('nostr_tags'))
-          .select(['nostr_tags.event_id', 'nostr_tags.created_at'])
-          .distinct()
-          .orderBy('nostr_tags.created_at', 'desc')
-          .orderBy('nostr_tags.event_id', 'asc');
+      return trx
+        .selectFrom('nostr_events')
+        .selectAll('nostr_events')
+        .where('nostr_events.id', 'in', (eb) => {
+          let subquery = trx
+            .selectFrom(() => tagSubquery.as('nostr_tags'))
+            .select(['nostr_tags.event_id', 'nostr_tags.created_at'])
+            .distinct()
+            .orderBy('nostr_tags.created_at', 'desc')
+            .orderBy('nostr_tags.event_id', 'asc');
 
-        if (typeof filter.limit === 'number') {
-          subquery = subquery.limit(filter.limit);
-        }
+          if (typeof filter.limit === 'number') {
+            subquery = subquery.limit(filter.limit);
+          }
 
-        return eb
-          .selectFrom(subquery.as('nostr_tags'))
-          .select('nostr_tags.event_id');
-      });
+          return eb
+            .selectFrom(subquery.as('nostr_tags'))
+            .select('nostr_tags.event_id');
+        })
+        .orderBy('nostr_events.created_at', 'desc')
+        .orderBy('nostr_events.id', 'asc');
     }
 
     return query;

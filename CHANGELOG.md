@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.0] - 2024-07-29
+
+### Fixed
+
+- NDatabase: improved performance of all queries.
+
 ## [0.27.0] - 2024-07-29
 
 ### Fixed
@@ -278,7 +284,8 @@ Redeploy to JSR (to hopefully fix [npm compatibility](https://github.com/jsr-io/
 
 - Added `NDenoKv` storage class, for storing events in Deno KV.
 
-[unreleased]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.27.0...HEAD
+[unreleased]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.28.0...HEAD
+[0.28.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.27.0...v0.28.0
 [0.27.0]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.26.3...v0.27.0
 [0.26.3]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.26.2...v0.26.3
 [0.26.2]: https://gitlab.com/soapbox-pub/nostrify/-/compare/v0.26.1...v0.26.2

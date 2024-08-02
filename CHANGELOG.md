@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- NDatabase: add replaceable events index.
+
 ## [0.29.0] - 2024-08-02
 
 ### Added

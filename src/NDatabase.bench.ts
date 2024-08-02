@@ -1,16 +1,30 @@
 import { Database as Sqlite } from '@db/sqlite';
 import { DenoSqlite3Dialect } from '@soapbox/kysely-deno-sqlite';
 import { Kysely } from 'kysely';
+import { PostgresJSDialect } from 'kysely-postgres-js';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
+import postgres from 'postgres';
 
 import { NDatabase, NDatabaseSchema } from './NDatabase.ts';
 
 import events from '../fixtures/events.json' with { type: 'json' };
-import { PostgresJSDialect } from 'kysely-postgres-js';
-import postgres from 'postgres';
 
-const databaseUrl = Deno.env.get('DATABASE_URL');
-const kysely = databaseUrl?.startsWith('postgres')
+const databaseUrl = Deno.env.get('DATABASE_URL') ?? 'sqlite://:memory:';
+
+const dialect: 'sqlite' | 'postgres' = (() => {
+  const protocol = databaseUrl.split(':')[0];
+  switch (protocol) {
+    case 'sqlite':
+    case 'postgres':
+      return protocol;
+    case 'postgresql':
+      return 'postgres';
+    default:
+      throw new Error(`Unsupported protocol: ${protocol}`);
+  }
+})();
+
+const kysely = dialect === 'postgres'
   ? new Kysely<NDatabaseSchema>({
     dialect: new PostgresJSDialect({
       // @ts-ignore mismatched library versions
@@ -19,7 +33,7 @@ const kysely = databaseUrl?.startsWith('postgres')
   })
   : new Kysely<NDatabaseSchema>({
     dialect: new DenoSqlite3Dialect({
-      database: new Sqlite(databaseUrl || ':memory:'),
+      database: new Sqlite(databaseUrl.replace('sqlite://', '')),
     }),
   });
 

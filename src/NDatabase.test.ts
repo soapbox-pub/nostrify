@@ -604,3 +604,23 @@ Deno.test('NDatabase timeout has no effect on SQLite', async () => {
   await store.count([{ kinds: [0] }], { timeout: 1 });
   await store.remove([{ kinds: [0] }], { timeout: 1 });
 });
+
+Deno.test('NDatabase.req streams events', async () => {
+  await using db = await createDB();
+  const { store } = db;
+
+  for (const event of events) {
+    await store.event(event);
+  }
+
+  const expected = await store.query([{ kinds: [0] }]);
+
+  const results: NostrEvent[] = [];
+  for await (const msg of store.req([{ kinds: [0] }])) {
+    if (msg[0] === 'EVENT') {
+      results.push(msg[2]);
+    }
+  }
+
+  assertEquals(expected, results);
+});

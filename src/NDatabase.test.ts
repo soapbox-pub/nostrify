@@ -599,7 +599,7 @@ Deno.test('NDatabase timeout has no effect on SQLite', { ignore: dialect === 'po
   await store.remove([{ kinds: [0] }], { timeout: 1 });
 });
 
-Deno.test('NDatabase.req streams events', { ignore: dialect !== 'sqlite' }, async () => {
+Deno.test('NDatabase.req streams events', async () => {
   await using db = await createDB();
   const { store } = db;
 

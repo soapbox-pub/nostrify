@@ -30,12 +30,6 @@ const dialect: 'sqlite' | 'postgres' = (() => {
   }
 })();
 
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-if (Deno.env.get('CI') && Deno.env.get('DATABASE_URL')?.startsWith('postgres')) {
-  console.info('Waiting 15 seconds for postgres to start...');
-  await delay(15000);
-}
-
 /** Kysely console logger. */
 const log: LogConfig = (event: LogEvent): void => {
   if (Deno.env.get('DEBUG')) {

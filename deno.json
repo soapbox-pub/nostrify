@@ -47,11 +47,11 @@
     "@welshman/net": "npm:@welshman/net@^0.0.2",
     "@welshman/util": "npm:@welshman/util@^0.0.2",
     "kysely": "npm:kysely@^0.27.3",
-    "kysely_deno_postgres": "https://gitlab.com/soapbox-pub/kysely-deno-postgres/-/raw/18573bff0b40a2c53b481d437e4d845492c7516a/mod.ts",
+    "postgres": "https://deno.land/x/postgresjs@v3.4.4/mod.js",
+    "kysely-postgres-js": "npm:kysely-postgres-js@2.0.0",
     "lru-cache": "npm:lru-cache@^10.2.0",
     "mock-socket": "npm:mock-socket@9.3.1",
     "nostr-tools": "npm:nostr-tools@^2.7.0",
-    "postgres": "https://deno.land/x/postgres@v0.19.3/mod.ts",
     "websocket-ts": "npm:websocket-ts@^2.1.5",
     "zod": "npm:zod@^3.23.8"
   }

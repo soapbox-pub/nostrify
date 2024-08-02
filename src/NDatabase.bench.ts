@@ -1,24 +1,58 @@
 import { Database as Sqlite } from '@db/sqlite';
 import { DenoSqlite3Dialect } from '@soapbox/kysely-deno-sqlite';
 import { Kysely } from 'kysely';
+import { PostgresJSDialect } from 'kysely-postgres-js';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
+import postgres from 'postgres';
 
 import { NDatabase, NDatabaseSchema } from './NDatabase.ts';
 
 import events from '../fixtures/events.json' with { type: 'json' };
 
-const kysely = new Kysely<NDatabaseSchema>({
-  dialect: new DenoSqlite3Dialect({
-    database: new Sqlite(':memory:'),
-  }),
-});
+const databaseUrl = Deno.env.get('DATABASE_URL') ?? 'sqlite://:memory:';
+
+const dialect: 'sqlite' | 'postgres' = (() => {
+  const protocol = databaseUrl.split(':')[0];
+  switch (protocol) {
+    case 'sqlite':
+    case 'postgres':
+      return protocol;
+    case 'postgresql':
+      return 'postgres';
+    default:
+      throw new Error(`Unsupported protocol: ${protocol}`);
+  }
+})();
+
+const kysely = dialect === 'postgres'
+  ? new Kysely<NDatabaseSchema>({
+    dialect: new PostgresJSDialect({
+      // @ts-ignore mismatched library versions
+      postgres: postgres(databaseUrl),
+    }),
+  })
+  : new Kysely<NDatabaseSchema>({
+    dialect: new DenoSqlite3Dialect({
+      database: new Sqlite(databaseUrl.replace('sqlite://', '')),
+    }),
+  });
 
 const db = new NDatabase(kysely);
 await db.migrate();
 
 // Seed database with 1000 events.
 for (const event of events) {
-  await db.event(event);
+  await db.event(event).catch((error) => {
+    // Don't throw for duplicate events.
+    if (
+      error.message.includes('violates unique constraint') ||
+      error.message.includes('Cannot replace an event with an older event')
+    ) {
+      return;
+    } else {
+      throw error;
+    }
+  });
 }
 
 Deno.bench('NDatabase.event', async (b) => {

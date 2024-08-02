@@ -1,13 +1,14 @@
 import { Database as Sqlite } from '@db/sqlite';
-import { assert, assertEquals, assertRejects } from '@std/assert';
 import { DenoSqlite3Dialect } from '@soapbox/kysely-deno-sqlite';
-import { PostgreSQLDriver } from 'kysely_deno_postgres';
-import { Kysely, LogConfig, LogEvent, PostgresAdapter, PostgresIntrospector, PostgresQueryCompiler } from 'kysely';
+import { assert, assertEquals, assertRejects } from '@std/assert';
+import { Kysely, LogConfig, LogEvent } from 'kysely';
+import { PostgresJSDialect } from 'kysely-postgres-js';
 import { finalizeEvent, generateSecretKey, matchFilters } from 'nostr-tools';
-import { Pool, TransactionError } from 'postgres';
+import postgres from 'postgres';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NostrFilter } from '../interfaces/NostrFilter.ts';
+
 import { NDatabase, NDatabaseOpts, NDatabaseSchema } from './NDatabase.ts';
 
 import event0 from '../fixtures/event-0.json' with { type: 'json' };
@@ -53,25 +54,10 @@ async function createDB(
       break;
     case 'postgres':
       kysely = new Kysely({
-        dialect: {
-          createAdapter() {
-            return new PostgresAdapter();
-          },
-          // @ts-ignore mismatched kysely versions
-          createDriver() {
-            return new PostgreSQLDriver(
-              // @ts-ignore mismatched deno-postgres versions
-              new Pool(databaseUrl, 1),
-            );
-          },
-          createIntrospector(db: Kysely<unknown>) {
-            return new PostgresIntrospector(db);
-          },
-          createQueryCompiler() {
-            return new PostgresQueryCompiler();
-          },
-        },
-        log,
+        dialect: new PostgresJSDialect({
+          // @ts-ignore mismatched library versions
+          postgres: postgres(databaseUrl),
+        }),
       });
       break;
   }
@@ -558,8 +544,8 @@ Deno.test('NDatabase timeout', { ignore: dialect !== 'postgres' }, async (t) => 
           }, generateSecretKey()),
           { timeout: 1 },
         ),
-      TransactionError,
-      'aborted',
+      postgres.PostgresError,
+      'canceling statement due to statement timeout',
     );
   });
 
@@ -572,14 +558,18 @@ Deno.test('NDatabase timeout', { ignore: dialect !== 'postgres' }, async (t) => 
 
   await t.step('Slow query', async () => {
     await assertRejects(
-      () => store.query(slowFilters, { timeout: 1 }),
-      TransactionError,
-      'aborted',
+      () => db.store.query(slowFilters, { timeout: 1 }),
+      postgres.PostgresError,
+      'canceling statement due to statement timeout',
     );
   });
 
   await t.step('Slow count', async () => {
-    await assertRejects(() => store.count(slowFilters, { timeout: 1 }), TransactionError, 'aborted');
+    await assertRejects(
+      () => db.store.count(slowFilters, { timeout: 1 }),
+      postgres.PostgresError,
+      'canceling statement due to statement timeout',
+    );
   });
 
   await t.step("Check that the previous query's timeout doesn't impact the next query", async () => {
@@ -587,7 +577,11 @@ Deno.test('NDatabase timeout', { ignore: dialect !== 'postgres' }, async (t) => 
   });
 
   await t.step('Slow remove', async () => {
-    await assertRejects(() => store.remove(slowFilters, { timeout: 1 }), TransactionError, 'aborted');
+    await assertRejects(
+      () => db.store.remove(slowFilters, { timeout: 1 }),
+      postgres.PostgresError,
+      'canceling statement due to statement timeout',
+    );
   });
 
   await t.step("Sanity check that a query with timeout doesn't throw an error", async () => {
@@ -595,7 +589,7 @@ Deno.test('NDatabase timeout', { ignore: dialect !== 'postgres' }, async (t) => 
   });
 });
 
-Deno.test('NDatabase timeout has no effect on SQLite', async () => {
+Deno.test('NDatabase timeout has no effect on SQLite', { ignore: dialect === 'postgres' }, async () => {
   await using db = await createDB();
   const { store } = db;
 
@@ -605,7 +599,7 @@ Deno.test('NDatabase timeout has no effect on SQLite', async () => {
   await store.remove([{ kinds: [0] }], { timeout: 1 });
 });
 
-Deno.test('NDatabase.req streams events', { ignore: dialect !== 'sqlite' }, async () => {
+Deno.test('NDatabase.req streams events', async () => {
   await using db = await createDB();
   const { store } = db;
 

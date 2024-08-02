@@ -2,10 +2,11 @@ import { Kysely, type SelectQueryBuilder, sql } from 'kysely';
 import { getFilterLimit } from 'nostr-tools';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
-import { NStore } from '../interfaces/NStore.ts';
 import { NostrFilter } from '../interfaces/NostrFilter.ts';
+import { NRelay } from '../interfaces/NRelay.ts';
 
 import { NKinds } from './NKinds.ts';
+import { NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT } from '../mod.ts';
 
 /** Kysely database schema for Nostr. */
 export interface NDatabaseSchema {
@@ -52,6 +53,8 @@ export interface NDatabaseOpts {
   searchText?(event: NostrEvent): string | undefined;
   /** Strategy to use for handling the `timeout` opt. */
   timeoutStrategy?: 'setStatementTimeout' | undefined;
+  /** Chunk size to use when streaming results with `.req`. Default: 100. */
+  chunkSize?: number;
 }
 
 /**
@@ -78,12 +81,13 @@ export interface NDatabaseOpts {
  * const events = await db.query([{ kinds: [1] }]);
  * ```
  */
-export class NDatabase implements NStore {
+export class NDatabase implements NRelay {
   private db: Kysely<NDatabaseSchema>;
   private fts?: 'sqlite' | 'postgres';
   private indexTags: (event: NostrEvent) => string[][];
   private searchText: (event: NostrEvent) => string | undefined;
   private timeoutStrategy: 'setStatementTimeout' | undefined;
+  private chunkSize: number;
 
   constructor(db: Kysely<any>, opts?: NDatabaseOpts) {
     this.db = db as Kysely<NDatabaseSchema>;
@@ -91,6 +95,7 @@ export class NDatabase implements NStore {
     this.timeoutStrategy = opts?.timeoutStrategy;
     this.indexTags = opts?.indexTags ?? NDatabase.indexTags;
     this.searchText = opts?.searchText ?? NDatabase.searchText;
+    this.chunkSize = opts?.chunkSize ?? 100;
   }
 
   /** Default tag index function. */
@@ -421,6 +426,31 @@ export class NDatabase implements NStore {
       .reduce((result, query) => result.unionAll(query));
   }
 
+  async *req(
+    filters: NostrFilter[],
+    opts?: { signal?: AbortSignal },
+  ): AsyncIterable<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
+    const subId = crypto.randomUUID();
+    filters = this.normalizeFilters(filters);
+
+    if (filters.length) {
+      const rows = this.getEventsQuery(this.db, filters).stream(this.chunkSize);
+
+      for await (const row of rows) {
+        const event = NDatabase.parseEventRow(row);
+        yield ['EVENT', subId, event];
+
+        if (opts?.signal?.aborted) {
+          yield ['CLOSED', subId, 'aborted'];
+          return;
+        }
+      }
+    }
+
+    yield ['EOSE', subId];
+    yield ['CLOSED', subId, 'finished'];
+  }
+
   /** Get events for filters from the database. */
   async query(
     filters: NostrFilter[],
@@ -439,20 +469,22 @@ export class NDatabase implements NStore {
         query = query.limit(opts.limit);
       }
 
-      const events = (await query.execute()).map((row) => {
-        return {
-          id: row.id,
-          kind: row.kind,
-          pubkey: row.pubkey,
-          content: row.content,
-          created_at: row.created_at,
-          tags: JSON.parse(row.tags),
-          sig: row.sig,
-        };
-      });
-
-      return events;
+      return (await query.execute())
+        .map((row) => NDatabase.parseEventRow(row));
     }, opts.timeout);
+  }
+
+  /** Parse an event row from the database. */
+  private static parseEventRow(row: NDatabaseSchema['nostr_events']): NostrEvent {
+    return {
+      id: row.id,
+      kind: row.kind,
+      pubkey: row.pubkey,
+      content: row.content,
+      created_at: row.created_at,
+      tags: JSON.parse(row.tags),
+      sig: row.sig,
+    };
   }
 
   /** Normalize the `limit` of each filter, and remove filters that can't produce any events. */

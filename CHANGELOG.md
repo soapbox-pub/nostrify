@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- NDatabase: implement streaming support with `.req`.
+
 ## [0.28.0] - 2024-07-29
 
 ### Fixed

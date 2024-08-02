@@ -1,13 +1,14 @@
 import { Database as Sqlite } from '@db/sqlite';
-import { assertEquals, assertRejects } from '@std/assert';
 import { DenoSqlite3Dialect } from '@soapbox/kysely-deno-sqlite';
+import { assert, assertEquals, assertRejects } from '@std/assert';
 import { Kysely, LogConfig, LogEvent } from 'kysely';
-import { finalizeEvent, generateSecretKey } from 'nostr-tools';
-import postgres from 'postgres';
 import { PostgresJSDialect } from 'kysely-postgres-js';
+import { finalizeEvent, generateSecretKey, matchFilters } from 'nostr-tools';
+import postgres from 'postgres';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NostrFilter } from '../interfaces/NostrFilter.ts';
+
 import { NDatabase, NDatabaseOpts, NDatabaseSchema } from './NDatabase.ts';
 
 import event0 from '../fixtures/event-0.json' with { type: 'json' };
@@ -28,6 +29,7 @@ const dialect: 'sqlite' | 'postgres' = (() => {
       throw new Error(`Unsupported protocol: ${protocol}`);
   }
 })();
+
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 if (Deno.env.get('CI') && Deno.env.get('DATABASE_URL')?.startsWith('postgres')) {
   console.info('Waiting 15 seconds for postgres to start...');
@@ -36,7 +38,7 @@ if (Deno.env.get('CI') && Deno.env.get('DATABASE_URL')?.startsWith('postgres')) 
 
 /** Kysely console logger. */
 const log: LogConfig = (event: LogEvent): void => {
-  if (Deno.env.get('DEBUG') && event.level === 'query') {
+  if (Deno.env.get('DEBUG')) {
     console.log(event.query.sql, JSON.stringify(event.query.parameters));
   }
 };
@@ -179,14 +181,78 @@ Deno.test('NDatabase.query with multiple tags', async () => {
   await using db = await createDB();
   const { store } = db;
 
-  const results = await store.query([{
-    kinds: [1985],
-    authors: ['c87e0d90c7e521967a6975439ba20d9052c2b6680d8c4c80fc2943e2c726d98c'],
-    '#L': ['nip05'],
-    '#l': ['alex@gleasonator.com'],
-  }]);
+  for (const event of await jsonlEvents('./fixtures/trends.jsonl')) {
+    await store.event(event);
+  }
 
-  assertEquals(results, []);
+  const filters = [{
+    kinds: [1985],
+    authors: ['15b68d319a088a9b0c6853d2232aff0d69c8c58f0dccceabfb9a82bd4fd19c58'],
+    '#L': ['pub.ditto.trends'],
+    '#l': ['#t'],
+  }];
+
+  const results = await store.query(filters);
+
+  for (const event of results) {
+    assert(matchFilters(filters, event));
+  }
+
+  assertEquals(results.length, 20);
+  assertEquals(results[0].tags.find(([name]) => name === 't')?.[1], 'bitcoin');
+});
+
+Deno.test('NDatabase.query with multiple tags and time window', async () => {
+  await using db = await createDB();
+  const { store } = db;
+
+  for (const event of await jsonlEvents('./fixtures/trends.jsonl')) {
+    await store.event(event);
+  }
+
+  const filters = [{
+    kinds: [1985],
+    authors: ['15b68d319a088a9b0c6853d2232aff0d69c8c58f0dccceabfb9a82bd4fd19c58'],
+    '#L': ['pub.ditto.trends'],
+    '#l': ['#t'],
+    since: 1722124800,
+    until: 1722211200,
+  }];
+
+  const results = await store.query(filters);
+
+  for (const event of results) {
+    assert(matchFilters(filters, event));
+  }
+
+  assertEquals(results.length, 2);
+  assert(matchFilters(filters, results[0]));
+  assertEquals(results[0].tags.find(([name]) => name === 't')?.[1], 'bitcoin');
+});
+
+Deno.test('NDatabase.query with multiple tags and time window and limit', async () => {
+  await using db = await createDB();
+  const { store } = db;
+
+  for (const event of await jsonlEvents('./fixtures/trends.jsonl')) {
+    await store.event(event);
+  }
+
+  const filters = [{
+    kinds: [1985],
+    authors: ['15b68d319a088a9b0c6853d2232aff0d69c8c58f0dccceabfb9a82bd4fd19c58'],
+    '#L': ['pub.ditto.trends'],
+    '#l': ['#t'],
+    since: 1722124800,
+    until: 1722211200,
+    limit: 1,
+  }];
+
+  const results = await store.query(filters);
+
+  assertEquals(results.length, 1);
+  assert(matchFilters(filters, results[0]));
+  assertEquals(results[0].tags.find(([name]) => name === 't')?.[1], 'bitcoin');
 });
 
 Deno.test('NDatabase.query tag query with non-tag query', async () => {
@@ -539,27 +605,22 @@ Deno.test('NDatabase timeout has no effect on SQLite', { ignore: dialect === 'po
   await store.remove([{ kinds: [0] }], { timeout: 1 });
 });
 
-Deno.test('NDatabase.shouldOrder', () => {
-  assertEquals(NDatabase.shouldOrder({}), true);
+Deno.test('NDatabase.req streams events', { ignore: dialect !== 'sqlite' }, async () => {
+  await using db = await createDB();
+  const { store } = db;
 
-  assertEquals(NDatabase.shouldOrder({ ids: ['1', '2', '3'] }), false);
-  assertEquals(NDatabase.shouldOrder({ ids: ['1', '2', '3'], limit: 2 }), true);
-  assertEquals(NDatabase.shouldOrder({ ids: ['1', '2', '3'], limit: 3 }), false);
-  assertEquals(NDatabase.shouldOrder({ ids: ['1', '2', '3'], limit: 20 }), false);
+  for (const event of events) {
+    await store.event(event);
+  }
 
-  assertEquals(NDatabase.shouldOrder({ kinds: [0], authors: ['alex'] }), false);
-  assertEquals(NDatabase.shouldOrder({ kinds: [0], authors: ['alex', 'patrick', 'shantaram'], limit: 1 }), true);
-  assertEquals(NDatabase.shouldOrder({ kinds: [0], authors: ['alex', 'patrick', 'shantaram'], limit: 20 }), false);
-  assertEquals(NDatabase.shouldOrder({ kinds: [0, 3], authors: ['alex'] }), false);
-  assertEquals(NDatabase.shouldOrder({ kinds: [0, 3], authors: ['alex'], limit: 1 }), true);
-  assertEquals(NDatabase.shouldOrder({ kinds: [0, 3], authors: ['alex'], limit: 2 }), false);
-  assertEquals(NDatabase.shouldOrder({ kinds: [0, 3], authors: ['alex'], limit: 20 }), false);
+  const expected = await store.query([{ kinds: [0] }]);
 
-  assertEquals(NDatabase.shouldOrder({ kinds: [1] }), true);
-  assertEquals(NDatabase.shouldOrder({ kinds: [1], limit: 20 }), true);
-  assertEquals(NDatabase.shouldOrder({ kinds: [1, 6] }), true);
-  assertEquals(NDatabase.shouldOrder({ kinds: [1, 6], limit: 20 }), true);
+  const results: NostrEvent[] = [];
+  for await (const msg of store.req([{ kinds: [0] }])) {
+    if (msg[0] === 'EVENT') {
+      results.push(msg[2]);
+    }
+  }
 
-  assertEquals(NDatabase.shouldOrder({ kinds: [30000], authors: ['alex'] }), true);
-  // assertEquals(NDatabase.shouldOrder({ kinds: [30000], authors: ['alex'], '#d': ['yolo'] }), false); // TODO
+  assertEquals(expected, results);
 });

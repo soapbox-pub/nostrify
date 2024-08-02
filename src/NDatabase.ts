@@ -627,6 +627,14 @@ export class NDatabase implements NRelay {
       .execute();
 
     await schema
+      .createIndex('nostr_events_replaceable')
+      .unique()
+      .on('nostr_events')
+      .ifNotExists()
+      .columns(['kind', 'pubkey'])
+      .where(() => sql`kind >= 10000 and kind < 20000 or (kind in (0, 3))`)
+      .execute();
+    await schema
       .createIndex('nostr_events_kind')
       .on('nostr_events')
       .ifNotExists()

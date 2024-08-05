@@ -26,7 +26,7 @@ test:
 
 postgres:
   stage: test
-  script: deno task test src/NDatabase.test.ts
+  script: deno task test packages/nostrify/NDatabase.test.ts
   services:
     - postgres:16
   variables:

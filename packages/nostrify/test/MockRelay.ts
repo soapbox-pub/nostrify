@@ -1,11 +1,15 @@
 // deno-lint-ignore-file require-await
 
+import {
+  NostrEvent,
+  NostrFilter,
+  NostrRelayCLOSED,
+  NostrRelayCOUNT,
+  NostrRelayEOSE,
+  NostrRelayEVENT,
+  NRelay,
+} from '@nostrify/types';
 import { matchFilters } from 'nostr-tools';
-
-import { NostrEvent } from '../../types/NostrEvent.ts';
-import { NostrFilter } from '../../types/NostrFilter.ts';
-import { NostrRelayCLOSED, NostrRelayCOUNT, NostrRelayEOSE, NostrRelayEVENT } from '../../types/NostrRelayMsg.ts';
-import { NRelay } from '../../types/NRelay.ts';
 
 import { Machina } from '../utils/Machina.ts';
 import { NSet } from '../NSet.ts';

@@ -1,8 +1,8 @@
+import { NostrEvent } from '@nostrify/types';
 import { bech32 } from '@scure/base';
 
 import { LNURLCallback } from './types/LNURLCallback.ts';
 import { LNURLDetails } from './types/LNURLDetails.ts';
-import { NostrEvent } from '../../types/NostrEvent.ts';
 
 import { NSchema as n, z } from '../NSchema.ts';
 

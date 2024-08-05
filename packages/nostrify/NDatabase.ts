@@ -1,10 +1,6 @@
+import { NostrEvent, NostrFilter, NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT, NRelay } from '@nostrify/types';
 import { Kysely, type SelectQueryBuilder, sql } from 'kysely';
 import { getFilterLimit } from 'nostr-tools';
-
-import { NostrEvent } from '../types/NostrEvent.ts';
-import { NostrFilter } from '../types/NostrFilter.ts';
-import { NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT } from '../types/NostrRelayMsg.ts';
-import { NRelay } from '../types/NRelay.ts';
 
 import { NKinds } from './NKinds.ts';
 

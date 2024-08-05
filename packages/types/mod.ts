@@ -1,4 +1,5 @@
 export type {
+  NostrClientAUTH,
   NostrClientCLOSE,
   NostrClientCOUNT,
   NostrClientEVENT,
@@ -8,8 +9,10 @@ export type {
 export type { NostrConnectRequest, NostrConnectResponse } from './NostrConnect.ts';
 export type { NostrEvent } from './NostrEvent.ts';
 export type { NostrFilter } from './NostrFilter.ts';
+export type { NostrJson } from './NostrJson.ts';
 export type { NostrMetadata } from './NostrMetadata.ts';
 export type {
+  NostrRelayAUTH,
   NostrRelayCLOSED,
   NostrRelayCOUNT,
   NostrRelayEOSE,

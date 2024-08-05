@@ -1,8 +1,7 @@
+import { NostrEvent } from '@nostrify/types';
 import { assert } from '@std/assert';
 import { Router } from '@welshman/util';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
-
-import { NostrEvent } from '../types/NostrEvent.ts';
 
 import { NWelshman } from './NWelshman.ts';
 

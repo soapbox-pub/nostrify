@@ -1,9 +1,6 @@
 import { matchFilters } from 'nostr-tools';
 
-import { NostrEvent } from '../../types/NostrEvent.ts';
-import { NostrFilter } from '../../types/NostrFilter.ts';
-import { NostrRelayOK } from '../../types/NostrRelayMsg.ts';
-import { NPolicy } from '../../types/NPolicy.ts';
+import { NostrEvent, NostrFilter, NostrRelayOK, NPolicy } from '@nostrify/types';
 
 /**
  * Reject events which don't match the filters.

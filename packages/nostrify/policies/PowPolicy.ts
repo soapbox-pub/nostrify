@@ -1,8 +1,5 @@
+import { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
 import { nip13 } from 'nostr-tools';
-
-import { NostrEvent } from '../../types/NostrEvent.ts';
-import { NostrRelayOK } from '../../types/NostrRelayMsg.ts';
-import { NPolicy } from '../../types/NPolicy.ts';
 
 /** Policy options for `PowPolicy`. */
 interface PowPolicyOpts {

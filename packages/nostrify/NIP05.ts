@@ -1,5 +1,4 @@
-import { NostrJson } from '../types/NostrJson.ts';
-import { NProfilePointer } from '../types/NProfilePointer.ts';
+import { NostrJson, NProfilePointer } from '@nostrify/types';
 
 import { NSchema as n, z } from './NSchema.ts';
 

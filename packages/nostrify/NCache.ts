@@ -1,12 +1,8 @@
 // deno-lint-ignore-file require-await
 
+import { NostrEvent, NostrFilter, NostrRelayCOUNT, NStore } from '@nostrify/types';
 import { LRUCache } from 'lru-cache';
 import { matchFilters } from 'nostr-tools';
-
-import { NostrEvent } from '../types/NostrEvent.ts';
-import { NostrFilter } from '../types/NostrFilter.ts';
-import { NostrRelayCOUNT } from '../types/NostrRelayMsg.ts';
-import { NStore } from '../types/NStore.ts';
 
 import { NSet } from './NSet.ts';
 

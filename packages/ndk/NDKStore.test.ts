@@ -2,7 +2,7 @@ import NDK from '@nostr-dev-kit/ndk';
 import { assert } from '@std/assert';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
-import { NostrEvent } from '../types/NostrEvent.ts';
+import { NostrEvent } from '@nostrify/types';
 
 import { NDKStore } from './NDKStore.ts';
 

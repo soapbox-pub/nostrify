@@ -1,9 +1,8 @@
+import { NostrSigner, NUploader } from '@nostrify/types';
 import { crypto } from '@std/crypto';
 import { encodeHex } from '@std/encoding/hex';
 import { z } from 'zod';
 
-import { NostrSigner } from '../../types/NostrSigner.ts';
-import { NUploader } from '../../types/NUploader.ts';
 import { N64 } from '../utils/N64.ts';
 
 /** BlossomUploader options. */

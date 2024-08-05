@@ -1,4 +1,4 @@
-import { NostrEvent } from '../types/NostrEvent.ts';
+import { NostrEvent } from '@nostrify/types';
 
 /**
  * Nostr event implementation of the `Set` interface.

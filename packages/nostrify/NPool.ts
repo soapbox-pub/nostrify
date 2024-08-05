@@ -1,9 +1,5 @@
-import { getFilterLimit } from 'nostr-tools';
-
-import { NostrEvent } from '../types/NostrEvent.ts';
-import { NostrFilter } from '../types/NostrFilter.ts';
-import { NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT } from '../types/NostrRelayMsg.ts';
-import { NRelay } from '../types/NRelay.ts';
+import { NostrFilter, NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT, NRelay } from '@nostrify/types';
+import { getFilterLimit, NostrEvent } from 'nostr-tools';
 
 import { Machina } from './utils/Machina.ts';
 import { NKinds } from './NKinds.ts';

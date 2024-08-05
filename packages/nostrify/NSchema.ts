@@ -1,8 +1,5 @@
 import { z } from 'zod';
 
-import { NostrEvent } from '../types/NostrEvent.ts';
-import { NostrFilter } from '../types/NostrFilter.ts';
-import { NostrMetadata } from '../types/NostrMetadata.ts';
 import {
   NostrClientAUTH,
   NostrClientCLOSE,
@@ -10,9 +7,11 @@ import {
   NostrClientEVENT,
   NostrClientMsg,
   NostrClientREQ,
-} from '../types/NostrClientMsg.ts';
-import { NostrConnectRequest, NostrConnectResponse } from '../types/NostrConnect.ts';
-import {
+  NostrConnectRequest,
+  NostrConnectResponse,
+  NostrEvent,
+  NostrFilter,
+  NostrMetadata,
   NostrRelayAUTH,
   NostrRelayCLOSED,
   NostrRelayCOUNT,
@@ -21,7 +20,7 @@ import {
   NostrRelayMsg,
   NostrRelayNOTICE,
   NostrRelayOK,
-} from '../types/NostrRelayMsg.ts';
+} from '@nostrify/types';
 
 /**
  * A suite of [zod](https://github.com/colinhacks/zod) schemas for Nostr.

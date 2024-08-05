@@ -5,7 +5,7 @@ import { BlossomUploader } from './BlossomUploader.ts';
 import { NSecSigner } from '../NSecSigner.ts';
 
 Deno.test('BlossomUploader.upload', { ignore: Deno.env.get('CI') === 'true' }, async () => {
-  const fsFile = await Deno.open(new URL('../../fixtures/voadi.png', import.meta.url));
+  const fsFile = await Deno.open(new URL('../../../fixtures/voadi.png', import.meta.url));
   const blob = await (new Response(fsFile.readable)).blob();
   const file = new File([blob], 'voadi.png', { type: 'image/png' });
 

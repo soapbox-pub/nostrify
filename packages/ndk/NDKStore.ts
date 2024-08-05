@@ -1,9 +1,6 @@
 import NDK, { NDKEvent } from '@nostr-dev-kit/ndk';
+import { NostrEvent, NostrFilter, NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT, NRelay } from '@nostrify/types';
 
-import { NostrEvent } from '../types/NostrEvent.ts';
-import { NostrFilter } from '../types/NostrFilter.ts';
-import { NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT } from '../types/NostrRelayMsg.ts';
-import { NRelay } from '../types/NRelay.ts';
 import { Machina } from '../nostrify/utils/Machina.ts';
 
 /**

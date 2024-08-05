@@ -1,6 +1,4 @@
-import { NStore } from '../../types/NStore.ts';
-import { NostrEvent } from '../../types/NostrEvent.ts';
-import { NostrFilter } from '../../types/NostrFilter.ts';
+import { NostrEvent, NostrFilter, NStore } from '@nostrify/types';
 
 import { NKinds } from '../NKinds.ts';
 

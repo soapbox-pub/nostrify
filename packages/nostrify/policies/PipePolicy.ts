@@ -1,6 +1,4 @@
-import { NostrEvent } from '../../types/NostrEvent.ts';
-import { NostrRelayOK } from '../../types/NostrRelayMsg.ts';
-import { NPolicy } from '../../types/NPolicy.ts';
+import { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
 
 /**
  * Processes events through multiple policies.

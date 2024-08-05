@@ -1,18 +1,18 @@
-import { getFilterLimit, matchFilters, verifyEvent as _verifyEvent } from 'nostr-tools';
-import { ArrayQueue, Backoff, ExponentialBackoff, Websocket, WebsocketBuilder, WebsocketEvent } from 'websocket-ts';
-
-import { NostrClientMsg, NostrClientREQ } from '../types/NostrClientMsg.ts';
-import { NostrEvent } from '../types/NostrEvent.ts';
-import { NostrFilter } from '../types/NostrFilter.ts';
 import {
+  NostrClientMsg,
+  NostrClientREQ,
+  NostrEvent,
+  NostrFilter,
   NostrRelayCLOSED,
   NostrRelayCOUNT,
   NostrRelayEOSE,
   NostrRelayEVENT,
   NostrRelayNOTICE,
   NostrRelayOK,
-} from '../types/NostrRelayMsg.ts';
-import { NRelay } from '../types/NRelay.ts';
+  NRelay,
+} from '@nostrify/types';
+import { getFilterLimit, matchFilters, verifyEvent as _verifyEvent } from 'nostr-tools';
+import { ArrayQueue, Backoff, ExponentialBackoff, Websocket, WebsocketBuilder, WebsocketEvent } from 'websocket-ts';
 
 import { Machina } from './utils/Machina.ts';
 import { NSchema as n } from './NSchema.ts';

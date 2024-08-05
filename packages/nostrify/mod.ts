@@ -1,7 +1,6 @@
 export { NCache } from './NCache.ts';
 export { NConnectSigner, type NConnectSignerOpts } from './NConnectSigner.ts';
 export { NCustodial } from './NCustodial.ts';
-export { NDatabase, type NDatabaseOpts, type NDatabaseSchema } from './NDatabase.ts';
 export { NIP05 } from './NIP05.ts';
 export { NIP50 } from './NIP50.ts';
 export { NIP98 } from './NIP98.ts';

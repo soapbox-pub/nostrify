@@ -1,12 +1,11 @@
 import { Database as Sqlite } from '@db/sqlite';
+import { NostrEvent, NostrFilter } from '@nostrify/types';
 import { DenoSqlite3Dialect } from '@soapbox/kysely-deno-sqlite';
 import { assert, assertEquals, assertRejects } from '@std/assert';
 import { Kysely, LogConfig, LogEvent } from 'kysely';
 import { PostgresJSDialect } from 'kysely-postgres-js';
 import { finalizeEvent, generateSecretKey, matchFilters } from 'nostr-tools';
 import postgres from 'postgres';
-
-import { NostrEvent, NostrFilter } from '@nostrify/types';
 
 import { NDatabase, NDatabaseOpts, NDatabaseSchema } from './NDatabase.ts';
 

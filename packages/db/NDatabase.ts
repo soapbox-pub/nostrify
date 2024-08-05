@@ -1,8 +1,7 @@
+import { NKinds } from '@nostrify/nostrify';
 import { NostrEvent, NostrFilter, NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT, NRelay } from '@nostrify/types';
 import { Kysely, type SelectQueryBuilder, sql } from 'kysely';
 import { getFilterLimit } from 'nostr-tools';
-
-import { NKinds } from './NKinds.ts';
 
 /** Kysely database schema for Nostr. */
 export interface NDatabaseSchema {

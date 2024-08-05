@@ -1,6 +1,7 @@
 {
   "lock": false,
   "workspace": [
+    "./packages/db",
     "./packages/denokv",
     "./packages/ndk",
     "./packages/nostrify",
@@ -36,7 +37,6 @@
     "@std/crypto": "jsr:@std/crypto@^0.224.0",
     "@std/encoding": "jsr:@std/encoding@^0.224.1",
     "@std/testing": "jsr:@std/testing@^0.222.1",
-    "kysely": "npm:kysely@^0.27.3",
     "postgres": "https://deno.land/x/postgresjs@v3.4.4/mod.js",
     "kysely-postgres-js": "npm:kysely-postgres-js@2.0.0",
     "lru-cache": "npm:lru-cache@^10.2.0",

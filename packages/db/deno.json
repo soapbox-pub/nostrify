@@ -1,0 +1,10 @@
+{
+  "name": "@nostrify/db",
+  "version": "0.30.0",
+  "exports": {
+    ".": "./mod.ts"
+  },
+  "imports": {
+    "kysely": "npm:kysely@^0.27.3"
+  }
+}

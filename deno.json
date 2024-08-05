@@ -1,6 +1,6 @@
 {
   "lock": false,
-  "workspace": ["./src", "./ndk", "./welshman"],
+  "workspace": ["./nostrify", "./ndk", "./welshman"],
   "tasks": {
     "test": "deno test -A --junit-path=./deno-test.xml",
     "check": "deno check mod.ts"

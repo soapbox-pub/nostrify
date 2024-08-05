@@ -4,7 +4,7 @@ import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NostrFilter } from '../interfaces/NostrFilter.ts';
 import { NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT } from '../interfaces/NostrRelayMsg.ts';
 import { NRelay } from '../interfaces/NRelay.ts';
-import { Machina } from '../src/utils/Machina.ts';
+import { Machina } from '../nostrify/utils/Machina.ts';
 
 /**
  * NDK storage adapter.

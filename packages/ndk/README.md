@@ -11,3 +11,7 @@ await ndk.connect();
 
 const relay = new NDKStore(ndk); // `NStore` compatible
 ```
+
+## License
+
+MIT

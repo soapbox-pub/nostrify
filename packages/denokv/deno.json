@@ -1,0 +1,7 @@
+{
+  "name": "@nostrify/denokv",
+  "version": "0.30.0",
+  "exports": {
+    ".": "./mod.ts"
+  }
+}

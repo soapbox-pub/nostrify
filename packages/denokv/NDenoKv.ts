@@ -1,6 +1,5 @@
+import { NKinds } from '@nostrify/nostrify';
 import { NostrEvent, NostrFilter, NStore } from '@nostrify/types';
-
-import { NKinds } from '../NKinds.ts';
 
 const Keys = {
   events(id: string): Deno.KvKey {

@@ -2,9 +2,9 @@ import { assertEquals, assertRejects } from '@std/assert';
 
 import { NDenoKv } from './NDenoKv.ts';
 
-import event0 from '../../../fixtures/event-0.json' with { type: 'json' };
-import event1 from '../../../fixtures/event-1.json' with { type: 'json' };
-import PR_EVENTS from '../../../fixtures/parameterized-replaceable-events.json' with { type: 'json' };
+import event0 from '../../fixtures/event-0.json' with { type: 'json' };
+import event1 from '../../fixtures/event-1.json' with { type: 'json' };
+import PR_EVENTS from '../../fixtures/parameterized-replaceable-events.json' with { type: 'json' };
 
 /** Create in-memory database for testing. */
 async function withDB(fn: (db: NDenoKv) => Promise<void>) {

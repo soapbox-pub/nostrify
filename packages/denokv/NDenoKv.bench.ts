@@ -1,6 +1,6 @@
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
-import events from '../../../fixtures/events.json' with { type: 'json' };
+import events from '../../fixtures/events.json' with { type: 'json' };
 
 import { NDenoKv } from './NDenoKv.ts';
 

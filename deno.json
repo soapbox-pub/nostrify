@@ -1,6 +1,7 @@
 {
   "lock": false,
   "workspace": [
+    "./packages/denokv",
     "./packages/ndk",
     "./packages/nostrify",
     "./packages/types",

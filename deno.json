@@ -1,8 +1,8 @@
 {
   "lock": false,
   "workspace": [
-    "./packages/nostrify",
     "./packages/ndk",
+    "./packages/nostrify",
     "./packages/types",
     "./packages/welshman"
   ],

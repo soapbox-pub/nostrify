@@ -1,6 +1,6 @@
 {
   "name": "@nostrify/welshman",
-  "version": "0.1.0",
+  "version": "0.30.0",
   "exports": "./mod.ts",
   "imports": {
     "@welshman/lib": "npm:@welshman/lib@^0.0.2",

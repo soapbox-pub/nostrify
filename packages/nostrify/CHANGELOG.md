@@ -7,9 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
+## 0.30.0 - 2024-08-05
 
-- NDatabase: add replaceable events index.
+### Added
+
+- Converted Nostrify into a Deno workspace.
+- BREAKING: NDatabase is now a standalone package, `@nostrify/db`.
+- BREAKING: NDenoKv is now a standalone package, `@nostrify/denokv`.
 
 ## [0.29.0] - 2024-08-02
 

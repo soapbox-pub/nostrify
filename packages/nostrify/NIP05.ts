@@ -1,5 +1,5 @@
-import { NostrJson } from '../../interfaces/NostrJson.ts';
-import { NProfilePointer } from '../../interfaces/NProfilePointer.ts';
+import { NostrJson } from '../types/NostrJson.ts';
+import { NProfilePointer } from '../types/NProfilePointer.ts';
 
 import { NSchema as n, z } from './NSchema.ts';
 

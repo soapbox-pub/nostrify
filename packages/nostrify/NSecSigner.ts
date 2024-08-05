@@ -2,8 +2,8 @@
 
 import { finalizeEvent, getPublicKey, nip04, nip44 } from 'nostr-tools';
 
-import { NostrEvent } from '../../interfaces/NostrEvent.ts';
-import { NostrSigner } from '../../interfaces/NostrSigner.ts';
+import { NostrEvent } from '../types/NostrEvent.ts';
+import { NostrSigner } from '../types/NostrSigner.ts';
 
 /**
  * NIP-07-compatible signer with secret key. It is a drop-in replacement for `window.nostr`.

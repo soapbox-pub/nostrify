@@ -2,7 +2,7 @@
 import { assert, assertEquals } from '@std/assert';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
-import { NostrEvent } from '../../interfaces/NostrEvent.ts';
+import { NostrEvent } from '../types/NostrEvent.ts';
 import { MockRelayWs } from './test/MockRelayWs.ts';
 import { NPool } from './NPool.ts';
 import { NRelay1 } from './NRelay1.ts';

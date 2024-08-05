@@ -2,8 +2,8 @@ import { z } from 'zod';
 
 import { N64 } from '../utils/N64.ts';
 import { NIP98 } from '../NIP98.ts';
-import { NostrSigner } from '../../../interfaces/NostrSigner.ts';
-import { NUploader } from '../../../interfaces/NUploader.ts';
+import { NostrSigner } from '../../types/NostrSigner.ts';
+import { NUploader } from '../../types/NUploader.ts';
 
 /** NostrBuildUploader options. */
 export interface NostrBuildUploaderOpts {

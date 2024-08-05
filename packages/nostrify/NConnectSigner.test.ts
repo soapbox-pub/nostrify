@@ -1,7 +1,7 @@
 import { assert, assertEquals } from '@std/assert';
 import { generateSecretKey, verifyEvent } from 'nostr-tools';
 
-import { NostrConnectResponse } from '../../interfaces/NostrConnect.ts';
+import { NostrConnectResponse } from '../types/NostrConnect.ts';
 
 import { MockRelay } from './test/MockRelay.ts';
 import { NConnectSigner } from './NConnectSigner.ts';

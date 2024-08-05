@@ -1,10 +1,10 @@
 import { Nostr, verifyEvent } from 'nostr-tools';
 import { AbstractSimplePool } from 'nostr-tools/pool';
 
-import { NostrEvent } from '../../interfaces/NostrEvent.ts';
-import { NostrFilter } from '../../interfaces/NostrFilter.ts';
-import { NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT } from '../../interfaces/NostrRelayMsg.ts';
-import { NRelay } from '../../interfaces/NRelay.ts';
+import { NostrEvent } from '../types/NostrEvent.ts';
+import { NostrFilter } from '../types/NostrFilter.ts';
+import { NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT } from '../types/NostrRelayMsg.ts';
+import { NRelay } from '../types/NRelay.ts';
 
 import { Machina } from './utils/Machina.ts';
 

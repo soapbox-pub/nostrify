@@ -1,8 +1,8 @@
 import { Server } from 'mock-socket';
-import { NostrFilter } from '../../../interfaces/NostrFilter.ts';
+import { NostrFilter } from '../../types/NostrFilter.ts';
 import { matchFilters } from 'nostr-tools';
-import { NostrEvent } from '../../../interfaces/NostrEvent.ts';
-import { NostrRelayOK } from '../../../interfaces/NostrRelayMsg.ts';
+import { NostrEvent } from '../../types/NostrEvent.ts';
+import { NostrRelayOK } from '../../types/NostrRelayMsg.ts';
 
 interface WsSender {
   send(data: any): void;

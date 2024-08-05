@@ -6,8 +6,8 @@ import { PostgresJSDialect } from 'kysely-postgres-js';
 import { finalizeEvent, generateSecretKey, matchFilters } from 'nostr-tools';
 import postgres from 'postgres';
 
-import { NostrEvent } from '../../interfaces/NostrEvent.ts';
-import { NostrFilter } from '../../interfaces/NostrFilter.ts';
+import { NostrEvent } from '../types/NostrEvent.ts';
+import { NostrFilter } from '../types/NostrFilter.ts';
 
 import { NDatabase, NDatabaseOpts, NDatabaseSchema } from './NDatabase.ts';
 

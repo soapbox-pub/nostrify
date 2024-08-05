@@ -1,6 +1,6 @@
-import { NostrEvent } from '../../../interfaces/NostrEvent.ts';
-import { NostrRelayOK } from '../../../interfaces/NostrRelayMsg.ts';
-import { NPolicy } from '../../../interfaces/NPolicy.ts';
+import { NostrEvent } from '../../types/NostrEvent.ts';
+import { NostrRelayOK } from '../../types/NostrRelayMsg.ts';
+import { NPolicy } from '../../types/NPolicy.ts';
 
 /**
  * Reject events containing any of the banned hashtags.

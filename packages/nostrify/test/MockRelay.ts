@@ -2,15 +2,10 @@
 
 import { matchFilters } from 'nostr-tools';
 
-import { NostrEvent } from '../../../interfaces/NostrEvent.ts';
-import { NostrFilter } from '../../../interfaces/NostrFilter.ts';
-import {
-  NostrRelayCLOSED,
-  NostrRelayCOUNT,
-  NostrRelayEOSE,
-  NostrRelayEVENT,
-} from '../../../interfaces/NostrRelayMsg.ts';
-import { NRelay } from '../../../interfaces/NRelay.ts';
+import { NostrEvent } from '../../types/NostrEvent.ts';
+import { NostrFilter } from '../../types/NostrFilter.ts';
+import { NostrRelayCLOSED, NostrRelayCOUNT, NostrRelayEOSE, NostrRelayEVENT } from '../../types/NostrRelayMsg.ts';
+import { NRelay } from '../../types/NRelay.ts';
 
 import { Machina } from '../utils/Machina.ts';
 import { NSet } from '../NSet.ts';

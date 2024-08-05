@@ -1,6 +1,6 @@
-import { NStore } from '../../../interfaces/NStore.ts';
-import { NostrEvent } from '../../../interfaces/NostrEvent.ts';
-import { NostrFilter } from '../../../interfaces/NostrFilter.ts';
+import { NStore } from '../../types/NStore.ts';
+import { NostrEvent } from '../../types/NostrEvent.ts';
+import { NostrFilter } from '../../types/NostrFilter.ts';
 
 import { NKinds } from '../NKinds.ts';
 

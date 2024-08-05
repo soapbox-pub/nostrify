@@ -3,6 +3,7 @@
   "workspace": [
     "./packages/nostrify",
     "./packages/ndk",
+    "./packages/types",
     "./packages/welshman"
   ],
   "tasks": {

@@ -1,9 +1,9 @@
 import { getFilterLimit, matchFilters, verifyEvent as _verifyEvent } from 'nostr-tools';
 import { ArrayQueue, Backoff, ExponentialBackoff, Websocket, WebsocketBuilder, WebsocketEvent } from 'websocket-ts';
 
-import { NostrClientMsg, NostrClientREQ } from '../../interfaces/NostrClientMsg.ts';
-import { NostrEvent } from '../../interfaces/NostrEvent.ts';
-import { NostrFilter } from '../../interfaces/NostrFilter.ts';
+import { NostrClientMsg, NostrClientREQ } from '../types/NostrClientMsg.ts';
+import { NostrEvent } from '../types/NostrEvent.ts';
+import { NostrFilter } from '../types/NostrFilter.ts';
 import {
   NostrRelayCLOSED,
   NostrRelayCOUNT,
@@ -11,8 +11,8 @@ import {
   NostrRelayEVENT,
   NostrRelayNOTICE,
   NostrRelayOK,
-} from '../../interfaces/NostrRelayMsg.ts';
-import { NRelay } from '../../interfaces/NRelay.ts';
+} from '../types/NostrRelayMsg.ts';
+import { NRelay } from '../types/NRelay.ts';
 
 import { Machina } from './utils/Machina.ts';
 import { NSchema as n } from './NSchema.ts';

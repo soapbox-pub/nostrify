@@ -1,7 +1,7 @@
 import { encodeHex } from '@std/encoding/hex';
 import { verifyEvent as _verifyEvent } from 'nostr-tools';
 
-import { NostrEvent } from '../../interfaces/NostrEvent.ts';
+import { NostrEvent } from '../types/NostrEvent.ts';
 
 import { N64 } from './utils/N64.ts';
 

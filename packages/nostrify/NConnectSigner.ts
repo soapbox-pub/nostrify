@@ -2,10 +2,10 @@
 
 import { z } from 'zod';
 
-import { NostrConnectRequest, NostrConnectResponse } from '../../interfaces/NostrConnect.ts';
-import { NostrEvent } from '../../interfaces/NostrEvent.ts';
-import { NostrSigner } from '../../interfaces/NostrSigner.ts';
-import { NRelay } from '../../interfaces/NRelay.ts';
+import { NostrConnectRequest, NostrConnectResponse } from '../types/NostrConnect.ts';
+import { NostrEvent } from '../types/NostrEvent.ts';
+import { NostrSigner } from '../types/NostrSigner.ts';
+import { NRelay } from '../types/NRelay.ts';
 
 import { NSchema as n } from './NSchema.ts';
 

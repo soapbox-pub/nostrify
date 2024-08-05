@@ -1,17 +1,6 @@
 {
-  "$schema": "https://deno.land/x/deno@v1.41.0/cli/schemas/config-file.v1.json",
   "lock": false,
-  "name": "@nostrify/nostrify",
-  "version": "0.29.0",
-  "exports": {
-    ".": "./mod.ts",
-    "./denokv": "./src/denokv/mod.ts",
-    "./ln": "./src/ln/mod.ts",
-    "./policies": "./src/policies/mod.ts",
-    "./test": "./src/test/mod.ts",
-    "./uploaders": "./src/uploaders/mod.ts",
-    "./utils": "./src/utils/mod.ts"
-  },
+  "workspace": ["./src", "./integrations/ndk", "./integrations/welshman"],
   "tasks": {
     "test": "deno test -A --junit-path=./deno-test.xml",
     "check": "deno check mod.ts"

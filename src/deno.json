@@ -1,0 +1,13 @@
+{
+  "name": "@nostrify/nostrify",
+  "version": "0.29.0",
+  "exports": {
+    ".": "./mod.ts",
+    "./denokv": "./denokv/mod.ts",
+    "./ln": "./ln/mod.ts",
+    "./policies": "./policies/mod.ts",
+    "./test": "./test/mod.ts",
+    "./uploaders": "./uploaders/mod.ts",
+    "./utils": "./utils/mod.ts"
+  }
+}

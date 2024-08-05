@@ -3,10 +3,10 @@ import { getFilterLimit } from 'nostr-tools';
 
 import { NostrEvent } from '../interfaces/NostrEvent.ts';
 import { NostrFilter } from '../interfaces/NostrFilter.ts';
+import { NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT } from '../interfaces/NostrRelayMsg.ts';
 import { NRelay } from '../interfaces/NRelay.ts';
 
 import { NKinds } from './NKinds.ts';
-import { NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT } from '../mod.ts';
 
 /** Kysely database schema for Nostr. */
 export interface NDatabaseSchema {

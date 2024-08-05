@@ -2,7 +2,7 @@ import { assert } from '@std/assert';
 import { Router } from '@welshman/util';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
-import { NostrEvent } from '../../interfaces/NostrEvent.ts';
+import { NostrEvent } from '../interfaces/NostrEvent.ts';
 
 import { NWelshman } from './NWelshman.ts';
 

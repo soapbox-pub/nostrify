@@ -32,6 +32,7 @@ export interface NDatabaseSchema {
   };
 }
 
+/** Options object for the NDatabase constructor. */
 export interface NDatabaseOpts {
   /** Enable full-text-search for Postgres or SQLite. Disabled by default. */
   fts?: 'sqlite' | 'postgres';
@@ -421,6 +422,16 @@ export class NDatabase implements NRelay {
       .reduce((result, query) => result.unionAll(query));
   }
 
+  /**
+   * Stream events, mimicking a relay.
+   *
+   * This method uses the database's native streaming mechanism, so both the database
+   * and Kysely dialect must support it. Set the `cunkSize` in the constructor to control
+   * how many rows are fetched at once.
+   *
+   * Yields `EVENT` messages until the query completes, then it will yield `EOSE`, then `CLOSED`.
+   * If the signal is aborted, it will yield `CLOSED` on the next iteration.
+   */
   async *req(
     filters: NostrFilter[],
     opts?: { signal?: AbortSignal },

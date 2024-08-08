@@ -1,6 +1,7 @@
 import { NKinds } from '@nostrify/nostrify';
 import { NostrEvent, NostrFilter, NStore } from '@nostrify/types';
 
+/** Deno KV key type. */
 const Keys = {
   events(id: string): Deno.KvKey {
     return ['nostr', 'events', id];
@@ -22,6 +23,14 @@ const Keys = {
   },
 };
 
+/**
+ * Nostr event storage built on [Deno KV](https://docs.deno.com/deploy/kv/manual/).
+ *
+ * ```ts
+ * const kv = await Deno.openKv();
+ * const db = new NDenoKv(kv);
+ * ```
+ */
 export class NDenoKv implements NStore {
   private db: Deno.Kv;
 
@@ -29,8 +38,10 @@ export class NDenoKv implements NStore {
     this.db = db;
   }
 
+  /** Regular expression for matching 64-character hex strings. */
   private static HEX64_REGEX = /^[0-9A-Fa-f]{64}$/;
 
+  /** Store an event in the database. */
   async event(event: NostrEvent): Promise<void> {
     if (NKinds.ephemeral(event.kind)) return;
 
@@ -131,6 +142,7 @@ export class NDenoKv implements NStore {
     }
   }
 
+  /** Insert tags into the database for indexing. */
   private static insertTags(event: NostrEvent): Deno.KvKey[] {
     const keys: Deno.KvKey[] = [];
 
@@ -161,6 +173,7 @@ export class NDenoKv implements NStore {
     return keys;
   }
 
+  /** Resolve a NIP-01 filter into a list of event IDs. */
   private async resolveFilter(filter: NostrFilter): Promise<string[]> {
     const { ids, authors, kinds, limit, since, until, search: _search, ...rest } = filter;
     const s = since || 0;
@@ -273,6 +286,7 @@ export class NDenoKv implements NStore {
     return Array.from(indices).filter(Boolean);
   }
 
+  /** Resolve a list of NIP-01 filters into a list of event IDs. */
   private async resolveFilters(filters: NostrFilter[]): Promise<string[]> {
     const results: string[] = [];
     for (const filter of filters) {
@@ -281,6 +295,7 @@ export class NDenoKv implements NStore {
     return results;
   }
 
+  /** Query events from the database. */
   async query(filters: NostrFilter[]): Promise<NostrEvent[]> {
     const results = (await this.resolveFilters(filters)).filter(Boolean);
     const events: NostrEvent[] = [];
@@ -296,11 +311,13 @@ export class NDenoKv implements NStore {
     return events;
   }
 
+  /** Count events in the database. */
   async count(filters: NostrFilter[]): Promise<{ count: number; approximate?: boolean | undefined }> {
     const results = await this.resolveFilters(filters);
     return { count: results.length };
   }
 
+  /** Remove a single event from the database by its ID. */
   private async removeById(id: string): Promise<void> {
     const evt = await this.getEvtById(id);
     const txn = this.db.atomic();
@@ -326,6 +343,7 @@ export class NDenoKv implements NStore {
     }
   }
 
+  /** Remove events from the database by filters. */
   async remove(filters: NostrFilter[]): Promise<void> {
     const results = await this.resolveFilters(filters);
     for (const result of results) {
@@ -333,6 +351,7 @@ export class NDenoKv implements NStore {
     }
   }
 
+  /** Parse an address tag into its components. */
   private static parseAddrTag(value: string): { kind: number; pkb: string; rest: string } | undefined {
     const s = value.split(':');
     if (s.length !== 3) return;

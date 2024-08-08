@@ -6,6 +6,16 @@ The goal of this package is to create a TypeScript standard for Nostr, so that d
 
 It is a types-only package, so you can use it for free in any project.
 
+```ts
+import { NostrEvent, NostrFilter, NStore } from '@nostr/types';
+
+export MyStore implements NStore {
+  async query(filters: NostrFilter[]): Promise<NostrEvent[]> {
+    // Your implementation here
+  }
+}
+```
+
 ## Naming Convention
 
 - Types that start with `Nostr*` are standardized types from the NIPs.

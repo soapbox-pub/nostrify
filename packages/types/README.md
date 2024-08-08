@@ -9,7 +9,7 @@ It is a types-only package, so you can use it for free in any project.
 ```ts
 import { NostrEvent, NostrFilter, NStore } from '@nostr/types';
 
-export MyStore implements NStore {
+export class MyStore implements NStore {
   async query(filters: NostrFilter[]): Promise<NostrEvent[]> {
     // Your implementation here
   }

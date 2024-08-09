@@ -171,23 +171,47 @@ export class NPostgres implements NRelay {
       d,
     };
 
-    await trx.insertInto('nostr_events')
-      .values(row)
-      .onConflict((oc) =>
-        oc
-          .columns(['kind', 'pubkey'])
-          .doUpdateSet(row)
-          .where((eb) =>
-            eb.or([
-              eb('nostr_events.created_at', '<', eb.ref('excluded.created_at')),
-              eb.and([
-                eb('nostr_events.created_at', '=', eb.ref('excluded.created_at')),
-                eb('nostr_events.id', '<', eb.ref('excluded.id')),
-              ]),
-            ])
-          )
-      )
-      .execute();
+    if (NKinds.replaceable(event.kind)) {
+      await trx.insertInto('nostr_events')
+        .values(row)
+        .onConflict((oc) =>
+          oc
+            .columns(['kind', 'pubkey']).where(() => sql`kind >= 10000 and kind < 20000 or (kind in (0, 3))`)
+            .doUpdateSet(row)
+            .where((eb) =>
+              eb.or([
+                eb('nostr_events.created_at', '<', eb.ref('excluded.created_at')),
+                eb.and([
+                  eb('nostr_events.created_at', '=', eb.ref('excluded.created_at')),
+                  eb('nostr_events.id', '<', eb.ref('excluded.id')),
+                ]),
+              ])
+            )
+        )
+        .execute();
+    } else if (NKinds.parameterizedReplaceable(event.kind)) {
+      await trx.insertInto('nostr_events')
+        .values(row)
+        .onConflict((oc) =>
+          oc
+            .columns(['kind', 'pubkey', 'd']).where(() => sql`kind >= 30000 and kind < 40000`)
+            .doUpdateSet(row)
+            .where((eb) =>
+              eb.or([
+                eb('nostr_events.created_at', '<', eb.ref('excluded.created_at')),
+                eb.and([
+                  eb('nostr_events.created_at', '=', eb.ref('excluded.created_at')),
+                  eb('nostr_events.id', '<', eb.ref('excluded.id')),
+                ]),
+              ])
+            )
+        )
+        .execute();
+    } else {
+      await trx.insertInto('nostr_events')
+        .values(row)
+        .execute();
+    }
   }
 
   /** Add search data to the FTS5 table. */

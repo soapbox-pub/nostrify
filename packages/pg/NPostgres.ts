@@ -277,9 +277,13 @@ export class NPostgres implements NRelay {
       if (key.startsWith('#') && Array.isArray(values)) {
         const name = key.replace(/^#/, '');
 
-        for (const value of values) {
-          query = query.where('nostr_events.tags_index', '@>', { [name]: [value] });
-        }
+        query = query.where((eb) =>
+          eb.or(
+            values.map(
+              (value) => eb('nostr_events.tags_index', '@>', { [name]: [value] }),
+            ),
+          )
+        );
       }
     }
 

@@ -243,13 +243,13 @@ export class NPostgres implements NRelay {
       .orderBy('nostr_events.id', 'asc');
 
     if (filter.ids) {
-      query = query.where('nostr_events.id', 'in', filter.ids);
+      query = query.where('nostr_events.id', '=', ({ fn, val }) => fn.any(val(filter.ids)));
     }
     if (filter.kinds) {
-      query = query.where('nostr_events.kind', 'in', filter.kinds);
+      query = query.where('nostr_events.kind', '=', ({ fn, val }) => fn.any(val(filter.kinds)));
     }
     if (filter.authors) {
-      query = query.where('nostr_events.pubkey', 'in', filter.authors);
+      query = query.where('nostr_events.pubkey', '=', ({ fn, val }) => fn.any(val(filter.authors)));
     }
     if (typeof filter.since === 'number') {
       query = query.where('nostr_events.created_at', '>=', filter.since);
@@ -278,7 +278,7 @@ export class NPostgres implements NRelay {
         const name = key.replace(/^#/, '');
 
         if (name === 'd' && filter.kinds?.every((kind) => NKinds.parameterizedReplaceable(kind))) {
-          query = query.where('nostr_events.d', 'in', values);
+          query = query.where('nostr_events.d', '=', ({ fn, val }) => fn.any(val(values)));
         } else {
           query = query.where((eb) =>
             eb.or(

@@ -154,8 +154,6 @@ export class NPostgres implements NRelay {
 
   /** Insert the event into the database. */
   protected async insertEvent(trx: Kysely<NPostgresSchema>, event: NostrEvent): Promise<void> {
-    // TODO Handle on conflict
-
     const d = event.tags.find(([name]) => name === 'd')?.[1] ?? null;
 
     const tagIndex = this.indexTags(event).reduce((result, [name, value]) => {
@@ -166,13 +164,29 @@ export class NPostgres implements NRelay {
       return result;
     }, {} as Record<string, string[]>);
 
+    const row: NPostgresSchema['nostr_events'] = {
+      ...event,
+      tags_index: tagIndex,
+      tags: JSON.stringify(event.tags),
+      d,
+    };
+
     await trx.insertInto('nostr_events')
-      .values({
-        ...event,
-        tags_index: tagIndex,
-        tags: JSON.stringify(event.tags),
-        d,
-      })
+      .values(row)
+      .onConflict((oc) =>
+        oc
+          .columns(['kind', 'pubkey'])
+          .doUpdateSet(row)
+          .where((eb) =>
+            eb.or([
+              eb('nostr_events.created_at', '<', eb.ref('excluded.created_at')),
+              eb.and([
+                eb('nostr_events.created_at', '=', eb.ref('excluded.created_at')),
+                eb('nostr_events.id', '<', eb.ref('excluded.id')),
+              ]),
+            ])
+          )
+      )
       .execute();
   }
 

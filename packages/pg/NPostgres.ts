@@ -154,7 +154,7 @@ export class NPostgres implements NRelay {
 
   /** Insert the event into the database. */
   protected async insertEvent(trx: Kysely<NPostgresSchema>, event: NostrEvent): Promise<void> {
-    const d = event.tags.find(([name]) => name === 'd')?.[1] ?? null;
+    const d = event.tags.find(([name]) => name === 'd')?.[1];
 
     const tagIndex = this.indexTags(event).reduce((result, [name, value]) => {
       if (!result[name]) {
@@ -168,7 +168,7 @@ export class NPostgres implements NRelay {
       ...event,
       tags_index: tagIndex,
       tags: JSON.stringify(event.tags),
-      d,
+      d: d ?? (NKinds.parameterizedReplaceable(event.kind) ? '' : null),
     };
 
     if (NKinds.replaceable(event.kind)) {
@@ -277,13 +277,17 @@ export class NPostgres implements NRelay {
       if (key.startsWith('#') && Array.isArray(values)) {
         const name = key.replace(/^#/, '');
 
-        query = query.where((eb) =>
-          eb.or(
-            values.map(
-              (value) => eb('nostr_events.tags_index', '@>', { [name]: [value] }),
-            ),
-          )
-        );
+        if (name === 'd' && filter.kinds?.every((kind) => NKinds.parameterizedReplaceable(kind))) {
+          query = query.where('nostr_events.d', 'in', values);
+        } else {
+          query = query.where((eb) =>
+            eb.or(
+              values.map(
+                (value) => eb('nostr_events.tags_index', '@>', { [name]: [value] }),
+              ),
+            )
+          );
+        }
       }
     }
 
@@ -488,15 +492,18 @@ export class NPostgres implements NRelay {
     await schema
       .createTable('nostr_events')
       .ifNotExists()
-      .addColumn('id', 'text', (col) => col.primaryKey())
+      .addColumn('id', 'char(64)', (col) => col.primaryKey())
       .addColumn('kind', 'integer', (col) => col.notNull())
-      .addColumn('pubkey', 'text', (col) => col.notNull())
+      .addColumn('pubkey', 'char(64)', (col) => col.notNull())
       .addColumn('content', 'text', (col) => col.notNull())
       .addColumn('created_at', 'integer', (col) => col.notNull())
       .addColumn('tags', 'text', (col) => col.notNull())
       .addColumn('tags_index', 'jsonb', (col) => col.notNull())
-      .addColumn('sig', 'text', (col) => col.notNull())
+      .addColumn('sig', 'char(128)', (col) => col.notNull())
       .addColumn('d', 'text')
+      .addCheckConstraint('nostr_events_kind_positive', sql`kind >= 0`)
+      .addCheckConstraint('nostr_events_created_at_positive', sql`created_at >= 0`)
+      .addCheckConstraint('nostr_events_d_required', sql`kind < 30000 or kind >= 40000 or d is not null`)
       .execute();
 
     await schema

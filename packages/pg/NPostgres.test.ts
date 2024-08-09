@@ -67,6 +67,19 @@ export async function jsonlEvents(path: string): Promise<NostrEvent[]> {
   return data.split('\n').map((line) => JSON.parse(line));
 }
 
+/** Generate an event for use in tests. */
+export function genEvent(t: Partial<NostrEvent> = {}, sk: Uint8Array = generateSecretKey()): NostrEvent {
+  const { id, kind, pubkey, tags, content, created_at, sig } = finalizeEvent({
+    kind: 255,
+    created_at: 0,
+    content: '',
+    tags: [],
+    ...t,
+  }, sk);
+
+  return { id, kind, pubkey, tags, content, created_at, sig };
+}
+
 Deno.test('NPostgres.migrate', async () => {
   await using _db = await createDB();
 });
@@ -328,12 +341,15 @@ Deno.test('NPostgres.event with replaceable event', async () => {
   await using db = await createDB();
   const { store } = db;
 
-  assertEquals((await store.count([{ kinds: [0], authors: [event0.pubkey] }])).count, 0);
+  const sk = generateSecretKey();
+  const event = genEvent({ kind: 0, created_at: 0 }, sk);
 
-  await store.event(event0);
-  assertEquals((await store.count([{ kinds: [0], authors: [event0.pubkey] }])).count, 1);
+  assertEquals((await store.count([{ kinds: [0], authors: [event.pubkey] }])).count, 0);
 
-  const changeEvent = { ...event0, id: '123', created_at: event0.created_at + 1 };
+  await store.event(event);
+  assertEquals((await store.count([{ kinds: [0], authors: [event.pubkey] }])).count, 1);
+
+  const changeEvent = genEvent({ kind: 0, created_at: 1 }, sk);
   await store.event(changeEvent);
   assertEquals(await store.query([{ kinds: [0] }]), [changeEvent]);
 });
@@ -342,9 +358,10 @@ Deno.test('NPostgres.event with parameterized replaceable event', async () => {
   await using db = await createDB();
   const { store } = db;
 
-  const event0 = { id: '1', kind: 30000, pubkey: 'abc', content: '', created_at: 0, sig: '', tags: [['d', 'a']] };
-  const event1 = { id: '2', kind: 30000, pubkey: 'abc', content: '', created_at: 1, sig: '', tags: [['d', 'a']] };
-  const event2 = { id: '3', kind: 30000, pubkey: 'abc', content: '', created_at: 2, sig: '', tags: [['d', 'a']] };
+  const sk = generateSecretKey();
+  const event0 = genEvent({ kind: 30000, created_at: 0, tags: [['d', 'a']] }, sk);
+  const event1 = genEvent({ kind: 30000, created_at: 1, tags: [['d', 'a']] }, sk);
+  const event2 = genEvent({ kind: 30000, created_at: 2, tags: [['d', 'a']] }, sk);
 
   await store.event(event0);
   assertEquals(await store.query([{ ids: [event0.id] }]), [event0]);
@@ -363,10 +380,8 @@ Deno.test('NPostgres.event processes deletions', async () => {
   await using db = await createDB();
   const { store } = db;
 
-  const [one, two] = [
-    { id: '1', kind: 1, pubkey: 'abc', content: 'hello world', created_at: 1, sig: '', tags: [] },
-    { id: '2', kind: 1, pubkey: 'abc', content: 'yolo fam', created_at: 2, sig: '', tags: [] },
-  ];
+  const [sk1, sk2] = [generateSecretKey(), generateSecretKey()];
+  const [one, two] = [genEvent({ kind: 1, created_at: 0 }, sk1), genEvent({ kind: 1, created_at: 1 }, sk2)];
 
   await store.event(one);
   await store.event(two);
@@ -374,15 +389,13 @@ Deno.test('NPostgres.event processes deletions', async () => {
   // Sanity check
   assertEquals(await store.query([{ kinds: [1] }]), [two, one]);
 
-  await store.event({
+  const deletion = genEvent({
     kind: 5,
     pubkey: one.pubkey,
     tags: [['e', one.id]],
-    created_at: 0,
-    content: '',
-    id: '',
-    sig: '',
-  });
+  }, sk1);
+
+  await store.event(deletion);
 
   assertEquals(await store.query([{ kinds: [1] }]), [two]);
 });
@@ -390,6 +403,9 @@ Deno.test('NPostgres.event processes deletions', async () => {
 Deno.test('NPostgres.event with a replaceable deleted event', async () => {
   await using db = await createDB();
   const { store } = db;
+  const sk = generateSecretKey();
+
+  const event0 = genEvent({ kind: 0, created_at: 1 }, sk);
 
   assertEquals(await store.query([{ kinds: [0] }]), []);
 
@@ -397,27 +413,19 @@ Deno.test('NPostgres.event with a replaceable deleted event', async () => {
 
   assertEquals(await store.query([{ kinds: [0] }]), [event0]);
 
-  await store.event({
+  await store.event(genEvent({
     kind: 5,
-    pubkey: event0.pubkey,
     tags: [['a', `0:${event0.pubkey}:`]],
-    created_at: 1699398370,
-    content: '',
-    id: '1',
-    sig: '',
-  });
+    created_at: 0,
+  }, sk));
 
   assertEquals(await store.query([{ kinds: [0] }]), [event0]);
 
-  await store.event({
+  await store.event(genEvent({
     kind: 5,
-    pubkey: event0.pubkey,
     tags: [['a', `0:${event0.pubkey}:`]],
-    created_at: 1699398377,
-    content: '',
-    id: '2',
-    sig: '',
-  });
+    created_at: 5,
+  }, sk));
 
   assertEquals(await store.query([{ kinds: [0] }]), []);
 });
@@ -426,47 +434,44 @@ Deno.test('NPostgres.event with a parameterized-replaceable deleted event', asyn
   await using db = await createDB();
   const { store } = db;
 
-  const eventA = { id: '1', kind: 30000, pubkey: 'abc', content: '', created_at: 0, sig: '', tags: [['d', 'a']] };
-  const eventB = { id: '2', kind: 30000, pubkey: 'abc', content: '', created_at: 2, sig: '', tags: [['d', 'a']] };
+  const sk = generateSecretKey();
+
+  const eventA = genEvent({ kind: 30000, created_at: 0, tags: [['d', 'a']] }, sk);
+  const eventB = genEvent({ kind: 30000, created_at: 1, tags: [['d', 'a']] }, sk);
+  const eventC = genEvent({ kind: 30000, created_at: 2, tags: [['d', 'a']] }, sk);
 
   await store.event(eventA);
+
   assertEquals(await store.query([{ ids: [eventA.id] }]), [eventA]);
 
-  await store.event({
+  await store.event(genEvent({
     kind: 5,
-    pubkey: eventA.pubkey,
     tags: [['a', `30000:${eventA.pubkey}:a`]],
     created_at: 1,
-    content: '',
-    id: '',
-    sig: '',
-  });
+  }, sk));
 
   assertEquals(await store.query([{ ids: [eventA.id] }]), []);
 
-  await store.event(eventB);
-  assertEquals(await store.query([{ ids: [eventB.id] }]), [eventB]);
+  assertRejects(() => store.event(eventB));
+
+  await store.event(eventC);
+  assertEquals(await store.query([{ ids: [eventC.id] }]), [eventC]);
 });
 
 Deno.test("NPostgres.event does not delete another user's event", async () => {
   await using db = await createDB();
   const { store } = db;
 
-  const event = { id: '1', kind: 1, pubkey: 'abc', content: 'hello world', created_at: 1, sig: '', tags: [] };
+  const event = genEvent({ kind: 1 });
   await store.event(event);
 
   // Sanity check
   assertEquals(await store.query([{ kinds: [1] }]), [event]);
 
-  await store.event({
+  await store.event(genEvent({
     kind: 5,
-    pubkey: 'def', // different pubkey
     tags: [['e', event.id]],
-    created_at: 0,
-    content: '',
-    id: '',
-    sig: '',
-  });
+  }));
 
   assertEquals(await store.query([{ kinds: [1] }]), [event]);
 });

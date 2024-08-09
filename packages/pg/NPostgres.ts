@@ -249,7 +249,15 @@ export class NPostgres implements NRelay {
       }
     }
 
-    // TODO: tag queries
+    for (const [key, values] of Object.entries(filter)) {
+      if (key.startsWith('#') && Array.isArray(values)) {
+        const name = key.replace(/^#/, '');
+
+        for (const value of values) {
+          query = query.where('nostr_events.tags_index', '@>', { [name]: [value] });
+        }
+      }
+    }
 
     return query;
   }
@@ -464,14 +472,25 @@ export class NPostgres implements NRelay {
       .execute();
 
     await schema
-      .createTable('nostr_tags')
+      .createIndex('nostr_events_kind')
+      .on('nostr_events')
       .ifNotExists()
-      .addColumn('event_id', 'text', (col) => col.notNull().references('nostr_events.id').onDelete('cascade'))
-      .addColumn('name', 'text', (col) => col.notNull())
-      .addColumn('value', 'text', (col) => col.notNull())
-      .addColumn('kind', 'integer', (col) => col.notNull())
-      .addColumn('pubkey', 'text', (col) => col.notNull())
-      .addColumn('created_at', 'integer', (col) => col.notNull())
+      .columns(['created_at desc', 'id asc', 'kind', 'pubkey'])
+      .execute();
+
+    await schema
+      .createIndex('nostr_events_pubkey')
+      .on('nostr_events')
+      .ifNotExists()
+      .columns(['created_at desc', 'id asc', 'pubkey', 'kind'])
+      .execute();
+
+    await schema
+      .createIndex('nostr_events_tags')
+      .on('nostr_events')
+      .using('gin')
+      .ifNotExists()
+      .column('tags_index')
       .execute();
 
     await schema
@@ -482,6 +501,7 @@ export class NPostgres implements NRelay {
       .columns(['kind', 'pubkey'])
       .where(() => sql`kind >= 10000 and kind < 20000 or (kind in (0, 3))`)
       .execute();
+
     await schema
       .createIndex('nostr_events_parameterized')
       .unique()
@@ -489,31 +509,6 @@ export class NPostgres implements NRelay {
       .ifNotExists()
       .columns(['kind', 'pubkey', 'd'])
       .where(() => sql`kind >= 30000 and kind < 40000`)
-      .execute();
-    await schema
-      .createIndex('nostr_events_kind')
-      .on('nostr_events')
-      .ifNotExists()
-      .columns(['created_at desc', 'id asc', 'kind', 'pubkey'])
-      .execute();
-    await schema
-      .createIndex('nostr_events_pubkey')
-      .on('nostr_events')
-      .ifNotExists()
-      .columns(['created_at desc', 'id asc', 'pubkey', 'kind'])
-      .execute();
-
-    await schema
-      .createIndex('nostr_tags_kind')
-      .on('nostr_tags')
-      .ifNotExists()
-      .columns(['created_at desc', 'event_id asc', 'value', 'name', 'kind', 'pubkey'])
-      .execute();
-    await schema
-      .createIndex('nostr_tags_pubkey')
-      .on('nostr_tags')
-      .ifNotExists()
-      .columns(['created_at desc', 'event_id asc', 'value', 'name', 'pubkey', 'kind'])
       .execute();
 
     if (this.fts) {

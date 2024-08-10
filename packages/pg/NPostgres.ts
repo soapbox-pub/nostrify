@@ -92,7 +92,7 @@ export class NPostgres implements NRelay {
     ];
 
     if (NKinds.replaceable(event.kind) || NKinds.parameterizedReplaceable(event.kind)) {
-      const d = event.tags.find(([tag]) => tag === 'd')?.[1] ?? '';
+      const d = event.tags.find(([name]) => name === 'd')?.[1] ?? '';
 
       filters.push({
         kinds: [5],

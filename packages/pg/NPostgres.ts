@@ -35,6 +35,13 @@ export interface NPostgresOpts {
   chunkSize?: number;
 }
 
+/** Query to select necessary fields from the `nostr_events` table. */
+type SelectEventsQuery = SelectQueryBuilder<
+  NPostgresSchema,
+  'nostr_events',
+  Pick<NPostgresSchema['nostr_events'], keyof NostrEvent>
+>;
+
 export class NPostgres implements NRelay {
   private db: Kysely<NPostgresSchema>;
   private indexTags: (event: NostrEvent) => string[][];
@@ -204,37 +211,34 @@ export class NPostgres implements NRelay {
   }
 
   /** Build the query for a filter. */
-  protected getFilterQuery(
-    trx: Kysely<NPostgresSchema>,
-    filter: NostrFilter,
-  ): SelectQueryBuilder<NPostgresSchema, 'nostr_events', NPostgresSchema['nostr_events']> {
+  protected getFilterQuery(trx: Kysely<NPostgresSchema>, filter: NostrFilter): SelectEventsQuery {
     let query = trx
       .selectFrom('nostr_events')
-      .selectAll('nostr_events')
-      .orderBy('nostr_events.created_at', 'desc')
-      .orderBy('nostr_events.id', 'asc');
+      .select(['id', 'kind', 'pubkey', 'content', 'created_at', 'tags', 'sig'])
+      .orderBy('created_at', 'desc')
+      .orderBy('id', 'asc');
 
     if (filter.ids) {
-      query = query.where('nostr_events.id', '=', ({ fn, val }) => fn.any(val(filter.ids)));
+      query = query.where('id', '=', ({ fn, val }) => fn.any(val(filter.ids)));
     }
     if (filter.kinds) {
-      query = query.where('nostr_events.kind', '=', ({ fn, val }) => fn.any(val(filter.kinds)));
+      query = query.where('kind', '=', ({ fn, val }) => fn.any(val(filter.kinds)));
     }
     if (filter.authors) {
-      query = query.where('nostr_events.pubkey', '=', ({ fn, val }) => fn.any(val(filter.authors)));
+      query = query.where('pubkey', '=', ({ fn, val }) => fn.any(val(filter.authors)));
     }
     if (typeof filter.since === 'number') {
-      query = query.where('nostr_events.created_at', '>=', filter.since);
+      query = query.where('created_at', '>=', filter.since);
     }
     if (typeof filter.until === 'number') {
-      query = query.where('nostr_events.created_at', '<=', filter.until);
+      query = query.where('created_at', '<=', filter.until);
     }
     if (typeof filter.limit === 'number') {
       query = query.limit(filter.limit);
     }
 
     if (filter.search) {
-      query = query.where('nostr_events.search', '@@', sql`phraseto_tsquery(${filter.search})`);
+      query = query.where('search', '@@', sql`phraseto_tsquery(${filter.search})`);
     }
 
     for (const [key, values] of Object.entries(filter)) {
@@ -242,12 +246,12 @@ export class NPostgres implements NRelay {
         const name = key.replace(/^#/, '');
 
         if (name === 'd' && filter.kinds?.every((kind) => NKinds.parameterizedReplaceable(kind))) {
-          query = query.where('nostr_events.d', '=', ({ fn, val }) => fn.any(val(values)));
+          query = query.where('d', '=', ({ fn, val }) => fn.any(val(values)));
         } else {
           query = query.where((eb) =>
             eb.or(
               values.map(
-                (value) => eb('nostr_events.tags_index', '@>', { [name]: [value] }),
+                (value) => eb('tags_index', '@>', { [name]: [value] }),
               ),
             )
           );
@@ -259,17 +263,14 @@ export class NPostgres implements NRelay {
   }
 
   /** Combine filter queries into a single union query. */
-  protected getEventsQuery(
-    trx: Kysely<NPostgresSchema>,
-    filters: NostrFilter[],
-  ): SelectQueryBuilder<NPostgresSchema, 'nostr_events', NPostgresSchema['nostr_events']> {
+  protected getEventsQuery(trx: Kysely<NPostgresSchema>, filters: NostrFilter[]): SelectEventsQuery {
     return filters
       .map((filter) =>
         trx
           .selectFrom(() => this.getFilterQuery(trx, filter).as('nostr_events'))
           .selectAll()
       )
-      .reduce((result, query) => result.unionAll(query));
+      .reduce((result, query) => result.unionAll(query)) as SelectEventsQuery;
   }
 
   /**
@@ -331,7 +332,7 @@ export class NPostgres implements NRelay {
   }
 
   /** Parse an event row from the database. */
-  private static parseEventRow(row: NPostgresSchema['nostr_events']): NostrEvent {
+  private static parseEventRow(row: Pick<NPostgresSchema['nostr_events'], keyof NostrEvent>): NostrEvent {
     return {
       id: row.id,
       kind: row.kind,
@@ -358,7 +359,7 @@ export class NPostgres implements NRelay {
   protected async removeEvents(db: Kysely<NPostgresSchema>, filters: NostrFilter[]): Promise<void> {
     await db
       .deleteFrom('nostr_events')
-      .where('nostr_events.id', 'in', () => this.getEventsQuery(db, filters).clearSelect().select('id'))
+      .where('id', 'in', () => this.getEventsQuery(db, filters).clearSelect().select('id'))
       .execute();
   }
 
@@ -376,7 +377,7 @@ export class NPostgres implements NRelay {
       const query = this.getEventsQuery(trx, filters);
       const [{ count }] = await query
         .clearSelect()
-        .select((eb) => eb.fn.count('nostr_events.id').as('count'))
+        .select((eb) => eb.fn.count('id').as('count'))
         .execute();
 
       return {

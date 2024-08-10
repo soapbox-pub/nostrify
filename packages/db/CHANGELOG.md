@@ -7,9 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 0.31.1 - 2024-08-10
+
 ### Fixed
 
 - NPostgres: don't order-by in COUNT.
+- NPostgres: fix `.remove` with multiple filters.
 
 ## 0.31.0 - 2024-08-10
 

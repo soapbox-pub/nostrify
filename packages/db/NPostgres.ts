@@ -214,7 +214,7 @@ export class NPostgres implements NRelay {
   protected getFilterQuery(trx: Kysely<NPostgresSchema>, filter: NostrFilter): SelectEventsQuery {
     let query = trx
       .selectFrom('nostr_events')
-      .select(['id', 'kind', 'pubkey', 'content', 'created_at', 'tags', 'sig'])
+      .selectAll()
       .orderBy('created_at', 'desc')
       .orderBy('id', 'asc');
 
@@ -263,13 +263,12 @@ export class NPostgres implements NRelay {
 
   /** Combine filter queries into a single union query. */
   protected getEventsQuery(trx: Kysely<NPostgresSchema>, filters: NostrFilter[]): SelectEventsQuery {
-    return filters
-      .map((filter) =>
-        trx
-          .selectFrom(() => this.getFilterQuery(trx, filter).as('nostr_events'))
-          .selectAll()
-      )
-      .reduce((result, query) => result.unionAll(query)) as SelectEventsQuery;
+    return trx.selectFrom((eb) =>
+      filters
+        .map((filter) => eb.selectFrom(() => this.getFilterQuery(trx, filter).as('e')).selectAll())
+        .reduce((result, query) => result.unionAll(query)).as('e')
+    )
+      .select(['id', 'kind', 'pubkey', 'content', 'created_at', 'tags', 'sig']) as SelectEventsQuery;
   }
 
   /**

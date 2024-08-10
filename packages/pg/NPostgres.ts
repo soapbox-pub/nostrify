@@ -15,17 +15,12 @@ export interface NPostgresSchema {
     tags_index: Record<string, string[]>;
     sig: string;
     d: string | null;
-  };
-  nostr_pgfts: {
-    event_id: string;
-    search_vec: unknown;
+    search: unknown;
   };
 }
 
 /** Options object for the NPostgres constructor. */
 export interface NPostgresOpts {
-  /** Enable full-text-search for Postgres. Default true. */
-  fts?: boolean;
   /**
    * Function that returns which tags to index so tag queries like `{ "#p": ["123"] }` will work.
    * By default, all single-letter tags are indexed.
@@ -34,25 +29,22 @@ export interface NPostgresOpts {
   /**
    * Build a search index from the event.
    * By default, only kinds 0 and 1 events are indexed for search, and the search text is the event content with tag values appended to it.
-   * Only applicable if `fts5` is `true`.
    */
-  searchText?(event: NostrEvent): string | undefined;
+  indexSearch?(event: NostrEvent): string | undefined;
   /** Chunk size to use when streaming results with `.req`. Default: 100. */
   chunkSize?: number;
 }
 
 export class NPostgres implements NRelay {
   private db: Kysely<NPostgresSchema>;
-  private fts?: boolean;
   private indexTags: (event: NostrEvent) => string[][];
-  private searchText: (event: NostrEvent) => string | undefined;
+  private indexSearch: (event: NostrEvent) => string | undefined;
   private chunkSize: number;
 
   constructor(db: Kysely<any>, opts?: NPostgresOpts) {
     this.db = db as Kysely<NPostgresSchema>;
-    this.fts = opts?.fts;
     this.indexTags = opts?.indexTags ?? NPostgres.indexTags;
-    this.searchText = opts?.searchText ?? NPostgres.searchText;
+    this.indexSearch = opts?.indexSearch ?? NPostgres.indexSearch;
     this.chunkSize = opts?.chunkSize ?? 100;
   }
 
@@ -62,7 +54,7 @@ export class NPostgres implements NRelay {
   }
 
   /** Default search content builder. */
-  static searchText(event: NostrEvent): string | undefined {
+  static indexSearch(event: NostrEvent): string | undefined {
     if (event.kind === 0 || event.kind === 1) {
       return `${event.content} ${event.tags.map(([_name, value]) => value).join(' ')}`.substring(0, 1000);
     }
@@ -81,7 +73,6 @@ export class NPostgres implements NRelay {
         await Promise.all([
           this.deleteEvents(trx, event),
           this.insertEvent(trx, event),
-          this.indexSearch(trx, event),
         ]);
       }, opts.timeout);
     });
@@ -160,9 +151,12 @@ export class NPostgres implements NRelay {
       return result;
     }, {} as Record<string, string[]>);
 
+    const searchText = this.indexSearch(event);
+
     const row: NPostgresSchema['nostr_events'] = {
       ...event,
       tags_index: tagIndex,
+      search: searchText ? sql`to_tsvector(${searchText})` : null,
       d: d ?? (NKinds.parameterizedReplaceable(event.kind) ? '' : null),
     };
 
@@ -209,23 +203,6 @@ export class NPostgres implements NRelay {
     }
   }
 
-  /** Add search data to the FTS5 table. */
-  protected async indexSearch(trx: Kysely<NPostgresSchema>, event: NostrEvent): Promise<void> {
-    if (!this.fts) return;
-
-    const content = this.searchText(event);
-    if (!content) return;
-
-    if (this.fts) {
-      await trx.insertInto('nostr_pgfts')
-        .values({
-          event_id: event.id,
-          search_vec: sql`to_tsvector(${content})`,
-        })
-        .execute();
-    }
-  }
-
   /** Build the query for a filter. */
   protected getFilterQuery(
     trx: Kysely<NPostgresSchema>,
@@ -257,15 +234,7 @@ export class NPostgres implements NRelay {
     }
 
     if (filter.search) {
-      if (this.fts) {
-        query = query
-          .innerJoin('nostr_pgfts', 'nostr_pgfts.event_id', 'nostr_events.id')
-          .where(sql`phraseto_tsquery(${filter.search})`, '@@', sql`search_vec`);
-      }
-
-      if (!this.fts) {
-        return trx.selectFrom('nostr_events').selectAll('nostr_events').where('nostr_events.id', '=', null);
-      }
+      query = query.where('nostr_events.search', '@@', sql`phraseto_tsquery(${filter.search})`);
     }
 
     for (const [key, values] of Object.entries(filter)) {
@@ -387,19 +356,10 @@ export class NPostgres implements NRelay {
 
   /** Remove events from the database. */
   protected async removeEvents(db: Kysely<NPostgresSchema>, filters: NostrFilter[]): Promise<void> {
-    return await NPostgres.trx(db, async (trx) => {
-      const query = this.getEventsQuery(trx, filters).clearSelect().select('id');
-
-      if (this.fts) {
-        await trx.deleteFrom('nostr_pgfts')
-          .where('nostr_pgfts.event_id', 'in', () => query)
-          .execute();
-      }
-
-      await trx.deleteFrom('nostr_events')
-        .where('nostr_events.id', 'in', () => query)
-        .execute();
-    });
+    await db
+      .deleteFrom('nostr_events')
+      .where('nostr_events.id', 'in', () => this.getEventsQuery(db, filters).clearSelect().select('id'))
+      .execute();
   }
 
   /** Delete events based on filters from the database. */
@@ -430,9 +390,9 @@ export class NPostgres implements NRelay {
   async transaction(callback: (store: NPostgres, kysely: Kysely<NPostgresSchema>) => Promise<void>): Promise<void> {
     await NPostgres.trx(this.db, async (trx) => {
       const store = new NPostgres(trx as Kysely<NPostgresSchema>, {
-        fts: this.fts,
         indexTags: this.indexTags,
-        searchText: this.searchText,
+        indexSearch: this.indexSearch,
+        chunkSize: this.chunkSize,
       });
 
       await callback(store, trx);
@@ -488,6 +448,7 @@ export class NPostgres implements NRelay {
       .addColumn('tags_index', 'jsonb', (col) => col.notNull())
       .addColumn('sig', 'char(128)', (col) => col.notNull())
       .addColumn('d', 'text')
+      .addColumn('search', sql`tsvector`)
       .addCheckConstraint('nostr_events_kind_positive', sql`kind >= 0`)
       .addCheckConstraint('nostr_events_created_at_positive', sql`created_at >= 0`)
       .addCheckConstraint('nostr_events_d_required', sql`kind < 30000 or kind >= 40000 or d is not null`)
@@ -533,19 +494,12 @@ export class NPostgres implements NRelay {
       .where(() => sql`kind >= 30000 and kind < 40000`)
       .execute();
 
-    if (this.fts) {
-      await schema.createTable('nostr_pgfts')
-        .ifNotExists()
-        .addColumn('event_id', 'text', (c) => c.primaryKey().references('nostr_events.id').onDelete('cascade'))
-        .addColumn('search_vec', sql`tsvector`, (c) => c.notNull())
-        .execute();
-
-      await schema.createIndex('nostr_pgfts_gin_search_vec')
-        .ifNotExists()
-        .on('nostr_pgfts')
-        .using('gin')
-        .column('search_vec')
-        .execute();
-    }
+    await schema
+      .createIndex('nostr_events_search')
+      .on('nostr_events')
+      .using('gin')
+      .ifNotExists()
+      .column('search')
+      .execute();
   }
 }

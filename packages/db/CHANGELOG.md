@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 0.31.0 - 2024-08-10
+
+### Added
+
+- Added first version of NPostgres.
+
 ### Fixed
 
 - Added tsdocs to all symbols.

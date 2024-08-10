@@ -1,6 +1,6 @@
 {
   "name": "@nostrify/db",
-  "version": "0.30.0",
+  "version": "0.31.0",
   "exports": {
     ".": "./mod.ts"
   },
@@ -8,7 +8,7 @@
     "@db/sqlite": "jsr:@db/sqlite@^0.11.1",
     "@soapbox/kysely-deno-sqlite": "jsr:@soapbox/kysely-deno-sqlite@^2.0.2",
     "kysely": "npm:kysely@^0.27.3",
-    "kysely-postgres-js": "npm:kysely-postgres-js@2.0.0",
+    "kysely-postgres-js": "npm:kysely-postgres-js@^2.0.0",
     "postgres": "https://deno.land/x/postgresjs@v3.4.4/mod.js"
   }
 }

@@ -305,6 +305,21 @@ Deno.test('NPostgres.remove', { ignore: !databaseUrl }, async () => {
   assertEquals(await store.query([{ kinds: [1] }]), []);
 });
 
+Deno.test('NPostgres.remove with multiple filters', { ignore: !databaseUrl }, async () => {
+  await using db = await createDB();
+  const { store } = db;
+
+  const event1 = genEvent({ kind: 1 });
+  const event7 = genEvent({ kind: 7, content: '+', tags: [['e', event1.id]] });
+
+  await store.event(event1);
+  await store.event(event7);
+
+  await store.remove([{ kinds: [1] }, { kinds: [7] }]);
+
+  assertEquals(await store.query([{}]), []);
+});
+
 Deno.test('NPostgres.event with a deleted event', { ignore: !databaseUrl }, async () => {
   await using db = await createDB();
   const { store } = db;

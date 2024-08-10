@@ -26,6 +26,8 @@ test:
 
 postgres:
   stage: test
+  before_script:
+    - sleep 5
   script: deno task test packages/db
   services:
     - postgres:16

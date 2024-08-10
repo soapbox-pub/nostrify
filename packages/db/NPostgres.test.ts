@@ -26,6 +26,7 @@ async function createDB(
 ): Promise<{ store: NPostgres; kysely: Kysely<NPostgresSchema>; [Symbol.asyncDispose]: () => Promise<void> }> {
   const kysely = new Kysely<NPostgresSchema>({
     dialect: new PostgresJSDialect({
+      // @ts-ignore mismatched library versions
       postgres: postgres(databaseUrl!),
     }),
     log,

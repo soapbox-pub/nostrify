@@ -173,8 +173,18 @@ export class NPostgres implements NRelay {
         .onConflict((oc) =>
           oc
             .columns(['kind', 'pubkey']).where(() => sql`kind >= 10000 and kind < 20000 or (kind in (0, 3))`)
-            .doUpdateSet(row)
-            .where((eb) =>
+            .doUpdateSet((eb) => ({
+              id: eb.ref('excluded.id'),
+              kind: eb.ref('excluded.kind'),
+              pubkey: eb.ref('excluded.pubkey'),
+              content: eb.ref('excluded.content'),
+              created_at: eb.ref('excluded.created_at'),
+              tags: eb.ref('excluded.tags'),
+              tags_index: eb.ref('excluded.tags_index'),
+              sig: eb.ref('excluded.sig'),
+              d: eb.ref('excluded.d'),
+              search: eb.ref('excluded.search'),
+            })).where((eb) =>
               eb.or([
                 eb('nostr_events.created_at', '<', eb.ref('excluded.created_at')),
                 eb.and([
@@ -191,7 +201,18 @@ export class NPostgres implements NRelay {
         .onConflict((oc) =>
           oc
             .columns(['kind', 'pubkey', 'd']).where(() => sql`kind >= 30000 and kind < 40000`)
-            .doUpdateSet(row)
+            .doUpdateSet((eb) => ({
+              id: eb.ref('excluded.id'),
+              kind: eb.ref('excluded.kind'),
+              pubkey: eb.ref('excluded.pubkey'),
+              content: eb.ref('excluded.content'),
+              created_at: eb.ref('excluded.created_at'),
+              tags: eb.ref('excluded.tags'),
+              tags_index: eb.ref('excluded.tags_index'),
+              sig: eb.ref('excluded.sig'),
+              d: eb.ref('excluded.d'),
+              search: eb.ref('excluded.search'),
+            }))
             .where((eb) =>
               eb.or([
                 eb('nostr_events.created_at', '<', eb.ref('excluded.created_at')),

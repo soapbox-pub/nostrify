@@ -10,7 +10,7 @@ export interface NPostgresSchema {
     kind: number;
     pubkey: string;
     content: string;
-    created_at: number;
+    created_at: number | bigint;
     tags: string[][];
     tags_index: Record<string, string[]>;
     sig: string;
@@ -372,7 +372,7 @@ export class NPostgres implements NRelay {
       kind: row.kind,
       pubkey: row.pubkey,
       content: row.content,
-      created_at: row.created_at,
+      created_at: Number(row.created_at),
       tags: row.tags,
       sig: row.sig,
     };
@@ -495,7 +495,7 @@ export class NPostgres implements NRelay {
       .addColumn('kind', 'integer', (col) => col.notNull())
       .addColumn('pubkey', 'char(64)', (col) => col.notNull())
       .addColumn('content', 'text', (col) => col.notNull())
-      .addColumn('created_at', 'integer', (col) => col.notNull())
+      .addColumn('created_at', 'bigint', (col) => col.notNull())
       .addColumn('tags', 'jsonb', (col) => col.notNull())
       .addColumn('tags_index', 'jsonb', (col) => col.notNull())
       .addColumn('sig', 'char(128)', (col) => col.notNull())

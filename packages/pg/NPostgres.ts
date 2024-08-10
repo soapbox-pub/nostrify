@@ -236,7 +236,6 @@ export class NPostgres implements NRelay {
     if (typeof filter.limit === 'number') {
       query = query.limit(filter.limit);
     }
-
     if (filter.search) {
       query = query.where('search', '@@', sql`phraseto_tsquery(${filter.search})`);
     }
@@ -420,17 +419,12 @@ export class NPostgres implements NRelay {
   ): Promise<T> {
     if (typeof timeout === 'number') {
       return await NPostgres.trx(db, async (trx) => {
-        await this.setTimeout(trx, timeout);
+        await sql`set local statement_timeout = ${sql.raw(timeout.toString())}`.execute(trx);
         return await callback(trx);
       });
     } else {
       return await callback(db);
     }
-  }
-
-  /** Set a timeout in the current database transaction, if applicable. */
-  private async setTimeout(trx: Kysely<NPostgresSchema>, timeout: number): Promise<void> {
-    await sql`set local statement_timeout = ${sql.raw(timeout.toString())}`.execute(trx);
   }
 
   /** Migrate the database schema. */
@@ -439,7 +433,6 @@ export class NPostgres implements NRelay {
 
     await schema
       .createTable('nostr_events')
-      .ifNotExists()
       .addColumn('id', 'char(64)', (col) => col.primaryKey())
       .addColumn('kind', 'integer', (col) => col.notNull())
       .addColumn('pubkey', 'char(64)', (col) => col.notNull())
@@ -450,57 +443,56 @@ export class NPostgres implements NRelay {
       .addColumn('sig', 'char(128)', (col) => col.notNull())
       .addColumn('d', 'text')
       .addColumn('search', sql`tsvector`)
-      .addCheckConstraint('nostr_events_kind_positive', sql`kind >= 0`)
-      .addCheckConstraint('nostr_events_created_at_positive', sql`created_at >= 0`)
-      .addCheckConstraint('nostr_events_d_required', sql`kind < 30000 or kind >= 40000 or d is not null`)
+      .addCheckConstraint('nostr_events_kind_chk', sql`kind >= 0`)
+      .addCheckConstraint('nostr_events_created_chk', sql`created_at >= 0`)
+      .addCheckConstraint('nostr_events_d_chk', sql`kind < 30000 or kind >= 40000 or d is not null`)
+      .ifNotExists()
       .execute();
 
     await schema
-      .createIndex('nostr_events_kind')
+      .createIndex('nostr_events_created_kind_idx')
       .on('nostr_events')
-      .ifNotExists()
       .columns(['created_at desc', 'id asc', 'kind', 'pubkey'])
+      .ifNotExists()
       .execute();
 
     await schema
-      .createIndex('nostr_events_pubkey')
+      .createIndex('nostr_events_pubkey_created_idx')
       .on('nostr_events')
+      .columns(['pubkey', 'created_at desc', 'id asc', 'kind'])
       .ifNotExists()
-      .columns(['created_at desc', 'id asc', 'pubkey', 'kind'])
       .execute();
 
     await schema
-      .createIndex('nostr_events_tags')
+      .createIndex('nostr_events_tags_idx').using('gin')
       .on('nostr_events')
-      .using('gin')
-      .ifNotExists()
       .column('tags_index')
+      .ifNotExists()
       .execute();
 
     await schema
-      .createIndex('nostr_events_replaceable')
-      .unique()
+      .createIndex('nostr_events_replaceable_idx')
       .on('nostr_events')
-      .ifNotExists()
       .columns(['kind', 'pubkey'])
       .where(() => sql`kind >= 10000 and kind < 20000 or (kind in (0, 3))`)
+      .unique()
+      .ifNotExists()
       .execute();
 
     await schema
-      .createIndex('nostr_events_parameterized')
-      .unique()
+      .createIndex('nostr_events_parameterized_idx')
       .on('nostr_events')
-      .ifNotExists()
       .columns(['kind', 'pubkey', 'd'])
       .where(() => sql`kind >= 30000 and kind < 40000`)
+      .unique()
+      .ifNotExists()
       .execute();
 
     await schema
-      .createIndex('nostr_events_search')
+      .createIndex('nostr_events_search_idx').using('gin')
       .on('nostr_events')
-      .using('gin')
-      .ifNotExists()
       .column('search')
+      .ifNotExists()
       .execute();
   }
 }

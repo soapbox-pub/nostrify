@@ -27,7 +27,7 @@ test:
 postgres:
   stage: test
   before_script:
-    - sleep 5
+    - bash -c 'while !</dev/tcp/postgres/5432; do sleep 1; done'
   script: deno task test packages/db
   services:
     - postgres:16

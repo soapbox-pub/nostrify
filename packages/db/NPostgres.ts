@@ -376,7 +376,8 @@ export class NPostgres implements NRelay {
       const query = this.getEventsQuery(trx, filters);
       const [{ count }] = await query
         .clearSelect()
-        .select((eb) => eb.fn.count('id').as('count'))
+        .clearOrderBy()
+        .select((eb) => eb.fn.countAll().as('count'))
         .execute();
 
       return {

@@ -150,6 +150,9 @@ export class NPostgres implements NRelay {
   protected async insertEvent(trx: Kysely<NPostgresSchema>, event: NostrEvent): Promise<void> {
     const d = event.tags.find(([name]) => name === 'd')?.[1];
 
+    const replaceable = NKinds.replaceable(event.kind);
+    const parameterized = NKinds.parameterizedReplaceable(event.kind);
+
     const tagIndex = this.indexTags(event).reduce((result, [name, value]) => {
       if (!result[name]) {
         result[name] = [];
@@ -164,15 +167,20 @@ export class NPostgres implements NRelay {
       ...event,
       tags_index: tagIndex,
       search: searchText ? sql`to_tsvector(${searchText})` : null,
-      d: d ?? (NKinds.parameterizedReplaceable(event.kind) ? '' : null),
+      d: d ?? (parameterized ? '' : null),
     };
 
-    if (NKinds.replaceable(event.kind)) {
+    if (replaceable || parameterized) {
       await trx.insertInto('nostr_events')
         .values(row)
         .onConflict((oc) =>
           oc
-            .columns(['kind', 'pubkey']).where(() => sql`kind >= 10000 and kind < 20000 or (kind in (0, 3))`)
+            .columns(replaceable ? ['kind', 'pubkey'] : ['kind', 'pubkey', 'd'])
+            .where(() =>
+              replaceable
+                ? sql`kind >= 10000 and kind < 20000 or (kind in (0, 3))`
+                : sql`kind >= 30000 and kind < 40000`
+            )
             .doUpdateSet((eb) => ({
               id: eb.ref('excluded.id'),
               kind: eb.ref('excluded.kind'),
@@ -185,35 +193,6 @@ export class NPostgres implements NRelay {
               d: eb.ref('excluded.d'),
               search: eb.ref('excluded.search'),
             })).where((eb) =>
-              eb.or([
-                eb('nostr_events.created_at', '<', eb.ref('excluded.created_at')),
-                eb.and([
-                  eb('nostr_events.created_at', '=', eb.ref('excluded.created_at')),
-                  eb('nostr_events.id', '<', eb.ref('excluded.id')),
-                ]),
-              ])
-            )
-        )
-        .execute();
-    } else if (NKinds.parameterizedReplaceable(event.kind)) {
-      await trx.insertInto('nostr_events')
-        .values(row)
-        .onConflict((oc) =>
-          oc
-            .columns(['kind', 'pubkey', 'd']).where(() => sql`kind >= 30000 and kind < 40000`)
-            .doUpdateSet((eb) => ({
-              id: eb.ref('excluded.id'),
-              kind: eb.ref('excluded.kind'),
-              pubkey: eb.ref('excluded.pubkey'),
-              content: eb.ref('excluded.content'),
-              created_at: eb.ref('excluded.created_at'),
-              tags: eb.ref('excluded.tags'),
-              tags_index: eb.ref('excluded.tags_index'),
-              sig: eb.ref('excluded.sig'),
-              d: eb.ref('excluded.d'),
-              search: eb.ref('excluded.search'),
-            }))
-            .where((eb) =>
               eb.or([
                 eb('nostr_events.created_at', '<', eb.ref('excluded.created_at')),
                 eb.and([

@@ -37,8 +37,6 @@ export interface NPostgresOpts {
    * Only applicable if `fts5` is `true`.
    */
   searchText?(event: NostrEvent): string | undefined;
-  /** Strategy to use for handling the `timeout` opt. */
-  timeoutStrategy?: 'setStatementTimeout' | undefined;
   /** Chunk size to use when streaming results with `.req`. Default: 100. */
   chunkSize?: number;
 }
@@ -48,13 +46,11 @@ export class NPostgres implements NRelay {
   private fts?: boolean;
   private indexTags: (event: NostrEvent) => string[][];
   private searchText: (event: NostrEvent) => string | undefined;
-  private timeoutStrategy: 'setStatementTimeout' | undefined;
   private chunkSize: number;
 
   constructor(db: Kysely<any>, opts?: NPostgresOpts) {
     this.db = db as Kysely<NPostgresSchema>;
     this.fts = opts?.fts;
-    this.timeoutStrategy = opts?.timeoutStrategy;
     this.indexTags = opts?.indexTags ?? NPostgres.indexTags;
     this.searchText = opts?.searchText ?? NPostgres.searchText;
     this.chunkSize = opts?.chunkSize ?? 100;
@@ -473,15 +469,7 @@ export class NPostgres implements NRelay {
 
   /** Set a timeout in the current database transaction, if applicable. */
   private async setTimeout(trx: Kysely<NPostgresSchema>, timeout: number): Promise<void> {
-    switch (this.timeoutStrategy) {
-      case 'setStatementTimeout':
-        await this.setLocal(trx, 'statement_timeout', timeout);
-    }
-  }
-
-  /** Set a local variable in the current database transaction (only works with Postgres). */
-  private async setLocal(trx: Kysely<NPostgresSchema>, key: string, value: string | number): Promise<void> {
-    await sql`set local ${sql.raw(key)} = ${sql.raw(value.toString())}`.execute(trx);
+    await sql`set local statement_timeout = ${sql.raw(timeout.toString())}`.execute(trx);
   }
 
   /** Migrate the database schema. */

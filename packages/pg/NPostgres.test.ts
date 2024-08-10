@@ -491,10 +491,7 @@ Deno.test('NPostgres.transaction', async () => {
 
 // When `statement_timeout` is 0 it's disabled, so we need to create slow queries.
 Deno.test('NPostgres timeout', async (t) => {
-  await using db = await createDB({
-    timeoutStrategy: 'setStatementTimeout',
-    fts: true,
-  });
+  await using db = await createDB({ fts: true });
 
   const { store } = db;
 

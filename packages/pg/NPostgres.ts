@@ -11,7 +11,7 @@ export interface NPostgresSchema {
     pubkey: string;
     content: string;
     created_at: number;
-    tags: string;
+    tags: string[][];
     tags_index: Record<string, string[]>;
     sig: string;
     d: string | null;
@@ -167,7 +167,6 @@ export class NPostgres implements NRelay {
     const row: NPostgresSchema['nostr_events'] = {
       ...event,
       tags_index: tagIndex,
-      tags: JSON.stringify(event.tags),
       d: d ?? (NKinds.parameterizedReplaceable(event.kind) ? '' : null),
     };
 
@@ -374,7 +373,7 @@ export class NPostgres implements NRelay {
       pubkey: row.pubkey,
       content: row.content,
       created_at: row.created_at,
-      tags: JSON.parse(row.tags),
+      tags: row.tags,
       sig: row.sig,
     };
   }
@@ -497,7 +496,7 @@ export class NPostgres implements NRelay {
       .addColumn('pubkey', 'char(64)', (col) => col.notNull())
       .addColumn('content', 'text', (col) => col.notNull())
       .addColumn('created_at', 'integer', (col) => col.notNull())
-      .addColumn('tags', 'text', (col) => col.notNull())
+      .addColumn('tags', 'jsonb', (col) => col.notNull())
       .addColumn('tags_index', 'jsonb', (col) => col.notNull())
       .addColumn('sig', 'char(128)', (col) => col.notNull())
       .addColumn('d', 'text')

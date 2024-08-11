@@ -167,7 +167,7 @@ export class NPostgres implements NRelay {
       ...event,
       tags_index: tagIndex,
       search: searchText ? sql`to_tsvector(${searchText})` : null,
-      d: d ?? (parameterized ? '' : null),
+      d: parameterized ? d ?? '' : null,
     };
 
     if (replaceable || parameterized) {
@@ -445,7 +445,10 @@ export class NPostgres implements NRelay {
       .addColumn('search', sql`tsvector`)
       .addCheckConstraint('nostr_events_kind_chk', sql`kind >= 0`)
       .addCheckConstraint('nostr_events_created_chk', sql`created_at >= 0`)
-      .addCheckConstraint('nostr_events_d_chk', sql`kind < 30000 or kind >= 40000 or d is not null`)
+      .addCheckConstraint(
+        'nostr_events_d_chk',
+        sql`(kind >= 30000 and kind < 40000 and d is not null) or ((kind < 30000 or kind >= 40000) and d is null)`,
+      )
       .ifNotExists()
       .execute();
 

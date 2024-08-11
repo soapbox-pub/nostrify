@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+- NPostgres: only set the `d` tag on parameterized events.
+
 ## 0.31.1 - 2024-08-10
 
 ### Fixed

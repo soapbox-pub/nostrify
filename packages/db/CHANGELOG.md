@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Removed
+
+- BREAKING: NDatabase: remove `timeout` opt.
+
 ## 0.31.2 - 2024-08-12
 
 ### Fixed

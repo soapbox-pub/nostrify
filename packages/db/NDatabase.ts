@@ -47,8 +47,6 @@ export interface NDatabaseOpts {
    * Only applicable if `fts5` is `true`.
    */
   searchText?(event: NostrEvent): string | undefined;
-  /** Strategy to use for handling the `timeout` opt. */
-  timeoutStrategy?: 'setStatementTimeout' | undefined;
   /** Chunk size to use when streaming results with `.req`. Default: 100. */
   chunkSize?: number;
 }
@@ -82,13 +80,11 @@ export class NDatabase implements NRelay {
   private fts?: 'sqlite' | 'postgres';
   private indexTags: (event: NostrEvent) => string[][];
   private searchText: (event: NostrEvent) => string | undefined;
-  private timeoutStrategy: 'setStatementTimeout' | undefined;
   private chunkSize: number;
 
   constructor(db: Kysely<any>, opts?: NDatabaseOpts) {
     this.db = db as Kysely<NDatabaseSchema>;
     this.fts = opts?.fts;
-    this.timeoutStrategy = opts?.timeoutStrategy;
     this.indexTags = opts?.indexTags ?? NDatabase.indexTags;
     this.searchText = opts?.searchText ?? NDatabase.searchText;
     this.chunkSize = opts?.chunkSize ?? 100;
@@ -107,24 +103,22 @@ export class NDatabase implements NRelay {
   }
 
   /** Insert an event (and its tags) into the database. */
-  async event(event: NostrEvent, opts: { signal?: AbortSignal; timeout?: number } = {}): Promise<void> {
+  async event(event: NostrEvent, _opts: { signal?: AbortSignal } = {}): Promise<void> {
     if (NKinds.ephemeral(event.kind)) return;
 
     if (await this.isDeleted(event)) {
       throw new Error('Cannot add a deleted event');
     }
-    return await NDatabase.trx(this.db, (trx) => {
-      return this.withTimeout(trx, async (trx) => {
-        await Promise.all([
-          this.deleteEvents(trx, event),
-          this.replaceEvents(trx, event),
-        ]);
-        await this.insertEvent(trx, event);
-        await Promise.all([
-          this.insertTags(trx, event),
-          this.indexSearch(trx, event),
-        ]);
-      }, opts.timeout);
+    return await NDatabase.trx(this.db, async (trx) => {
+      await Promise.all([
+        this.deleteEvents(trx, event),
+        this.replaceEvents(trx, event),
+      ]);
+      await this.insertEvent(trx, event);
+      await Promise.all([
+        this.insertTags(trx, event),
+        this.indexSearch(trx, event),
+      ]);
     }).catch((error) => {
       // Don't throw for duplicate events.
       if (error.message.includes('UNIQUE constraint failed')) {
@@ -460,7 +454,7 @@ export class NDatabase implements NRelay {
   /** Get events for filters from the database. */
   async query(
     filters: NostrFilter[],
-    opts: { timeout?: number; signal?: AbortSignal; limit?: number } = {},
+    opts: { signal?: AbortSignal; limit?: number } = {},
   ): Promise<NostrEvent[]> {
     filters = this.normalizeFilters(filters);
 
@@ -468,16 +462,14 @@ export class NDatabase implements NRelay {
       return [];
     }
 
-    return await this.withTimeout(this.db, async (trx) => {
-      let query = this.getEventsQuery(trx, filters);
+    let query = this.getEventsQuery(this.db, filters);
 
-      if (typeof opts.limit === 'number') {
-        query = query.limit(opts.limit);
-      }
+    if (typeof opts.limit === 'number') {
+      query = query.limit(opts.limit);
+    }
 
-      return (await query.execute())
-        .map((row) => NDatabase.parseEventRow(row));
-    }, opts.timeout);
+    return (await query.execute())
+      .map((row) => NDatabase.parseEventRow(row));
   }
 
   /** Parse an event row from the database. */
@@ -528,27 +520,26 @@ export class NDatabase implements NRelay {
   }
 
   /** Delete events based on filters from the database. */
-  async remove(filters: NostrFilter[], opts: { signal?: AbortSignal; timeout?: number } = {}): Promise<void> {
-    await this.withTimeout(this.db, (trx) => this.removeEvents(trx, filters), opts.timeout);
+  async remove(filters: NostrFilter[], _opts: { signal?: AbortSignal } = {}): Promise<void> {
+    await NDatabase.trx(this.db, (trx) => this.removeEvents(trx, filters));
   }
 
   /** Get number of events that would be returned by filters. */
   async count(
     filters: NostrFilter[],
-    opts: { signal?: AbortSignal; timeout?: number } = {},
+    _opts: { signal?: AbortSignal } = {},
   ): Promise<{ count: number; approximate: false }> {
-    return await this.withTimeout(this.db, async (trx) => {
-      const query = this.getEventsQuery(trx, filters);
-      const [{ count }] = await query
-        .clearSelect()
-        .select((eb) => eb.fn.count('nostr_events.id').as('count'))
-        .execute();
+    const query = this.getEventsQuery(this.db, filters);
 
-      return {
-        count: Number(count),
-        approximate: false,
-      };
-    }, opts.timeout);
+    const [{ count }] = await query
+      .clearSelect()
+      .select((eb) => eb.fn.count('nostr_events.id').as('count'))
+      .execute();
+
+    return {
+      count: Number(count),
+      approximate: false,
+    };
   }
 
   /** Execute NDatabase functions in a transaction. */
@@ -574,35 +565,6 @@ export class NDatabase implements NRelay {
     } else {
       return await db.transaction().execute((trx) => callback(trx));
     }
-  }
-
-  /** Maybe execute the callback in a transaction with a timeout, if a timeout is provided. */
-  private async withTimeout<T>(
-    db: Kysely<NDatabaseSchema>,
-    callback: (trx: Kysely<NDatabaseSchema>) => Promise<T>,
-    timeout: number | undefined,
-  ): Promise<T> {
-    if (typeof timeout === 'number') {
-      return await NDatabase.trx(db, async (trx) => {
-        await this.setTimeout(trx, timeout);
-        return await callback(trx);
-      });
-    } else {
-      return await callback(db);
-    }
-  }
-
-  /** Set a timeout in the current database transaction, if applicable. */
-  private async setTimeout(trx: Kysely<NDatabaseSchema>, timeout: number): Promise<void> {
-    switch (this.timeoutStrategy) {
-      case 'setStatementTimeout':
-        await this.setLocal(trx, 'statement_timeout', timeout);
-    }
-  }
-
-  /** Set a local variable in the current database transaction (only works with Postgres). */
-  private async setLocal(trx: Kysely<NDatabaseSchema>, key: string, value: string | number): Promise<void> {
-    await sql`set local ${sql.raw(key)} = ${sql.raw(value.toString())}`.execute(trx);
   }
 
   /** Migrate the database schema. */

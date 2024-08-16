@@ -1,10 +1,10 @@
 import { Database as Sqlite } from '@db/sqlite';
-import { NostrEvent, NostrFilter } from '@nostrify/types';
+import { NostrEvent } from '@nostrify/types';
 import { DenoSqlite3Dialect } from '@soapbox/kysely-deno-sqlite';
 import { assert, assertEquals, assertRejects } from '@std/assert';
 import { Kysely, LogConfig, LogEvent } from 'kysely';
 import { PostgresJSDialect } from 'kysely-postgres-js';
-import { finalizeEvent, generateSecretKey, matchFilters } from 'nostr-tools';
+import { matchFilters } from 'nostr-tools';
 import postgres from 'postgres';
 
 import { NDatabase, NDatabaseOpts, NDatabaseSchema } from './NDatabase.ts';
@@ -514,87 +514,6 @@ Deno.test('NDatabase.transaction', async () => {
 
   assertEquals(await store.query([{ kinds: [0] }]), [event0]);
   assertEquals(await store.query([{ kinds: [1] }]), [event1]);
-});
-
-// When `statement_timeout` is 0 it's disabled, so we need to create slow queries.
-Deno.test('NDatabase timeout', { ignore: dialect !== 'postgres' }, async (t) => {
-  await using db = await createDB({
-    timeoutStrategy: 'setStatementTimeout',
-    fts: 'postgres',
-  });
-
-  const { store } = db;
-
-  // Setup
-  await withoutDebug(async () => {
-    await Promise.all(events.map((event) => store.event(event)));
-  });
-
-  await t.step('Slow event (lots of tags)', async () => {
-    await assertRejects(
-      () =>
-        store.event(
-          finalizeEvent({
-            kind: 1,
-            content: 'hello world!',
-            created_at: Math.floor(Date.now() / 1000),
-            tags: new Array(300).fill(['p', '570a9c85c7dd56eca0d8c7f258d7fc178f1b2bb3aab4136ba674dc4879eee88a']),
-          }, generateSecretKey()),
-          { timeout: 1 },
-        ),
-      postgres.PostgresError,
-      'canceling statement due to statement timeout',
-    );
-  });
-
-  const slowFilters: NostrFilter[] = [
-    {
-      search:
-        'Block #: 836,386\nPrice: $70,219\nSats/$: 1,424\nFee: 23 sat/vB\nHashrate: 538 EH/s\nDifficulty: 83T nonces\nNodes: 7,685\nFull-node size: 521 GB',
-    },
-  ];
-
-  await t.step('Slow query', async () => {
-    await assertRejects(
-      () => db.store.query(slowFilters, { timeout: 1 }),
-      postgres.PostgresError,
-      'canceling statement due to statement timeout',
-    );
-  });
-
-  await t.step('Slow count', async () => {
-    await assertRejects(
-      () => db.store.count(slowFilters, { timeout: 1 }),
-      postgres.PostgresError,
-      'canceling statement due to statement timeout',
-    );
-  });
-
-  await t.step("Check that the previous query's timeout doesn't impact the next query", async () => {
-    await store.count(slowFilters);
-  });
-
-  await t.step('Slow remove', async () => {
-    await assertRejects(
-      () => db.store.remove(slowFilters, { timeout: 1 }),
-      postgres.PostgresError,
-      'canceling statement due to statement timeout',
-    );
-  });
-
-  await t.step("Sanity check that a query with timeout doesn't throw an error", async () => {
-    await store.event(event0, { timeout: 1000 });
-  });
-});
-
-Deno.test('NDatabase timeout has no effect on SQLite', { ignore: dialect === 'postgres' }, async () => {
-  await using db = await createDB();
-  const { store } = db;
-
-  await store.event(event0, { timeout: 1 });
-  await store.query([{ kinds: [0] }], { timeout: 1 });
-  await store.count([{ kinds: [0] }], { timeout: 1 });
-  await store.remove([{ kinds: [0] }], { timeout: 1 });
 });
 
 Deno.test('NDatabase.req streams events', async () => {

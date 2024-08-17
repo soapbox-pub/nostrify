@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - BREAKING: NDatabase: remove `timeout` opt.
+- BREAKING: NDatabase: remove extra tag columns.
+- BREAKING: NDatabase: remove Postgres FTS support.
 
 ## 0.31.2 - 2024-08-12
 

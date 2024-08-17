@@ -102,8 +102,8 @@ Deno.test('NDatabase.migrate', async () => {
   await using _db = await createDB();
 });
 
-Deno.test('NDatabase.migrate with fts', async () => {
-  await using _db = await createDB({ fts: dialect });
+Deno.test('NDatabase.migrate with fts', { ignore: dialect !== 'sqlite' }, async () => {
+  await using _db = await createDB({ fts: 'sqlite' });
 });
 
 Deno.test('NDatabase.migrate twice', async () => {
@@ -264,8 +264,8 @@ Deno.test('NDatabase.query tag query with non-tag query', async () => {
   assertEquals(results, []);
 });
 
-Deno.test('NDatabase.query with search', async (t) => {
-  await using db = await createDB({ fts: dialect });
+Deno.test('NDatabase.query with search', { ignore: dialect !== 'sqlite' }, async (t) => {
+  await using db = await createDB({ fts: 'sqlite' });
   const { store } = db;
 
   await store.event(event0);

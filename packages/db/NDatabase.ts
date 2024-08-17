@@ -18,24 +18,17 @@ export interface NDatabaseSchema {
     event_id: string;
     name: string;
     value: string;
-    kind: number;
-    pubkey: string;
-    created_at: number;
   };
   nostr_fts5: {
     event_id: string;
     content: string;
   };
-  nostr_pgfts: {
-    event_id: string;
-    search_vec: unknown;
-  };
 }
 
 /** Options object for the NDatabase constructor. */
 export interface NDatabaseOpts {
-  /** Enable full-text-search for Postgres or SQLite. Disabled by default. */
-  fts?: 'sqlite' | 'postgres';
+  /** Enable full-text-search for SQLite. Disabled by default. */
+  fts?: 'sqlite';
   /**
    * Function that returns which tags to index so tag queries like `{ "#p": ["123"] }` will work.
    * By default, all single-letter tags are indexed.
@@ -77,7 +70,7 @@ export interface NDatabaseOpts {
  */
 export class NDatabase implements NRelay {
   private db: Kysely<NDatabaseSchema>;
-  private fts?: 'sqlite' | 'postgres';
+  private fts?: 'sqlite';
   private indexTags: (event: NostrEvent) => string[][];
   private searchText: (event: NostrEvent) => string | undefined;
   private chunkSize: number;
@@ -248,15 +241,6 @@ export class NDatabase implements NRelay {
         .values({ event_id: event.id, content })
         .execute();
     }
-
-    if (this.fts === 'postgres') {
-      await trx.insertInto('nostr_pgfts')
-        .values({
-          event_id: event.id,
-          search_vec: sql`to_tsvector(${content})`,
-        })
-        .execute();
-    }
   }
 
   /** Delete events that are replaced by the new event. */
@@ -313,90 +297,22 @@ export class NDatabase implements NRelay {
           .where('nostr_fts5.content', 'match', JSON.stringify(filter.search));
       }
 
-      if (this.fts === 'postgres') {
-        query = query
-          .innerJoin('nostr_pgfts', 'nostr_pgfts.event_id', 'nostr_events.id')
-          .where(sql`phraseto_tsquery(${filter.search})`, '@@', sql`search_vec`);
-      }
-
       if (!this.fts) {
         return trx.selectFrom('nostr_events').selectAll('nostr_events').where('nostr_events.id', '=', null);
       }
     }
 
-    const tagSubqueries = Object.entries(filter).reduce(
-      (acc, [key, value]) => {
-        if (key.startsWith('#') && Array.isArray(value)) {
-          const name = key.replace(/^#/, '');
-
-          let subquery = trx
-            .selectFrom('nostr_tags')
-            .select(['nostr_tags.event_id', 'nostr_tags.created_at'])
-            .distinct()
-            .where('nostr_tags.name', '=', name)
-            .where('nostr_tags.value', 'in', value)
-            .orderBy('nostr_tags.created_at', 'desc')
-            .orderBy('nostr_tags.event_id', 'asc');
-
-          if (filter.ids) {
-            subquery = subquery.where('nostr_tags.event_id', 'in', filter.ids);
-          }
-          if (filter.kinds) {
-            subquery = subquery.where('nostr_tags.kind', 'in', filter.kinds);
-          }
-          if (filter.authors) {
-            subquery = subquery.where('nostr_tags.pubkey', 'in', filter.authors);
-          }
-          if (typeof filter.since === 'number') {
-            subquery = subquery.where('nostr_tags.created_at', '>=', filter.since);
-          }
-          if (typeof filter.until === 'number') {
-            subquery = subquery.where('nostr_tags.created_at', '<=', filter.until);
-          }
-
-          acc.push(subquery);
-        }
-        return acc;
-      },
-      [] as SelectQueryBuilder<NDatabaseSchema, 'nostr_tags', { event_id: string; created_at: number }>[],
-    );
-
-    if (tagSubqueries.length) {
-      const tagSubquery = trx.selectFrom(() =>
-        tagSubqueries
-          .map((query) => trx.selectFrom(() => query.as('nostr_tags')).selectAll('nostr_tags'))
-          .reduce((result, query) => result.intersect(query))
-          .as('nostr_tags')
-      )
-        .select(['nostr_tags.event_id', 'nostr_tags.created_at']);
-
-      let tagQuery = trx
-        .selectFrom('nostr_events')
-        .selectAll('nostr_events')
-        .where('nostr_events.id', 'in', (eb) => {
-          let subquery = trx
-            .selectFrom(() => tagSubquery.as('nostr_tags'))
-            .select(['nostr_tags.event_id', 'nostr_tags.created_at'])
-            .distinct()
-            .orderBy('nostr_tags.created_at', 'desc')
-            .orderBy('nostr_tags.event_id', 'asc');
-
-          if (typeof filter.limit === 'number') {
-            subquery = subquery.limit(filter.limit);
-          }
-
-          return eb
-            .selectFrom(subquery.as('nostr_tags'))
-            .select('nostr_tags.event_id');
-        })
-        .orderBy('nostr_events.created_at', 'desc')
-        .orderBy('nostr_events.id', 'asc');
-
-      if (typeof filter.limit === 'number') {
-        tagQuery = tagQuery.limit(filter.limit);
+    let i = 0;
+    for (const [key, value] of Object.entries(filter)) {
+      if (key.startsWith('#') && Array.isArray(value)) {
+        const name = key.replace(/^#/, '');
+        const alias = `tag${i++}` as const;
+        // @ts-ignore String interpolation confuses Kysely.
+        query = query
+          .innerJoin(`nostr_tags as ${alias}`, `${alias}.event_id`, 'nostr_events.id')
+          .where(`${alias}.name`, '=', name)
+          .where(`${alias}.value`, 'in', value);
       }
-
-      return tagQuery;
     }
 
     return query;
@@ -507,12 +423,6 @@ export class NDatabase implements NRelay {
           .execute();
       }
 
-      if (this.fts === 'postgres') {
-        await trx.deleteFrom('nostr_pgfts')
-          .where('nostr_pgfts.event_id', 'in', () => query)
-          .execute();
-      }
-
       await trx.deleteFrom('nostr_events')
         .where('nostr_events.id', 'in', () => query)
         .execute();
@@ -595,7 +505,7 @@ export class NDatabase implements NRelay {
       .execute();
 
     await schema
-      .createIndex('nostr_events_replaceable')
+      .createIndex('nostr_events_replaceable_idx')
       .unique()
       .on('nostr_events')
       .ifNotExists()
@@ -603,48 +513,27 @@ export class NDatabase implements NRelay {
       .where(() => sql`kind >= 10000 and kind < 20000 or (kind in (0, 3))`)
       .execute();
     await schema
-      .createIndex('nostr_events_kind')
+      .createIndex('nostr_events_kind_idx')
       .on('nostr_events')
       .ifNotExists()
       .columns(['created_at desc', 'id asc', 'kind', 'pubkey'])
       .execute();
     await schema
-      .createIndex('nostr_events_pubkey')
+      .createIndex('nostr_events_pubkey_idx')
       .on('nostr_events')
       .ifNotExists()
       .columns(['created_at desc', 'id asc', 'pubkey', 'kind'])
       .execute();
 
     await schema
-      .createIndex('nostr_tags_kind')
+      .createIndex('nostr_tags_value_name_idx')
       .on('nostr_tags')
       .ifNotExists()
-      .columns(['created_at desc', 'event_id asc', 'value', 'name', 'kind', 'pubkey'])
-      .execute();
-    await schema
-      .createIndex('nostr_tags_pubkey')
-      .on('nostr_tags')
-      .ifNotExists()
-      .columns(['created_at desc', 'event_id asc', 'value', 'name', 'pubkey', 'kind'])
+      .columns(['value', 'name'])
       .execute();
 
     if (this.fts === 'sqlite') {
       await sql`CREATE VIRTUAL TABLE nostr_fts5 USING fts5(event_id, content)`.execute(this.db);
-    }
-
-    if (this.fts === 'postgres') {
-      await schema.createTable('nostr_pgfts')
-        .ifNotExists()
-        .addColumn('event_id', 'text', (c) => c.primaryKey().references('nostr_events.id').onDelete('cascade'))
-        .addColumn('search_vec', sql`tsvector`, (c) => c.notNull())
-        .execute();
-
-      await schema.createIndex('nostr_pgfts_gin_search_vec')
-        .ifNotExists()
-        .on('nostr_pgfts')
-        .using('gin')
-        .column('search_vec')
-        .execute();
     }
   }
 }

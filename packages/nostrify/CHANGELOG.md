@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## 0.30.1 - 2024-08-27
+
+### Fixed
+
+- NPool: don't throw when the relay list is empty.
+
 ## 0.30.0 - 2024-08-05
 
 ### Added

@@ -68,6 +68,9 @@ export class NPool implements NRelay {
     const signal = opts?.signal ? AbortSignal.any([opts.signal, controller.signal]) : controller.signal;
 
     const routes = await this.opts.reqRouter(filters);
+    if (routes.size < 1) {
+      return;
+    }
     const machina = new Machina<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>(signal);
 
     const eoses = new Set<WebSocket['url']>();
@@ -107,6 +110,9 @@ export class NPool implements NRelay {
 
   async event(event: NostrEvent, opts?: { signal?: AbortSignal }): Promise<void> {
     const relayUrls = await this.opts.eventRouter(event);
+    if (relayUrls.length < 1) {
+      return;
+    }
 
     await Promise.any(
       relayUrls.map((url) => this.relay(url).event(event, opts)),

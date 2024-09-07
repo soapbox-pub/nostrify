@@ -85,7 +85,7 @@ export class LNURL {
 
   /** Decode an LNURL into a URL. */
   static decode(lnurl: string, limit = 20000): URL {
-    const { prefix, words } = bech32.decode(lnurl, limit);
+    const { prefix, words } = bech32.decode(lnurl as `lnurl1${string}`, limit);
     if (prefix !== 'lnurl') throw new Error('Invalid LNURL');
     const data = new Uint8Array(bech32.fromWords(words));
     return new URL(new TextDecoder().decode(data));

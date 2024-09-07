@@ -218,10 +218,8 @@ export class NDatabase implements NRelay {
 
   /** Insert event tags depending on the event and settings. */
   protected async insertTags(trx: Kysely<NDatabaseSchema>, event: NostrEvent): Promise<void> {
-    const { id, kind, pubkey, created_at } = event;
-
     const tags = this.indexTags(event);
-    const rows = tags.map(([name, value]) => ({ event_id: id, name, value, kind, pubkey, created_at }));
+    const rows = tags.map(([name, value]) => ({ event_id: event.id, name, value }));
 
     if (!tags.length) return;
     await trx.insertInto('nostr_tags')
@@ -499,9 +497,6 @@ export class NDatabase implements NRelay {
       .addColumn('event_id', 'text', (col) => col.notNull().references('nostr_events.id').onDelete('cascade'))
       .addColumn('name', 'text', (col) => col.notNull())
       .addColumn('value', 'text', (col) => col.notNull())
-      .addColumn('kind', 'integer', (col) => col.notNull())
-      .addColumn('pubkey', 'text', (col) => col.notNull())
-      .addColumn('created_at', 'integer', (col) => col.notNull())
       .execute();
 
     await schema

@@ -1,4 +1,5 @@
 import { Database as Sqlite } from '@db/sqlite';
+import { jsonlEvents } from '@nostrify/nostrify/test';
 import { NostrEvent } from '@nostrify/types';
 import { DenoSqlite3Dialect } from '@soapbox/kysely-deno-sqlite';
 import { assert, assertEquals, assertRejects } from '@std/assert';
@@ -90,12 +91,6 @@ async function withoutDebug(callback: () => Promise<void>) {
   if (typeof DEBUG === 'string') {
     Deno.env.set('DEBUG', DEBUG);
   }
-}
-
-/** Import a JSONL fixture by name in tests. */
-export async function jsonlEvents(path: string): Promise<NostrEvent[]> {
-  const data = await Deno.readTextFile(path);
-  return data.split('\n').map((line) => JSON.parse(line));
 }
 
 Deno.test('NDatabase.migrate', async () => {

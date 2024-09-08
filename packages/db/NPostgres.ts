@@ -445,6 +445,8 @@ export class NPostgres implements NRelay {
       .addColumn('search', sql`tsvector`)
       .addCheckConstraint('nostr_events_kind_chk', sql`kind >= 0`)
       .addCheckConstraint('nostr_events_created_chk', sql`created_at >= 0`)
+      .addCheckConstraint('nostr_events_tags_chk', sql`jsonb_typeof(tags) = 'array'`)
+      .addCheckConstraint('nostr_events_tags_index_chk', sql`jsonb_typeof(tags_index) = 'object'`)
       .addCheckConstraint(
         'nostr_events_d_chk',
         sql`(kind >= 30000 and kind < 40000 and d is not null) or ((kind < 30000 or kind >= 40000) and d is null)`,

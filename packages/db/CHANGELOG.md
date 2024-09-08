@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- NPostgres: add checks to ensure tags are arrays, tags_index is object.
+
 ### Removed
 
 - BREAKING: NDatabase: remove `timeout` opt.

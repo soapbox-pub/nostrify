@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added ReplyBotPolicy to block replies from bots in the same second.
 - Added AuthorPolicy to reject events from authors without a kind 0, or with a particular kind 0.
 
+### Changed
+
+- BREAKING: Moved moderation policies to the `@nostrify/policies` package. Replace `@nostrify/nostrify/policies` with `@nostrify/policies` in your project.
+
 ## 0.30.1 - 2024-08-27
 
 ### Fixed

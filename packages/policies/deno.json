@@ -1,0 +1,7 @@
+{
+  "name": "@nostrify/policies",
+  "version": "0.31.0",
+  "exports": {
+    ".": "./mod.ts"
+  }
+}

@@ -22,9 +22,9 @@ import { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
 export class PipePolicy implements NPolicy {
   constructor(private policies: NPolicy[]) {}
 
-  async call(event: NostrEvent): Promise<NostrRelayOK> {
+  async call(event: NostrEvent, signal?: AbortSignal): Promise<NostrRelayOK> {
     for (const policy of this.policies) {
-      const [_, eventId, ok, reason] = await policy.call(event);
+      const [_, eventId, ok, reason] = await policy.call(event, signal);
 
       if (!ok) {
         return [_, eventId, ok, reason];

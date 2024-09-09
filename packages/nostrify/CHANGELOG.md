@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## 0.31.0 - 2024-09-09
+
 ### Added
 
 - Added ReplyBotPolicy to block replies from bots in the same second.
@@ -15,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - BREAKING: Moved moderation policies to the `@nostrify/policies` package. Replace `@nostrify/nostrify/policies` with `@nostrify/policies` in your project.
+
+### Fixed
+
+- BlossomUploader: fixed Authorization header.
 
 ## 0.30.1 - 2024-08-27
 

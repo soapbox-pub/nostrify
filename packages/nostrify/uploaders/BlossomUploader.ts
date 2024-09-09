@@ -49,7 +49,7 @@ export class BlossomUploader implements NUploader {
       ],
     });
 
-    const authorization = `Nostr ${N64.encodeEvent(event)}}`;
+    const authorization = `Nostr ${N64.encodeEvent(event)}`;
 
     return Promise.any(this.servers.map(async (server) => {
       const url = new URL('/upload', server);

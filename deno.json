@@ -5,6 +5,7 @@
     "./packages/denokv",
     "./packages/ndk",
     "./packages/nostrify",
+    "./packages/policies",
     "./packages/types",
     "./packages/welshman"
   ],

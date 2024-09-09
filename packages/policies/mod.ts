@@ -1,5 +1,6 @@
 export { AntiDuplicationPolicy } from './AntiDuplicationPolicy.ts';
 export { AnyPolicy } from './AnyPolicy.ts';
+export { AuthorPolicy } from './AuthorPolicy.ts';
 export { FiltersPolicy } from './FiltersPolicy.ts';
 export { HashtagPolicy } from './HashtagPolicy.ts';
 export { HellthreadPolicy } from './HellthreadPolicy.ts';
@@ -12,5 +13,6 @@ export { PowPolicy } from './PowPolicy.ts';
 export { PubkeyBanPolicy } from './PubkeyBanPolicy.ts';
 export { ReadOnlyPolicy } from './ReadOnlyPolicy.ts';
 export { RegexPolicy } from './RegexPolicy.ts';
+export { ReplyBotPolicy } from './ReplyBotPolicy.ts';
 export { SizePolicy } from './SizePolicy.ts';
 export { WhitelistPolicy } from './WhitelistPolicy.ts';

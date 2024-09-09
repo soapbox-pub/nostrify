@@ -9,5 +9,5 @@ import { NostrRelayOK } from './NostrRelayMsg.ts';
  */
 export interface NPolicy {
   /** Invoke the policy. If `ok` is set to false, the application should not store or display the message. */
-  call(event: NostrEvent): Promise<NostrRelayOK>;
+  call(event: NostrEvent, signal?: AbortSignal): Promise<NostrRelayOK>;
 }

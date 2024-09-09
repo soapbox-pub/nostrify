@@ -18,7 +18,7 @@ Deno.test('rejects flagged events', async () => {
       ),
     );
 
-  assertEquals((await new OpenAIPolicy({ apiKey: '', fetch, timeout }).call(event))[2], false);
+  assertEquals((await new OpenAIPolicy({ apiKey: '', fetch }).call(event, AbortSignal.timeout(timeout)))[2], false);
 
   await new Promise((resolve) => setTimeout(resolve, timeout));
 });
@@ -36,7 +36,7 @@ Deno.test('accepts unflagged events', async () => {
       ),
     );
 
-  assertEquals((await new OpenAIPolicy({ apiKey: '', fetch, timeout }).call(event))[2], false);
+  assertEquals((await new OpenAIPolicy({ apiKey: '', fetch }).call(event, AbortSignal.timeout(timeout)))[2], false);
 
   await new Promise((resolve) => setTimeout(resolve, timeout));
 });

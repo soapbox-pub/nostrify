@@ -14,14 +14,14 @@ export interface ReplyBotPolicyOpts {
 export class ReplyBotPolicy implements NPolicy {
   constructor(private opts: ReplyBotPolicyOpts) {}
 
-  async call(event: NostrEvent): Promise<NostrRelayOK> {
+  async call(event: NostrEvent, signal?: AbortSignal): Promise<NostrRelayOK> {
     const { store, threshold = 1, kinds = [1] } = this.opts;
 
     if (kinds.includes(event.kind)) {
       const [, replyToId] = ReplyBotPolicy.findReplyTag(event.tags) ?? [];
 
       if (replyToId) {
-        const [prevEvent] = await store.query([{ ids: [replyToId] }]);
+        const [prevEvent] = await store.query([{ ids: [replyToId] }], { signal });
 
         if (prevEvent) {
           const diff = event.created_at - prevEvent.created_at;

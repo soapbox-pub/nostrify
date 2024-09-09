@@ -42,8 +42,6 @@ interface OpenAIPolicyOpts {
   endpoint?: string;
   /** Custom fetch implementation. */
   fetch?: typeof fetch;
-  /** Timeout for the fetch request. */
-  timeout?: number;
   /** Which event kinds to apply the policy to. */
   kinds?: number[];
   /** OpenAI API key for making the requests. */
@@ -79,11 +77,10 @@ interface OpenAIPolicyOpts {
 export class OpenAIPolicy implements NPolicy {
   constructor(private opts: OpenAIPolicyOpts) {}
 
-  async call(event: NostrEvent): Promise<NostrRelayOK> {
+  async call(event: NostrEvent, signal?: AbortSignal): Promise<NostrRelayOK> {
     const {
       handler = (_, { results }) => results.some((r) => r.flagged),
       endpoint = 'https://api.openai.com/v1/moderations',
-      timeout = 1000,
       kinds = [1, 30023],
       apiKey,
     } = this.opts;
@@ -98,7 +95,7 @@ export class OpenAIPolicy implements NPolicy {
           body: JSON.stringify({
             input: event.content,
           }),
-          signal: AbortSignal.timeout(timeout),
+          signal,
         });
 
         const result = await resp.json();

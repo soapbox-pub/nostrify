@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 0.33.1 - 2024-09-11
+
+### Fixed
+
+- AuthorPolicy: treat kind 0s as its own author
+
 ## 0.33.0 - 2024-09-09
 
 ### Fixed

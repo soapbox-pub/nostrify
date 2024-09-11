@@ -5,7 +5,9 @@ export class AuthorPolicy implements NPolicy {
   constructor(private store: NStore, private policy?: NPolicy) {}
 
   async call(event: NostrEvent): Promise<NostrRelayOK> {
-    const [author] = await this.store.query([{ kinds: [0], authors: [event.pubkey], limit: 1 }]);
+    const author: NostrEvent | undefined = event.kind === 0
+      ? event
+      : await this.store.query([{ kinds: [0], authors: [event.pubkey], limit: 1 }]).then(([event]) => event);
 
     if (!author) {
       return ['OK', event.id, false, 'blocked: author is missing a kind 0 event'];

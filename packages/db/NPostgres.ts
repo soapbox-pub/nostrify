@@ -370,7 +370,7 @@ export class NPostgres implements NRelay {
   async count(
     filters: NostrFilter[],
     opts: { signal?: AbortSignal; timeout?: number } = {},
-  ): Promise<{ count: number; approximate: false }> {
+  ): Promise<{ count: number; approximate: boolean }> {
     return await this.withTimeout(this.db, async (trx) => {
       const query = this.getEventsQuery(trx, filters);
       const [{ count }] = await query

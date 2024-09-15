@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 0.32.0 - 2024-09-15
+
 ### Fixed
 
 - NPostgres: prefixed columns with table name in queries.

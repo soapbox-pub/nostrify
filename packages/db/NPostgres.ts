@@ -215,29 +215,29 @@ export class NPostgres implements NRelay {
     let query = trx
       .selectFrom('nostr_events')
       .selectAll()
-      .orderBy('created_at', 'desc')
-      .orderBy('id', 'asc');
+      .orderBy('nostr_events.created_at', 'desc')
+      .orderBy('nostr_events.id', 'asc');
 
     if (filter.ids) {
-      query = query.where('id', '=', ({ fn, val }) => fn.any(val(filter.ids)));
+      query = query.where('nostr_events.id', '=', ({ fn, val }) => fn.any(val(filter.ids)));
     }
     if (filter.kinds) {
-      query = query.where('kind', '=', ({ fn, val }) => fn.any(val(filter.kinds)));
+      query = query.where('nostr_events.kind', '=', ({ fn, val }) => fn.any(val(filter.kinds)));
     }
     if (filter.authors) {
-      query = query.where('pubkey', '=', ({ fn, val }) => fn.any(val(filter.authors)));
+      query = query.where('nostr_events.pubkey', '=', ({ fn, val }) => fn.any(val(filter.authors)));
     }
     if (typeof filter.since === 'number') {
-      query = query.where('created_at', '>=', filter.since);
+      query = query.where('nostr_events.created_at', '>=', filter.since);
     }
     if (typeof filter.until === 'number') {
-      query = query.where('created_at', '<=', filter.until);
+      query = query.where('nostr_events.created_at', '<=', filter.until);
     }
     if (typeof filter.limit === 'number') {
       query = query.limit(filter.limit);
     }
     if (filter.search) {
-      query = query.where('search', '@@', sql`phraseto_tsquery(${filter.search})`);
+      query = query.where('nostr_events.search', '@@', sql`phraseto_tsquery(${filter.search})`);
     }
 
     for (const [key, values] of Object.entries(filter)) {
@@ -250,7 +250,7 @@ export class NPostgres implements NRelay {
           query = query.where((eb) =>
             eb.or(
               values.map(
-                (value) => eb('tags_index', '@>', { [name]: [value] }),
+                (value) => eb('nostr_events.tags_index', '@>', { [name]: [value] }),
               ),
             )
           );

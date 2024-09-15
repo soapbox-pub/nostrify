@@ -214,7 +214,7 @@ export class NPostgres implements NRelay {
   protected getFilterQuery(trx: Kysely<NPostgresSchema>, filter: NostrFilter): SelectEventsQuery {
     let query = trx
       .selectFrom('nostr_events')
-      .selectAll()
+      .selectAll('nostr_events')
       .orderBy('nostr_events.created_at', 'desc')
       .orderBy('nostr_events.id', 'asc');
 

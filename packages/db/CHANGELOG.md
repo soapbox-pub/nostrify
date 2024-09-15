@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 0.32.2 - 2024-09-15
+
+- NPostgres: select from nostr_events.*
+
 ## 0.32.1 - 2024-09-15
 
 - NPostgres: prefixed columns with table name in getEventsQuery.

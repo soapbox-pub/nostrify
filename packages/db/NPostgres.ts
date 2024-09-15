@@ -268,7 +268,7 @@ export class NPostgres implements NRelay {
         .map((filter) => eb.selectFrom(() => this.getFilterQuery(trx, filter).as('e')).selectAll())
         .reduce((result, query) => result.unionAll(query)).as('e')
     )
-      .select(['id', 'kind', 'pubkey', 'content', 'created_at', 'tags', 'sig']) as SelectEventsQuery;
+      .select(['e.id', 'e.kind', 'e.pubkey', 'e.content', 'e.created_at', 'e.tags', 'e.sig']) as SelectEventsQuery;
   }
 
   /**

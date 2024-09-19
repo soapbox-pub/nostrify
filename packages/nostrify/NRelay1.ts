@@ -114,7 +114,7 @@ export class NRelay1 implements NRelay {
 
   /** Send a NIP-01 client message to the relay. */
   protected send(msg: NostrClientMsg): void {
-    this.stopIdleTimer();
+    this.wake();
 
     switch (msg[0]) {
       case 'REQ':
@@ -255,6 +255,15 @@ export class NRelay1 implements NRelay {
   private stopIdleTimer(): void {
     clearTimeout(this.idleTimer);
     this.idleTimer = undefined;
+  }
+
+  /** Make a new WebSocket, but only if it was closed by an idle timeout. */
+  private wake(): void {
+    this.stopIdleTimer();
+
+    if (!this.closedByUser && this.socket.closedByUser) {
+      this.socket = this.createSocket();
+    }
   }
 
   /**

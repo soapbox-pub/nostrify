@@ -67,10 +67,14 @@ export class NRelay1 implements NRelay {
 
     switch (msg[0]) {
       case 'EVENT':
+        if (!verifyEvent(msg[2])) break;
+        this.ee.dispatchEvent(new CustomEvent(`sub:${msg[1]}`, { detail: msg }));
+        break;
       case 'EOSE':
+        this.ee.dispatchEvent(new CustomEvent(`sub:${msg[1]}`, { detail: msg }));
+        break;
       case 'CLOSED':
-        if (msg[0] === 'EVENT' && !verifyEvent(msg[2])) break;
-        if (msg[0] === 'CLOSED') this.subscriptions.delete(msg[1]);
+        this.subscriptions.delete(msg[1]);
         this.ee.dispatchEvent(new CustomEvent(`sub:${msg[1]}`, { detail: msg }));
         break;
       case 'OK':

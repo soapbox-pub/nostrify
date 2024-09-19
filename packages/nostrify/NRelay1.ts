@@ -215,10 +215,12 @@ export class NRelay1 implements NRelay {
   }
 
   async close(): Promise<void> {
-    if (this.socket.readyState === WebSocket.CLOSED) return;
-    await new Promise((resolve) => {
-      this.socket.addEventListener(WebsocketEvent.close, resolve, { once: true });
-      this.socket.close();
-    });
+    this.socket.close();
+
+    if (this.socket.readyState !== WebSocket.CLOSED) {
+      await new Promise((resolve) => {
+        this.socket.addEventListener(WebsocketEvent.close, resolve, { once: true });
+      });
+    }
   }
 }

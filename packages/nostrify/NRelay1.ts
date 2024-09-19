@@ -7,6 +7,7 @@ import {
   NostrRelayCOUNT,
   NostrRelayEOSE,
   NostrRelayEVENT,
+  NostrRelayMsg,
   NostrRelayNOTICE,
   NostrRelayOK,
   NRelay,
@@ -40,8 +41,8 @@ export class NRelay1 implements NRelay {
   private subscriptions = new Map<string, NostrClientREQ>();
   private ee = new EventTarget();
 
-  constructor(url: string, opts: NRelay1Opts = {}) {
-    const { auth, backoff = new ExponentialBackoff(1000), verifyEvent = _verifyEvent } = opts;
+  constructor(url: string, private opts: NRelay1Opts = {}) {
+    const { backoff = new ExponentialBackoff(1000) } = opts;
 
     this.socket = new WebsocketBuilder(url)
       .withBuffer(new ArrayQueue())
@@ -53,30 +54,37 @@ export class NRelay1 implements NRelay {
       })
       .onMessage((_ws, ev) => {
         const result = n.json().pipe(n.relayMsg()).safeParse(ev.data);
-        if (!result.success) return;
-        const msg = result.data;
-        switch (msg[0]) {
-          case 'EVENT':
-          case 'EOSE':
-          case 'CLOSED':
-            if (msg[0] === 'EVENT' && !verifyEvent(msg[2])) break;
-            if (msg[0] === 'CLOSED') this.subscriptions.delete(msg[1]);
-            this.ee.dispatchEvent(new CustomEvent(`sub:${msg[1]}`, { detail: msg }));
-            break;
-          case 'OK':
-            this.ee.dispatchEvent(new CustomEvent(`ok:${msg[1]}`, { detail: msg }));
-            break;
-          case 'NOTICE':
-            this.ee.dispatchEvent(new CustomEvent('notice', { detail: msg }));
-            break;
-          case 'COUNT':
-            this.ee.dispatchEvent(new CustomEvent(`count:${msg[1]}`, { detail: msg }));
-            break;
-          case 'AUTH':
-            auth?.(msg[1]).then((event) => this.send(['AUTH', event])).catch(() => {});
+
+        if (result.success) {
+          this.receive(result.data);
         }
       })
       .build();
+  }
+
+  protected receive(msg: NostrRelayMsg): void {
+    const { auth, verifyEvent = _verifyEvent } = this.opts;
+
+    switch (msg[0]) {
+      case 'EVENT':
+      case 'EOSE':
+      case 'CLOSED':
+        if (msg[0] === 'EVENT' && !verifyEvent(msg[2])) break;
+        if (msg[0] === 'CLOSED') this.subscriptions.delete(msg[1]);
+        this.ee.dispatchEvent(new CustomEvent(`sub:${msg[1]}`, { detail: msg }));
+        break;
+      case 'OK':
+        this.ee.dispatchEvent(new CustomEvent(`ok:${msg[1]}`, { detail: msg }));
+        break;
+      case 'NOTICE':
+        this.ee.dispatchEvent(new CustomEvent('notice', { detail: msg }));
+        break;
+      case 'COUNT':
+        this.ee.dispatchEvent(new CustomEvent(`count:${msg[1]}`, { detail: msg }));
+        break;
+      case 'AUTH':
+        auth?.(msg[1]).then((event) => this.send(['AUTH', event])).catch(() => {});
+    }
   }
 
   protected send(msg: NostrClientMsg): void {

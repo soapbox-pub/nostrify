@@ -41,10 +41,14 @@ export class NRelay1 implements NRelay {
   private subscriptions = new Map<string, NostrClientREQ>();
   private ee = new EventTarget();
 
-  constructor(url: string, private opts: NRelay1Opts = {}) {
-    const { backoff = new ExponentialBackoff(1000) } = opts;
+  constructor(private url: string, private opts: NRelay1Opts = {}) {
+    this.socket = this.createSocket();
+  }
 
-    this.socket = new WebsocketBuilder(url)
+  private createSocket(): Websocket {
+    const { backoff = new ExponentialBackoff(1000) } = this.opts;
+
+    return new WebsocketBuilder(this.url)
       .withBuffer(new ArrayQueue())
       .withBackoff(backoff === false ? undefined : backoff)
       .onOpen(() => {

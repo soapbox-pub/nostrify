@@ -33,8 +33,8 @@ export interface NRelay1Opts {
   auth?(challenge: string): Promise<NostrEvent>;
   /** Configure reconnection strategy, or set to `false` to disable. Default: `new ExponentialBackoff(1000)`. */
   backoff?: Backoff | false;
-  /** How long to wait (in milliseconds) for the caller to create a subscription before closing the connection. Default: `30_000`. */
-  idleTimeout?: number;
+  /** How long to wait (in milliseconds) for the caller to create a subscription before closing the connection. Set to `false` to disable. Default: `30_000`. */
+  idleTimeout?: number | false;
   /** Ensure the event is valid before returning it. Default: `nostrTools.verifyEvent`. */
   verifyEvent?(event: NostrEvent): boolean;
 }
@@ -241,6 +241,8 @@ export class NRelay1 implements NRelay {
   private maybeStartIdleTimer(): void {
     const { idleTimeout = 30_000 } = this.opts;
 
+    // If the idle timeout is disabled, do nothing.
+    if (idleTimeout === false) return;
     // If a timer is already running, let it continue without disruption.
     if (this.idleTimer) return;
     // If there are still subscriptions, the connection is not "idle".

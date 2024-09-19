@@ -19,6 +19,7 @@ import { Machina } from './utils/Machina.ts';
 import { NSchema as n } from './NSchema.ts';
 import { NSet } from './NSet.ts';
 
+/** Map of EventEmitter events. */
 type EventMap = {
   [k: `ok:${string}`]: NostrRelayOK;
   [k: `sub:${string}`]: NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED;
@@ -26,25 +27,33 @@ type EventMap = {
   notice: NostrRelayNOTICE;
 };
 
+/** Options used for constructing an `NRelay1` instance. */
 export interface NRelay1Opts {
   /** Respond to `AUTH` challenges by producing a signed kind `22242` event. */
   auth?(challenge: string): Promise<NostrEvent>;
   /** Configure reconnection strategy, or set to `false` to disable. Default: `new ExponentialBackoff(1000)`. */
   backoff?: Backoff | false;
+  /** How long to wait (in milliseconds) for the caller to create a subscription before closing the connection. Default: `30_000`. */
+  idleTimeout?: number;
   /** Ensure the event is valid before returning it. Default: `nostrTools.verifyEvent`. */
   verifyEvent?(event: NostrEvent): boolean;
 }
 
+/** Single relay connection over WebSocket. */
 export class NRelay1 implements NRelay {
-  readonly socket: Websocket;
+  socket: Websocket;
 
   private subscriptions = new Map<string, NostrClientREQ>();
+  private closedByUser = false;
+  private idleTimer?: number;
+
   private ee = new EventTarget();
 
   constructor(private url: string, private opts: NRelay1Opts = {}) {
     this.socket = this.createSocket();
   }
 
+  /** Create (and open) a WebSocket connection with automatic reconnect. */
   private createSocket(): Websocket {
     const { backoff = new ExponentialBackoff(1000) } = this.opts;
 
@@ -54,6 +63,12 @@ export class NRelay1 implements NRelay {
       .onOpen(() => {
         for (const req of this.subscriptions.values()) {
           this.send(req);
+        }
+      })
+      .onClose(() => {
+        // If the connection closes on its own and there are no active subscriptions, let it stay closed.
+        if (!this.subscriptions.size) {
+          this.socket.close();
         }
       })
       .onMessage((_ws, ev) => {
@@ -66,6 +81,7 @@ export class NRelay1 implements NRelay {
       .build();
   }
 
+  /** Handle a NIP-01 relay message. */
   protected receive(msg: NostrRelayMsg): void {
     const { auth, verifyEvent = _verifyEvent } = this.opts;
 
@@ -79,6 +95,7 @@ export class NRelay1 implements NRelay {
         break;
       case 'CLOSED':
         this.subscriptions.delete(msg[1]);
+        this.maybeStartIdleTimer();
         this.ee.dispatchEvent(new CustomEvent(`sub:${msg[1]}`, { detail: msg }));
         break;
       case 'OK':
@@ -95,13 +112,17 @@ export class NRelay1 implements NRelay {
     }
   }
 
+  /** Send a NIP-01 client message to the relay. */
   protected send(msg: NostrClientMsg): void {
+    this.stopIdleTimer();
+
     switch (msg[0]) {
       case 'REQ':
         this.subscriptions.set(msg[1], msg);
         break;
       case 'CLOSE':
         this.subscriptions.delete(msg[1]);
+        this.maybeStartIdleTimer();
         break;
       case 'EVENT':
       case 'COUNT':
@@ -186,6 +207,7 @@ export class NRelay1 implements NRelay {
     return count;
   }
 
+  /** Get a stream of EE events. */
   private async *on<K extends keyof EventMap>(key: K, signal?: AbortSignal): AsyncIterable<EventMap[K]> {
     if (signal?.aborted) throw this.abortError();
 
@@ -203,6 +225,7 @@ export class NRelay1 implements NRelay {
     }
   }
 
+  /** Wait for a single EE event. */
   private async once<K extends keyof EventMap>(key: K, signal?: AbortSignal): Promise<EventMap[K]> {
     for await (const msg of this.on(key, signal)) {
       return msg;
@@ -214,8 +237,34 @@ export class NRelay1 implements NRelay {
     return new DOMException('The signal has been aborted', 'AbortError');
   }
 
+  /** Start the idle time if applicable. */
+  private maybeStartIdleTimer(): void {
+    const { idleTimeout = 30_000 } = this.opts;
+
+    // If a timer is already running, let it continue without disruption.
+    if (this.idleTimer) return;
+    // If there are still subscriptions, the connection is not "idle".
+    if (this.subscriptions.size) return;
+    // If the connection was manually closed, there's no need to start a timer.
+    if (this.closedByUser) return;
+
+    this.idleTimer = setTimeout(() => this.socket.close(), idleTimeout);
+  }
+
+  /** Stop the idle timer. */
+  private stopIdleTimer(): void {
+    clearTimeout(this.idleTimer);
+    this.idleTimer = undefined;
+  }
+
+  /**
+   * Close the relay connection and prevent it from reconnecting.
+   * After this you should dispose of the `NRelay1` instance and create a new one to connect again.
+   */
   async close(): Promise<void> {
+    this.closedByUser = true;
     this.socket.close();
+    this.stopIdleTimer();
 
     if (this.socket.readyState !== WebSocket.CLOSED) {
       await new Promise((resolve) => {

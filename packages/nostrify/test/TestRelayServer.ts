@@ -1,7 +1,12 @@
+import { NostrClientMsg, NostrEvent, NostrRelayMsg, NSchema as n } from '@nostrify/nostrify';
+import { MockRelay } from '@nostrify/nostrify/test';
+
 export class TestRelayServer {
   private port = 0;
   private server: Deno.HttpServer<Deno.NetAddr>;
   private connections = new Set<WebSocket>();
+  private controllers = new Map<string, AbortController>();
+  private store = new MockRelay();
 
   constructor() {
     this.server = this.createServer();
@@ -20,8 +25,55 @@ export class TestRelayServer {
         this.connections.delete(socket);
       };
 
+      socket.onmessage = (e) => {
+        const result = n.json().pipe(n.clientMsg()).safeParse(e.data);
+        if (result.success) {
+          this.handleMessage(socket, result.data);
+        }
+      };
+
       return response;
     });
+  }
+
+  private send(socket: WebSocket, msg: NostrRelayMsg): void {
+    socket.send(JSON.stringify(msg));
+  }
+
+  private async handleMessage(socket: WebSocket, msg: NostrClientMsg): Promise<void> {
+    switch (msg[0]) {
+      case 'REQ': {
+        const [_, subId, ...filters] = msg;
+
+        const controller = new AbortController();
+        this.controllers.set(subId, controller);
+
+        try {
+          for await (const msg of this.store.req(filters, { signal: controller.signal })) {
+            msg[1] = subId;
+            this.send(socket, msg);
+          }
+        } catch {
+          // do nothing
+        }
+
+        break;
+      }
+
+      case 'CLOSE': {
+        const subId = msg[1];
+        this.controllers.get(subId)?.abort();
+        this.controllers.delete(subId);
+        break;
+      }
+
+      case 'EVENT': {
+        const [_, event] = msg;
+        await this.store.event(event);
+        this.send(socket, ['OK', event.id, true, '']);
+        break;
+      }
+    }
   }
 
   get url() {
@@ -37,6 +89,10 @@ export class TestRelayServer {
 
   open(): void {
     this.server = this.createServer();
+  }
+
+  event(event: NostrEvent): Promise<void> {
+    return this.store.event(event);
   }
 
   async [Symbol.asyncDispose]() {

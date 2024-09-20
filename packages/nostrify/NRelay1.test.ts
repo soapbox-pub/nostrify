@@ -65,3 +65,28 @@ Deno.test('NRelay1.event', async () => {
   await relay.close();
   server.close();
 });
+
+Deno.test('NRelay1 idleTimeout', async (t) => {
+  const server = new MockRelayWs('wss://mock.relay');
+  const relay = new NRelay1('wss://mock.relay/', { idleTimeout: 100 });
+
+  await t.step('websocket opens', async () => {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    assertEquals(relay.socket.readyState, WebSocket.OPEN);
+  });
+
+  await t.step('websocket closes after idleTimeout', async () => {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    assertEquals(relay.socket.readyState, WebSocket.CLOSED);
+    assertEquals(relay.socket.closedByUser, true);
+  });
+
+  await t.step('websocket wakes up during activity', async () => {
+    await relay.event(events[0]);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    assertEquals(relay.socket.readyState, WebSocket.OPEN);
+  });
+
+  await relay.close();
+  server.close();
+});

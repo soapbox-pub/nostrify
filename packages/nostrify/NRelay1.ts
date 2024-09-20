@@ -51,6 +51,7 @@ export class NRelay1 implements NRelay {
 
   constructor(private url: string, private opts: NRelay1Opts = {}) {
     this.socket = this.createSocket();
+    this.maybeStartIdleTimer();
   }
 
   /** Create (and open) a WebSocket connection with automatic reconnect. */

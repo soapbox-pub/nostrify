@@ -17,6 +17,7 @@ export class MockRelayWs {
 
   close() {
     this.server.close();
+    this.server.restoreWebsocket();
   }
 
   constructor(url: string, preloaded?: NostrEvent[]) {
@@ -64,5 +65,9 @@ export class MockRelayWs {
         }
       });
     });
+  }
+
+  [Symbol.dispose]() {
+    this.close();
   }
 }

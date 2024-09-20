@@ -284,4 +284,8 @@ export class NRelay1 implements NRelay {
       });
     }
   }
+
+  async [Symbol.asyncDispose](): Promise<void> {
+    await this.close();
+  }
 }

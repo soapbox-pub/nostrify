@@ -3,39 +3,43 @@ import { NostrEvent } from '@nostrify/types';
 import { assert, assertEquals } from '@std/assert';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
-import { MockRelayWs } from './test/MockRelayWs.ts';
 import { NPool } from './NPool.ts';
 import { NRelay1 } from './NRelay1.ts';
 
 import events from '../../fixtures/events.json' with { type: 'json' };
+import { TestRelayServer } from './test/TestRelayServer.ts';
 
 const event1s = events
   .filter((e) => e.kind === 1)
   .toSorted((_) => 0.5 - Math.random())
   .slice(0, 10);
 
-Deno.test('NRelay1.query', { sanitizeResources: false, sanitizeOps: false }, async () => {
+Deno.test('NPool.query', { sanitizeResources: false, sanitizeOps: false }, async () => {
   const controller = new AbortController();
   const tid = setTimeout(() => controller.abort(), 5000);
 
-  const server = new MockRelayWs('wss://relay1.mostr.pub', event1s);
-  const server2 = new MockRelayWs('wss://relay2.mostr.pub', event1s);
+  await using server1 = new TestRelayServer();
+  await using server2 = new TestRelayServer();
+
+  for (const event of event1s) {
+    await server1.event(event);
+    await server2.event(event);
+  }
+
   const pool = new NPool({
     open: (url) => new NRelay1(url),
     reqRouter: async (filters) =>
       new Map([
-        ['wss://relay1.mostr.pub', filters],
-        ['wss://relay2.mostr.pub', filters],
+        [server1.url, filters],
+        [server2.url, filters],
       ]),
-    eventRouter: async () => ['wss://relay1.mostr.pub'],
+    eventRouter: async () => [server1.url],
   });
-  const events = await pool.query([{ kinds: [1], limit: 15 }], { signal: controller.signal });
+
+  const events = await pool.query([{ kinds: [1], limit: 15 }]);
 
   assertEquals(events.length, 10);
   assert(events[0].created_at >= events[1].created_at);
-
-  server.close();
-  server2.close();
 
   clearTimeout(tid);
 });
@@ -44,8 +48,13 @@ Deno.test('NPool.req', { sanitizeResources: false, sanitizeOps: false }, async (
   const controller = new AbortController();
   const tid = setTimeout(() => controller.abort(), 3000);
 
-  const server = new MockRelayWs('wss://relay1.mostr.pub', event1s);
-  const server2 = new MockRelayWs('wss://relay2.mostr.pub', event1s);
+  await using server1 = new TestRelayServer();
+  await using server2 = new TestRelayServer();
+
+  for (const event of event1s) {
+    await server1.event(event);
+    await server2.event(event);
+  }
 
   const events: NostrEvent[] = [];
 
@@ -53,10 +62,10 @@ Deno.test('NPool.req', { sanitizeResources: false, sanitizeOps: false }, async (
     open: (url) => new NRelay1(url),
     reqRouter: async (filters) =>
       new Map([
-        ['wss://relay1.mostr.pub', filters],
-        ['wss://relay2.mostr.pub', filters],
+        [server1.url, filters],
+        [server2.url, filters],
       ]),
-    eventRouter: async () => ['wss://relay1.mostr.pub'],
+    eventRouter: async () => [server1.url],
   });
 
   for await (const msg of pool.req([{ kinds: [1], limit: 3 }], { signal: controller.signal })) {
@@ -69,9 +78,6 @@ Deno.test('NPool.req', { sanitizeResources: false, sanitizeOps: false }, async (
 
   assertEquals(events.length, 3);
 
-  server.close();
-  server2.close();
-
   clearTimeout(tid);
 });
 
@@ -79,8 +85,13 @@ Deno.test('NPool.event', { sanitizeResources: false, sanitizeOps: false }, async
   const controller = new AbortController();
   const tid = setTimeout(() => controller.abort(), 5000);
 
-  const server = new MockRelayWs('wss://relay1.mostr.pub');
-  const server2 = new MockRelayWs('wss://relay2.mostr.pub', event1s);
+  await using server1 = new TestRelayServer();
+  await using server2 = new TestRelayServer();
+
+  for (const event of event1s) {
+    await server1.event(event);
+    await server2.event(event);
+  }
 
   const event: NostrEvent = finalizeEvent({
     kind: 1,
@@ -93,17 +104,15 @@ Deno.test('NPool.event', { sanitizeResources: false, sanitizeOps: false }, async
     open: (url) => new NRelay1(url),
     reqRouter: async (filters) =>
       new Map([
-        ['wss://relay1.mostr.pub', filters],
-        ['wss://relay2.mostr.pub', filters],
+        [server1.url, filters],
+        [server2.url, filters],
       ]),
-    eventRouter: async () => ['wss://relay1.mostr.pub'],
+    eventRouter: async () => [server1.url],
   });
+
   await pool.event(event, { signal: controller.signal });
 
   assertEquals((await pool.query([{ kinds: [1], '#unique': ['uniqueTag'] }], { signal: controller.signal })).length, 1);
-
-  server.close();
-  server2.close();
 
   clearTimeout(tid);
 });

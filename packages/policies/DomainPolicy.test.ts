@@ -21,12 +21,8 @@ Deno.test('DomainPolicy allows events from authors with a valid nip05', async ()
     },
   });
 
-  const metadata: NostrMetadata = {
-    nip05: 'alex@gleasonator.dev',
-  };
-
+  const metadata: NostrMetadata = { nip05: 'alex@gleasonator.dev' };
   await store.event(genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk));
-
   const event = genEvent({ kind: 1, content: 'hello world' }, sk);
 
   const result = await policy.call(event);
@@ -37,7 +33,6 @@ Deno.test('DomainPolicy allows events from authors with a valid nip05', async ()
 Deno.test('DomainPolicy rejects events from authors without a kind 0', async () => {
   const store = new MockRelay();
   const policy = new DomainPolicy(store);
-
   const event = genEvent({ kind: 1, content: 'hello world' });
 
   const result = await policy.call(event);
@@ -84,14 +79,9 @@ Deno.test('DomainPolicy rejects events from authors with an invalid nip05', asyn
     },
   });
 
-  const metadata: NostrMetadata = {
-    nip05: 'alex@gleasonator.dev',
-  };
-
+  const metadata: NostrMetadata = { nip05: 'alex@gleasonator.dev' };
   const sk = generateSecretKey();
-
   await store.event(genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk));
-
   const event = genEvent({ kind: 1, content: 'hello world' }, sk);
 
   const result = await policy.call(event);
@@ -116,12 +106,8 @@ Deno.test('DomainPolicy rejects events from authors with a blacklisted nip05 dom
     blacklist: ['replyguy.dev'],
   });
 
-  const metadata: NostrMetadata = {
-    nip05: 'bot@replyguy.dev',
-  };
-
+  const metadata: NostrMetadata = { nip05: 'bot@replyguy.dev' };
   await store.event(genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk));
-
   const event = genEvent({ kind: 1, content: 'hello world' }, sk);
 
   const result = await policy.call(event);
@@ -146,12 +132,8 @@ Deno.test("DomainPolicy rejects events from authors who aren't on a whitelisted 
     whitelist: ['gleasonator.dev'],
   });
 
-  const metadata: NostrMetadata = {
-    nip05: 'bot@replyguy.dev',
-  };
-
+  const metadata: NostrMetadata = { nip05: 'bot@replyguy.dev' };
   await store.event(genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk));
-
   const event = genEvent({ kind: 1, content: 'hello world' }, sk);
 
   const result = await policy.call(event);
@@ -176,12 +158,8 @@ Deno.test('DomainPolicy allows events from authors who are on a whitelisted doma
     whitelist: ['gleasonator.dev'],
   });
 
-  const metadata: NostrMetadata = {
-    nip05: 'alex@gleasonator.dev',
-  };
-
+  const metadata: NostrMetadata = { nip05: 'alex@gleasonator.dev' };
   await store.event(genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk));
-
   const event = genEvent({ kind: 1, content: 'hello world' }, sk);
 
   const result = await policy.call(event);

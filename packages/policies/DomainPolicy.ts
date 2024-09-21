@@ -5,8 +5,6 @@ import { AuthorPolicy } from './AuthorPolicy.ts';
 
 /** Options for `DomainPolicy`. */
 interface DomainPolicyOpts {
-  /** Store to look up the author's kind 0 event. */
-  store: NStore;
   /** Custom NIP-05 lookup function. */
   lookup?(nip05: string, signal?: AbortSignal): Promise<NProfilePointer>;
   /** List of domains to blacklist. Reject events from users with a NIP-05 matching any of these domains. */
@@ -17,8 +15,8 @@ interface DomainPolicyOpts {
 
 /** Ban events unless their author has a valid NIP-05 name. Domains can also be whitelisted or blacklisted. */
 export class DomainPolicy extends AuthorPolicy implements NPolicy {
-  constructor(opts: DomainPolicyOpts) {
-    super(opts.store, {
+  constructor(store: NStore, opts: DomainPolicyOpts = {}) {
+    super(store, {
       async call(event, signal) {
         const { blacklist = [], whitelist, lookup = DomainPolicy.lookup } = opts;
 

@@ -216,7 +216,7 @@ class NSchema {
    * Helper schema to parse a JSON string. It should then be piped into another schema. For example:
    *
    * ```ts
-   * const event = NSchema.jsonSchema().pipe(NSchema.event()).parse(data);
+   * const event = NSchema.json().pipe(NSchema.event()).parse(data);
    * ```
    */
   static json(): z.ZodType<unknown> {

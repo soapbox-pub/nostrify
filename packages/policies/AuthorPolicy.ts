@@ -4,17 +4,17 @@ import { NostrEvent, NostrRelayOK, NPolicy, NStore } from '@nostrify/types';
 export class AuthorPolicy implements NPolicy {
   constructor(private store: NStore, private policy?: NPolicy) {}
 
-  async call(event: NostrEvent): Promise<NostrRelayOK> {
-    const author: NostrEvent | undefined = event.kind === 0
-      ? event
-      : await this.store.query([{ kinds: [0], authors: [event.pubkey], limit: 1 }]).then(([event]) => event);
+  async call(event: NostrEvent, signal?: AbortSignal): Promise<NostrRelayOK> {
+    const author: NostrEvent | undefined = event.kind === 0 ? event : await this.store
+      .query([{ kinds: [0], authors: [event.pubkey], limit: 1 }], { signal })
+      .then(([event]) => event);
 
     if (!author) {
       return ['OK', event.id, false, 'blocked: author is missing a kind 0 event'];
     }
 
     if (this.policy) {
-      const [, , ok, reason] = await this.policy.call(author);
+      const [, , ok, reason] = await this.policy.call(author, signal);
       return ['OK', event.id, ok, reason];
     }
 

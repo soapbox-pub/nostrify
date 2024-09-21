@@ -1,22 +1,23 @@
 import { NIP05, NSchema as n } from '@nostrify/nostrify';
-import { NostrEvent, NostrRelayOK, NPolicy, NProfilePointer, NStore } from '@nostrify/types';
+import { NPolicy, NProfilePointer, NStore } from '@nostrify/types';
 
 import { AuthorPolicy } from './AuthorPolicy.ts';
 
+/** Options for `DomainPolicy`. */
 interface DomainPolicyOpts {
+  /** Store to look up the author's kind 0 event. */
   store: NStore;
+  /** Custom NIP-05 lookup function. */
   lookup?(nip05: string, signal?: AbortSignal): Promise<NProfilePointer>;
+  /** List of domains to blacklist. Reject events from users with a NIP-05 matching any of these domains. */
   blacklist?: string[];
+  /** List of domains to whitelist. If provided, only events from users with a valid NIP-05 on the given domains will be accepted. */
   whitelist?: string[];
-  exempt?: string[];
 }
 
-/**
- * Ban events unless their author has a valid NIP-05 name.
- * Domains can be whitelisted/blacklisted, and specific pubkeys can be exempt.
- */
+/** Ban events unless their author has a valid NIP-05 name. Domains can also be whitelisted or blacklisted. */
 export class DomainPolicy extends AuthorPolicy implements NPolicy {
-  constructor(private opts: DomainPolicyOpts) {
+  constructor(opts: DomainPolicyOpts) {
     super(opts.store, {
       async call(event, signal) {
         const { blacklist = [], whitelist, lookup = DomainPolicy.lookup } = opts;
@@ -62,17 +63,7 @@ export class DomainPolicy extends AuthorPolicy implements NPolicy {
     });
   }
 
-  // deno-lint-ignore require-await
-  async call(event: NostrEvent, signal?: AbortSignal): Promise<NostrRelayOK> {
-    const { exempt = [] } = this.opts;
-
-    if (exempt.includes(event.pubkey)) {
-      return ['OK', event.id, true, ''];
-    }
-
-    return super.call(event, signal);
-  }
-
+  /** Default NIP-05 lookup method if one isn't provided by the caller. */
   private static lookup(nip05: string, signal?: AbortSignal): Promise<NProfilePointer> {
     return NIP05.lookup(nip05, { signal });
   }

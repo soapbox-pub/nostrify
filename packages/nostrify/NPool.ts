@@ -76,7 +76,7 @@ export class NPool implements NRelay {
     const eoses = new Set<WebSocket['url']>();
     const closes = new Set<WebSocket['url']>();
 
-    for (const url of routes.keys()) {
+    for (const [url, filters] of routes.entries()) {
       const relay = this.relay(url);
       (async () => {
         for await (const msg of relay.req(filters, { signal })) {

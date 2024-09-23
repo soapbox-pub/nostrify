@@ -103,4 +103,9 @@ export class NSimplePool implements NRelay {
   disconnect(relays: WebSocket['url'][]): void {
     this.pool.close(relays);
   }
+
+  // deno-lint-ignore require-await
+  async close(): Promise<void> {
+    this.pool.destroy();
+  }
 }

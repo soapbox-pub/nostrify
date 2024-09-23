@@ -76,7 +76,7 @@ export class NPool implements NRelay {
     const eoses = new Set<WebSocket['url']>();
     const closes = new Set<WebSocket['url']>();
 
-    for (const url of routes.keys()) {
+    for (const [url, filters] of routes.entries()) {
       const relay = this.relay(url);
       (async () => {
         for await (const msg of relay.req(filters, { signal })) {
@@ -144,5 +144,16 @@ export class NPool implements NRelay {
     }
 
     return [...events];
+  }
+
+  /** Close all the relays in the pool. */
+  async close(): Promise<void> {
+    await Promise.all(
+      [...this.relays.values()].map((relay) => relay.close()),
+    );
+  }
+
+  async [Symbol.asyncDispose](): Promise<void> {
+    await this.close();
   }
 }

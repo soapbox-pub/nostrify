@@ -179,4 +179,9 @@ export class NWelshman implements NRelay {
 
     return keep;
   }
+
+  close(): Promise<void> {
+    // TODO: Can we close the subscriptions?
+    return Promise.resolve();
+  }
 }

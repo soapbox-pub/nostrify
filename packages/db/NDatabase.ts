@@ -475,6 +475,14 @@ export class NDatabase implements NRelay {
     }
   }
 
+  async close(): Promise<void> {
+    await this.db.destroy();
+  }
+
+  async [Symbol.asyncDispose](): Promise<void> {
+    await this.close();
+  }
+
   /** Migrate the database schema. */
   async migrate(): Promise<void> {
     const schema = this.db.schema;

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 0.35.0 - 2024-09-23
+
+### Added
+
+- NPool: added a `.close()` method and support `await using` syntax.
+
+### Fixed
+
+- NPool: fixed routing of `.req()`.
+
 ## 0.32.0 - 2024-09-20
 
 ### Added

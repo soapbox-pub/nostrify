@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- AntiDuplicationPolicy: added `deobfuscate` option to pre-process event content before taking the hash.
+
 ## 0.34.0 - 2024-09-21
 
 ### Added

@@ -8,6 +8,8 @@ interface AntiDuplicationPolicyOpts {
   expireIn?: number;
   /** Note text under this limit will be skipped by the policy. Default: `50`. */
   minLength?: number;
+  /** Normalize the event's content before a hash is taken, to prevent the attacker from making small changes. Should return the normalized content. */
+  deobfuscate?(event: NostrEvent): string;
 }
 
 /**
@@ -30,8 +32,11 @@ interface AntiDuplicationPolicyOpts {
 export class AntiDuplicationPolicy implements NPolicy {
   constructor(private opts: AntiDuplicationPolicyOpts) {}
 
-  async call({ id, kind, content }: NostrEvent): Promise<NostrRelayOK> {
-    const { kv, expireIn = 60000, minLength = 50 } = this.opts;
+  async call(event: NostrEvent): Promise<NostrRelayOK> {
+    const { id, kind } = event;
+    const { kv, expireIn = 60000, minLength = 50, deobfuscate } = this.opts;
+
+    const content = deobfuscate?.(event) ?? event.content;
 
     if (kind === 1 && content.length >= minLength) {
       const hash = AntiDuplicationPolicy.hashCode(content);

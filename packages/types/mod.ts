@@ -11,6 +11,7 @@ export type { NostrEvent } from './NostrEvent.ts';
 export type { NostrFilter } from './NostrFilter.ts';
 export type { NostrJson } from './NostrJson.ts';
 export type { NostrMetadata } from './NostrMetadata.ts';
+export type { NostrRelayInfo } from './NostrRelayInfo.ts';
 export type {
   NostrRelayAUTH,
   NostrRelayCLOSED,

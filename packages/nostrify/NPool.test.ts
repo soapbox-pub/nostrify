@@ -14,7 +14,7 @@ const event1s = events
   .toSorted((_) => 0.5 - Math.random())
   .slice(0, 10);
 
-Deno.test('NPool.query', { sanitizeResources: false, sanitizeOps: false }, async () => {
+Deno.test('NPool.query', async () => {
   const controller = new AbortController();
   const tid = setTimeout(() => controller.abort(), 5000);
 
@@ -26,7 +26,7 @@ Deno.test('NPool.query', { sanitizeResources: false, sanitizeOps: false }, async
     await server2.event(event);
   }
 
-  const pool = new NPool({
+  await using pool = new NPool({
     open: (url) => new NRelay1(url),
     reqRouter: async (filters) =>
       new Map([
@@ -44,7 +44,7 @@ Deno.test('NPool.query', { sanitizeResources: false, sanitizeOps: false }, async
   clearTimeout(tid);
 });
 
-Deno.test('NPool.req', { sanitizeResources: false, sanitizeOps: false }, async () => {
+Deno.test('NPool.req', async () => {
   const controller = new AbortController();
   const tid = setTimeout(() => controller.abort(), 3000);
 
@@ -58,7 +58,7 @@ Deno.test('NPool.req', { sanitizeResources: false, sanitizeOps: false }, async (
 
   const events: NostrEvent[] = [];
 
-  const pool = new NPool({
+  await using pool = new NPool({
     open: (url) => new NRelay1(url),
     reqRouter: async (filters) =>
       new Map([
@@ -81,7 +81,7 @@ Deno.test('NPool.req', { sanitizeResources: false, sanitizeOps: false }, async (
   clearTimeout(tid);
 });
 
-Deno.test('NPool.event', { sanitizeResources: false, sanitizeOps: false }, async () => {
+Deno.test('NPool.event', async () => {
   const controller = new AbortController();
   const tid = setTimeout(() => controller.abort(), 5000);
 
@@ -100,7 +100,7 @@ Deno.test('NPool.event', { sanitizeResources: false, sanitizeOps: false }, async
     created_at: Math.floor(Date.now() / 1000),
   }, generateSecretKey());
 
-  const pool = new NPool({
+  await using pool = new NPool({
     open: (url) => new NRelay1(url),
     reqRouter: async (filters) =>
       new Map([

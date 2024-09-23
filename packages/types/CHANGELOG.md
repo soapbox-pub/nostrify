@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added NIP-11 `NostrRelayInfo` type.
 - NPolicy: added `info` getter that optionally returns a `NostrRelayInfo` object.
+- BREAKING: NRelay: added a required `.close()` method.
 
 ## 0.30.1 - 2024-09-09
 

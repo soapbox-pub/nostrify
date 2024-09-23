@@ -9,4 +9,6 @@ export interface NRelay extends NStore {
     filters: NostrFilter[],
     opts?: { signal?: AbortSignal },
   ): AsyncIterable<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>;
+  /** Closes the connection to the relay. */
+  close(): Promise<void>;
 }

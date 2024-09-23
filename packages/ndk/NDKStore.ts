@@ -67,4 +67,9 @@ export class NDKStore implements NRelay {
 
     return events;
   }
+
+  close(): Promise<void> {
+    // FIXME: No way to close?
+    return Promise.resolve();
+  }
 }

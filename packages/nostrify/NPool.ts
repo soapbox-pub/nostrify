@@ -145,4 +145,15 @@ export class NPool implements NRelay {
 
     return [...events];
   }
+
+  /** Close all the relays in the pool. */
+  async close(): Promise<void> {
+    await Promise.all(
+      [...this.relays.values()].map((relay) => relay.close()),
+    );
+  }
+
+  async [Symbol.asyncDispose](): Promise<void> {
+    await this.close();
+  }
 }

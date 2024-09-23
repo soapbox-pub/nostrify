@@ -1,4 +1,4 @@
-import { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
+import { NostrEvent, NostrRelayInfo, NostrRelayOK, NPolicy } from '@nostrify/types';
 
 /**
  * Allows only the listed pubkeys to post. All other events are rejected.
@@ -20,5 +20,13 @@ export class WhitelistPolicy implements NPolicy {
     }
 
     return ['OK', id, false, 'blocked: only certain pubkeys are allowed to post'];
+  }
+
+  get info(): NostrRelayInfo {
+    return {
+      limitation: {
+        restricted_writes: true,
+      },
+    };
   }
 }

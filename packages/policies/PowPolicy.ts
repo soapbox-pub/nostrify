@@ -1,4 +1,4 @@
-import { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
+import { NostrEvent, NostrRelayInfo, NostrRelayOK, NPolicy } from '@nostrify/types';
 import { nip13 } from 'nostr-tools';
 
 /** Policy options for `PowPolicy`. */
@@ -29,5 +29,13 @@ export class PowPolicy implements NPolicy {
     }
 
     return ['OK', id, false, `pow: insufficient proof-of-work (difficulty ${difficulty})`];
+  }
+
+  get info(): NostrRelayInfo {
+    return {
+      limitation: {
+        min_pow_difficulty: this.opts.difficulty,
+      },
+    };
   }
 }

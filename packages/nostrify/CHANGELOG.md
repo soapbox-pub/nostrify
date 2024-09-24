@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 0.36.0 - 2024-09-23
+
+## Added
+
+- NPool: add generic T extends NRelay.
+- NPool: added `.relays` property.
+- NRelay1: added `.subscriptions` property.
+
 ## 0.35.0 - 2024-09-23
 
 ### Added

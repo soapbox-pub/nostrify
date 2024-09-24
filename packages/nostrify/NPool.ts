@@ -5,9 +5,9 @@ import { Machina } from './utils/Machina.ts';
 import { NKinds } from './NKinds.ts';
 import { NSet } from './NSet.ts';
 
-export interface NPoolOpts {
+export interface NPoolOpts<T extends NRelay> {
   /** Creates an `NRelay` instance for the given URL. */
-  open(url: WebSocket['url']): NRelay;
+  open(url: WebSocket['url']): T;
   /** Determines the relays to use for making `REQ`s to the given filters. To support the Outbox model, it should analyze the `authors` field of the filters. */
   reqRouter(filters: NostrFilter[]): Promise<ReadonlyMap<WebSocket['url'], NostrFilter[]>>;
   /** Determines the relays to use for publishing the given event. To support the Outbox model, it should analyze the `pubkey` field of the event. */
@@ -43,21 +43,26 @@ export interface NPoolOpts {
  *
  * `pool.req` will only emit an `EOSE` when all relays in its set have emitted an `EOSE`, and likewise for `CLOSED`.
  */
-export class NPool implements NRelay {
-  private relays: Map<WebSocket['url'], NRelay> = new Map();
-  constructor(private opts: NPoolOpts) {}
+export class NPool<T extends NRelay> implements NRelay {
+  private _relays = new Map<WebSocket['url'], T>();
+
+  constructor(private opts: NPoolOpts<T>) {}
 
   /** Get or create a relay instance for the given URL. */
-  relay(url: WebSocket['url']): NRelay {
-    const relay = this.relays.get(url);
+  public relay(url: WebSocket['url']): T {
+    const relay = this._relays.get(url);
 
     if (relay) {
       return relay;
     } else {
       const relay = this.opts.open(url);
-      this.relays.set(url, relay);
+      this._relays.set(url, relay);
       return relay;
     }
+  }
+
+  public get relays(): ReadonlyMap<WebSocket['url'], T> {
+    return this._relays;
   }
 
   async *req(
@@ -149,7 +154,7 @@ export class NPool implements NRelay {
   /** Close all the relays in the pool. */
   async close(): Promise<void> {
     await Promise.all(
-      [...this.relays.values()].map((relay) => relay.close()),
+      [...this._relays.values()].map((relay) => relay.close()),
     );
   }
 

@@ -43,11 +43,15 @@ export interface NRelay1Opts {
 export class NRelay1 implements NRelay {
   socket: Websocket;
 
-  private subscriptions = new Map<string, NostrClientREQ>();
+  private subs = new Map<string, NostrClientREQ>();
   private closedByUser = false;
   private idleTimer?: number;
 
   private ee = new EventTarget();
+
+  get subscriptions(): readonly NostrClientREQ[] {
+    return [...this.subs.values()];
+  }
 
   constructor(private url: string, private opts: NRelay1Opts = {}) {
     this.socket = this.createSocket();
@@ -62,13 +66,13 @@ export class NRelay1 implements NRelay {
       .withBuffer(new ArrayQueue())
       .withBackoff(backoff === false ? undefined : backoff)
       .onOpen(() => {
-        for (const req of this.subscriptions.values()) {
+        for (const req of this.subs.values()) {
           this.send(req);
         }
       })
       .onClose(() => {
         // If the connection closes on its own and there are no active subscriptions, let it stay closed.
-        if (!this.subscriptions.size) {
+        if (!this.subs.size) {
           this.socket.close();
         }
       })
@@ -95,7 +99,7 @@ export class NRelay1 implements NRelay {
         this.ee.dispatchEvent(new CustomEvent(`sub:${msg[1]}`, { detail: msg }));
         break;
       case 'CLOSED':
-        this.subscriptions.delete(msg[1]);
+        this.subs.delete(msg[1]);
         this.maybeStartIdleTimer();
         this.ee.dispatchEvent(new CustomEvent(`sub:${msg[1]}`, { detail: msg }));
         break;
@@ -119,10 +123,10 @@ export class NRelay1 implements NRelay {
 
     switch (msg[0]) {
       case 'REQ':
-        this.subscriptions.set(msg[1], msg);
+        this.subs.set(msg[1], msg);
         break;
       case 'CLOSE':
-        this.subscriptions.delete(msg[1]);
+        this.subs.delete(msg[1]);
         this.maybeStartIdleTimer();
         break;
       case 'EVENT':
@@ -247,7 +251,7 @@ export class NRelay1 implements NRelay {
     // If a timer is already running, let it continue without disruption.
     if (this.idleTimer) return;
     // If there are still subscriptions, the connection is not "idle".
-    if (this.subscriptions.size) return;
+    if (this.subs.size) return;
     // If the connection was manually closed, there's no need to start a timer.
     if (this.closedByUser) return;
 

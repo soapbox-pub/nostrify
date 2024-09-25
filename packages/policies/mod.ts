@@ -17,3 +17,4 @@ export { RegexPolicy } from './RegexPolicy.ts';
 export { ReplyBotPolicy } from './ReplyBotPolicy.ts';
 export { SizePolicy } from './SizePolicy.ts';
 export { WhitelistPolicy } from './WhitelistPolicy.ts';
+export { WoTPolicy } from './WoTPolicy.ts';

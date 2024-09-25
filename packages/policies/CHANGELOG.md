@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- Added WoTPolicy to whitelist follows of follows.
+
 ## 0.35.0 - 2024-09-23
 
 ### Added

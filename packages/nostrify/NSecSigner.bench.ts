@@ -6,6 +6,18 @@ Deno.bench('NSecSigner', () => {
   new NSecSigner(generateSecretKey());
 });
 
+Deno.bench('NSecSigner.getPublicKey', async (b) => {
+  const signer = new NSecSigner(generateSecretKey());
+  b.start();
+  await signer.getPublicKey();
+});
+
+Deno.bench('NSecSigner.signEvent', async (b) => {
+  const signer = new NSecSigner(generateSecretKey());
+  b.start();
+  await signer.signEvent({ kind: 1, content: 'Hello, world!', tags: [], created_at: 0 });
+});
+
 Deno.bench('NSecSigner.nip04.encrypt', async (b) => {
   const signer = new NSecSigner(generateSecretKey());
   const pubkey = await signer.getPublicKey();

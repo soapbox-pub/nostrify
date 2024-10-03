@@ -2,6 +2,10 @@ import { generateSecretKey } from 'nostr-tools';
 
 import { NSecSigner } from './NSecSigner.ts';
 
+Deno.bench('NSecSigner', () => {
+  new NSecSigner(generateSecretKey());
+});
+
 Deno.bench('NSecSigner.nip04.encrypt', async (b) => {
   const signer = new NSecSigner(generateSecretKey());
   const pubkey = await signer.getPublicKey();

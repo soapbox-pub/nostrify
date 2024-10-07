@@ -292,7 +292,7 @@ export class NPostgres implements NRelay {
       const rows = this.getEventsQuery(this.db, filters).stream(this.chunkSize);
 
       for await (const row of rows) {
-        const event = NPostgres.parseEventRow(row);
+        const event = this.parseEventRow(row);
         yield ['EVENT', subId, event];
 
         if (opts?.signal?.aborted) {
@@ -324,13 +324,12 @@ export class NPostgres implements NRelay {
         query = query.limit(opts.limit);
       }
 
-      return (await query.execute())
-        .map((row) => NPostgres.parseEventRow(row));
+      return (await query.execute()).map((row) => this.parseEventRow(row));
     }, opts.timeout);
   }
 
   /** Parse an event row from the database. */
-  private static parseEventRow(row: Pick<NPostgresSchema['nostr_events'], keyof NostrEvent>): NostrEvent {
+  protected parseEventRow(row: Pick<NPostgresSchema['nostr_events'], keyof NostrEvent>): NostrEvent {
     return {
       id: row.id,
       kind: row.kind,

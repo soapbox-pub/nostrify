@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 0.36.1 - 2024-10-07
+
+### Changed
+
+- NPostgres: return all columns in query, let parseEventRow decide which to take.
+
 ## 0.36.0 - 2024-10-07
 
 ### Changed

@@ -95,6 +95,28 @@ Deno.test('NPostgres.query', { ignore: !databaseUrl }, async () => {
   );
 });
 
+Deno.test('NPostgres.query returns a purified event', { ignore: !databaseUrl }, async () => {
+  await using db = await createDB({ indexTags: ({ tags }) => tags });
+  const { store } = db;
+
+  await store.event(event1);
+  const [event] = await store.query([{ kinds: [1] }]);
+
+  const keys = Object.keys(event).sort();
+
+  const expected = [
+    'content',
+    'created_at',
+    'id',
+    'kind',
+    'pubkey',
+    'sig',
+    'tags',
+  ];
+
+  assertEquals(keys, expected);
+});
+
 Deno.test('NPostgres.query with tag filters and limit', { ignore: !databaseUrl }, async () => {
   await using db = await createDB();
   const { store } = db;

@@ -39,7 +39,7 @@ export interface NPostgresOpts {
 type SelectEventsQuery = SelectQueryBuilder<
   NPostgresSchema,
   'nostr_events',
-  Pick<NPostgresSchema['nostr_events'], keyof NostrEvent>
+  NPostgresSchema['nostr_events']
 >;
 
 export class NPostgres implements NRelay {
@@ -268,7 +268,7 @@ export class NPostgres implements NRelay {
         .map((filter) => eb.selectFrom(() => this.getFilterQuery(trx, filter).as('e')).selectAll())
         .reduce((result, query) => result.unionAll(query)).as('e')
     )
-      .select(['e.id', 'e.kind', 'e.pubkey', 'e.content', 'e.created_at', 'e.tags', 'e.sig']) as SelectEventsQuery;
+      .selectAll() as SelectEventsQuery;
   }
 
   /**
@@ -329,7 +329,7 @@ export class NPostgres implements NRelay {
   }
 
   /** Parse an event row from the database. */
-  protected parseEventRow(row: Pick<NPostgresSchema['nostr_events'], keyof NostrEvent>): NostrEvent {
+  protected parseEventRow(row: NPostgresSchema['nostr_events']): NostrEvent {
     return {
       id: row.id,
       kind: row.kind,

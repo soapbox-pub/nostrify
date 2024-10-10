@@ -1,4 +1,4 @@
-import { genEvent, MockRelay } from '@nostrify/nostrify/test';
+import { ErrorRelay, genEvent, MockRelay } from '@nostrify/nostrify/test';
 import { assert, assertFalse } from '@std/assert';
 import { generateSecretKey, getPublicKey } from 'nostr-tools';
 
@@ -24,4 +24,12 @@ Deno.test('WoTPolicy', async () => {
   assert((await policy.call(genEvent({}, patrick.seckey)))[2]);
   assert((await policy.call(genEvent({}, fiatjaf.seckey)))[2]);
   assertFalse((await policy.call(genEvent({}, replyguy.seckey)))[2]);
+});
+
+Deno.test('WoTPolicy constructor with error store', () => {
+  const store = new ErrorRelay();
+  const alex = keygen();
+
+  // Ensure this doesn't result in an unhandled promise rejection.
+  new WoTPolicy({ store, pubkeys: [alex.pubkey], depth: 1 });
 });

@@ -209,13 +209,13 @@ export class NRelay1 implements NRelay {
 
     this.send(['COUNT', subscriptionId, ...filters]);
 
-    const cmd = await result;
+    const msg = await result;
 
-    switch (cmd[0]) {
+    switch (msg[0]) {
       case 'CLOSED':
         throw new Error('Subscription closed');
       case 'COUNT': {
-        const [, , count] = cmd;
+        const [, , count] = msg;
         return count;
       }
     }

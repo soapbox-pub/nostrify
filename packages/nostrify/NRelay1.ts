@@ -23,7 +23,7 @@ import { NSet } from './NSet.ts';
 type EventMap = {
   [k: `ok:${string}`]: NostrRelayOK;
   [k: `sub:${string}`]: NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED;
-  [k: `count:${string}`]: NostrRelayCOUNT;
+  [k: `count:${string}`]: NostrRelayCOUNT | NostrRelayCLOSED;
   notice: NostrRelayNOTICE;
 };
 
@@ -102,6 +102,7 @@ export class NRelay1 implements NRelay {
         this.subs.delete(msg[1]);
         this.maybeStartIdleTimer();
         this.ee.dispatchEvent(new CustomEvent(`sub:${msg[1]}`, { detail: msg }));
+        this.ee.dispatchEvent(new CustomEvent(`count:${msg[1]}`, { detail: msg }));
         break;
       case 'OK':
         this.ee.dispatchEvent(new CustomEvent(`ok:${msg[1]}`, { detail: msg }));
@@ -208,8 +209,16 @@ export class NRelay1 implements NRelay {
 
     this.send(['COUNT', subscriptionId, ...filters]);
 
-    const [, , count] = await result;
-    return count;
+    const cmd = await result;
+
+    switch (cmd[0]) {
+      case 'CLOSED':
+        throw new Error('Subscription closed');
+      case 'COUNT': {
+        const [, , count] = cmd;
+        return count;
+      }
+    }
   }
 
   /** Get a stream of EE events. */

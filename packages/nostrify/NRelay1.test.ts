@@ -1,5 +1,5 @@
 import { NostrEvent } from '@nostrify/types';
-import { assert, assertEquals } from '@std/assert';
+import { assert, assertEquals, assertRejects } from '@std/assert';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 import { WebsocketEvent } from 'websocket-ts';
 
@@ -123,4 +123,19 @@ Deno.test('NRelay1 idleTimeout', async (t) => {
     await new Promise((resolve) => setTimeout(resolve, 10));
     assertEquals(relay.socket.readyState, WebSocket.OPEN);
   });
+});
+
+Deno.test('NRelay1.count rejects when the server sends CLOSED', async () => {
+  await using server = new TestRelayServer({
+    // deno-lint-ignore require-await
+    async handleMessage(socket, msg) {
+      if (msg[0] === 'COUNT') {
+        server.send(socket, ['CLOSED', msg[1], 'unsupported: COUNT is not supported']);
+      }
+    },
+  });
+
+  await using relay = new NRelay1(server.url);
+
+  await assertRejects(() => relay.count([{ kinds: [1] }]));
 });

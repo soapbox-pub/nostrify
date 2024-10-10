@@ -1,6 +1,10 @@
 import { NostrClientMsg, NostrEvent, NostrRelayMsg, NSchema as n } from '@nostrify/nostrify';
 import { MockRelay } from '@nostrify/nostrify/test';
 
+interface TestRelayServerOpts {
+  handleMessage?(socket: WebSocket, msg: NostrClientMsg): Promise<void>;
+}
+
 export class TestRelayServer {
   private port = 0;
   private server: Deno.HttpServer<Deno.NetAddr>;
@@ -8,7 +12,7 @@ export class TestRelayServer {
   private controllers = new Map<string, AbortController>();
   private store = new MockRelay();
 
-  constructor() {
+  constructor(private opts?: TestRelayServerOpts) {
     this.server = this.createServer();
     this.port = this.server.addr.port;
   }
@@ -28,7 +32,8 @@ export class TestRelayServer {
       socket.onmessage = (e) => {
         const result = n.json().pipe(n.clientMsg()).safeParse(e.data);
         if (result.success) {
-          this.handleMessage(socket, result.data);
+          const handleMessage = this.opts?.handleMessage ?? this.handleMessage.bind(this);
+          handleMessage(socket, result.data);
         }
       };
 
@@ -36,7 +41,7 @@ export class TestRelayServer {
     });
   }
 
-  private send(socket: WebSocket, msg: NostrRelayMsg): void {
+  send(socket: WebSocket, msg: NostrRelayMsg): void {
     socket.send(JSON.stringify(msg));
   }
 

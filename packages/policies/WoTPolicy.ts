@@ -17,13 +17,12 @@ interface WoTPolicyOpts {
 
 /** Whitelist pubkeys the given user follows, people those users follow, etc. up to `depth`. */
 export class WoTPolicy implements NPolicy {
-  private pubkeys: Promise<Set<string>>;
+  private pubkeys: Promise<Set<string>> | undefined;
 
-  constructor(private opts: WoTPolicyOpts) {
-    this.pubkeys = this.getPubkeys();
-  }
+  constructor(private opts: WoTPolicyOpts) {}
 
   async call(event: NostrEvent): Promise<NostrRelayOK> {
+    this.pubkeys ??= this.getPubkeys();
     const pubkeys = await this.pubkeys;
 
     if (pubkeys.has(event.pubkey)) {

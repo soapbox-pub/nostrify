@@ -1,6 +1,7 @@
 import { NostrEvent } from '@nostrify/types';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
+export { ErrorRelay } from './ErrorRelay.ts';
 export { MockRelay } from './MockRelay.ts';
 
 /** Import a JSONL fixture by name in tests. */

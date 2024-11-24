@@ -18,13 +18,14 @@ import { NostrSigner } from '@nostrify/types';
  */
 export class NSecSigner implements NostrSigner {
   #secretKey: Uint8Array;
+  private pubkey?: string;
 
   constructor(secretKey: Uint8Array) {
     this.#secretKey = secretKey;
   }
 
   async getPublicKey(): Promise<string> {
-    return getPublicKey(this.#secretKey);
+    return this.pubkey ??= getPublicKey(this.#secretKey);
   }
 
   async signEvent(event: Omit<NostrEvent, 'id' | 'pubkey' | 'sig'>): Promise<NostrEvent> {

@@ -2,6 +2,8 @@ import { generateSecretKey } from 'nostr-tools';
 
 import { NSecSigner } from './NSecSigner.ts';
 
+const FIXED_SIGNER = new NSecSigner(generateSecretKey());
+
 Deno.bench('NSecSigner', () => {
   new NSecSigner(generateSecretKey());
 });
@@ -10,6 +12,10 @@ Deno.bench('NSecSigner.getPublicKey', async (b) => {
   const signer = new NSecSigner(generateSecretKey());
   b.start();
   await signer.getPublicKey();
+});
+
+Deno.bench('NSecSigner.getPublicKey with a fixed secret key', async () => {
+  await FIXED_SIGNER.getPublicKey();
 });
 
 Deno.bench('NSecSigner.signEvent', async (b) => {

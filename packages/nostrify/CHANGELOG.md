@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 0.36.2 - 2024-11-24
+
+### Fixed
+
+- NSecSigner: cache pubkey to speed up subsequent `getPublicKey()` calls.
+
 ## 0.36.1 - 2024-10-10
 
 ### Fixed

@@ -12,7 +12,12 @@ Deno.test('NConnectSigner.signEvent with nip04 encryption', async () => {
   const remote = new NSecSigner(generateSecretKey());
   const pubkey = await remote.getPublicKey();
 
-  const connect = new NConnectSigner({ relay, pubkey, signer: new NSecSigner(generateSecretKey()) });
+  const connect = new NConnectSigner({
+    relay,
+    pubkey,
+    signer: new NSecSigner(generateSecretKey()),
+    encryption: 'nip04',
+  });
 
   const req = relay.req([{ kinds: [24133], '#p': [pubkey] }]);
 

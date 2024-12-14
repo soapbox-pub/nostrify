@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
+- NConnectSigner: use `nip44` encryption by default.
+
 ## 0.36.2 - 2024-11-24
 
 ### Fixed

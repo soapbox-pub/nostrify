@@ -28,7 +28,7 @@ export class NConnectSigner implements NostrSigner {
   private timeout?: number;
   private encryption: 'nip04' | 'nip44';
 
-  constructor({ relay, pubkey, signer, timeout, encryption = 'nip04' }: NConnectSignerOpts) {
+  constructor({ relay, pubkey, signer, timeout, encryption = 'nip44' }: NConnectSignerOpts) {
     this.relay = relay;
     this.pubkey = pubkey;
     this.signer = signer;

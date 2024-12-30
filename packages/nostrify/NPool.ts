@@ -7,11 +7,11 @@ import { NSet } from './NSet.ts';
 
 export interface NPoolOpts<T extends NRelay> {
   /** Creates an `NRelay` instance for the given URL. */
-  open(url: WebSocket['url']): T;
+  open(url: string): T;
   /** Determines the relays to use for making `REQ`s to the given filters. To support the Outbox model, it should analyze the `authors` field of the filters. */
-  reqRouter(filters: NostrFilter[]): Promise<ReadonlyMap<WebSocket['url'], NostrFilter[]>>;
+  reqRouter(filters: NostrFilter[]): Promise<ReadonlyMap<string, NostrFilter[]>>;
   /** Determines the relays to use for publishing the given event. To support the Outbox model, it should analyze the `pubkey` field of the event. */
-  eventRouter(event: NostrEvent): Promise<WebSocket['url'][]>;
+  eventRouter(event: NostrEvent): Promise<string[]>;
 }
 
 /**
@@ -44,12 +44,12 @@ export interface NPoolOpts<T extends NRelay> {
  * `pool.req` will only emit an `EOSE` when all relays in its set have emitted an `EOSE`, and likewise for `CLOSED`.
  */
 export class NPool<T extends NRelay> implements NRelay {
-  private _relays = new Map<WebSocket['url'], T>();
+  private _relays = new Map<string, T>();
 
   constructor(private opts: NPoolOpts<T>) {}
 
   /** Get or create a relay instance for the given URL. */
-  public relay(url: WebSocket['url']): T {
+  public relay(url: string): T {
     const relay = this._relays.get(url);
 
     if (relay) {
@@ -61,7 +61,7 @@ export class NPool<T extends NRelay> implements NRelay {
     }
   }
 
-  public get relays(): ReadonlyMap<WebSocket['url'], T> {
+  public get relays(): ReadonlyMap<string, T> {
     return this._relays;
   }
 
@@ -78,8 +78,8 @@ export class NPool<T extends NRelay> implements NRelay {
     }
     const machina = new Machina<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>(signal);
 
-    const eoses = new Set<WebSocket['url']>();
-    const closes = new Set<WebSocket['url']>();
+    const eoses = new Set<string>();
+    const closes = new Set<string>();
 
     for (const [url, filters] of routes.entries()) {
       const relay = this.relay(url);

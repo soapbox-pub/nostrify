@@ -50,7 +50,7 @@ export class NWelshman implements NRelay {
     const machina = new Machina<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>(opts?.signal);
 
     const subs: Subscription[] = [];
-    const eoses = new Set<WebSocket['url']>();
+    const eoses = new Set<string>();
     const selections = this.select(filters as Filter[]);
 
     if (!selections.length) {

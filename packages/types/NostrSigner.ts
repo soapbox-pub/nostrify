@@ -7,7 +7,7 @@ export interface NostrSigner {
   /** Takes an event template, adds `id`, `pubkey` and `sig` and returns it. */
   signEvent(event: Omit<NostrEvent, 'id' | 'pubkey' | 'sig'>): Promise<NostrEvent>;
   /** Returns a record of relay URLs to relay policies. */
-  getRelays?(): Promise<Record<WebSocket['url'], { read: boolean; write: boolean }>>;
+  getRelays?(): Promise<Record<string, { read: boolean; write: boolean }>>;
   /** @deprecated NIP-04 crypto methods. Use `nip44` instead. */
   nip04?: {
     /** @deprecated Returns ciphertext and iv as specified in NIP-04. */

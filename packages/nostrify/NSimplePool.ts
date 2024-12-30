@@ -7,7 +7,7 @@ import { Machina } from './utils/Machina.ts';
 export interface NSimplePoolOpts {
   verifyEvent?: Nostr['verifyEvent'];
   trackRelays?: boolean;
-  trustedRelayURLs?: Set<WebSocket['url']>;
+  trustedRelayURLs?: Set<string>;
 }
 
 /**
@@ -24,8 +24,8 @@ export class NSimplePool implements NRelay {
     this.pool.trustedRelayURLs = opts?.trustedRelayURLs ?? new Set();
   }
 
-  get seenOn(): Map<string, Set<WebSocket['url']>> {
-    const seenOn = new Map<string, Set<WebSocket['url']>>();
+  get seenOn(): Map<string, Set<string>> {
+    const seenOn = new Map<string, Set<string>>();
 
     for (const [id, relays] of this.pool.seenOn) {
       seenOn.set(id, new Set([...relays].map((relay) => relay.url)));
@@ -36,7 +36,7 @@ export class NSimplePool implements NRelay {
 
   async *req(
     filters: NostrFilter[],
-    opts: { signal?: AbortSignal; relays?: WebSocket['url'][] } = {},
+    opts: { signal?: AbortSignal; relays?: string[] } = {},
   ): AsyncIterable<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
     if (opts.signal?.aborted) throw new DOMException('The signal has been aborted', 'AbortError');
 
@@ -77,7 +77,7 @@ export class NSimplePool implements NRelay {
   }
 
   // deno-lint-ignore require-await
-  async event(event: NostrEvent, opts: { signal?: AbortSignal; relays?: WebSocket['url'][] } = {}): Promise<void> {
+  async event(event: NostrEvent, opts: { signal?: AbortSignal; relays?: string[] } = {}): Promise<void> {
     if (opts.signal?.aborted) {
       throw new DOMException('The signal has been aborted', 'AbortError');
     }
@@ -86,7 +86,7 @@ export class NSimplePool implements NRelay {
 
   async query(
     filters: NostrFilter[],
-    opts: { signal?: AbortSignal; relays?: WebSocket['url'][] } = {},
+    opts: { signal?: AbortSignal; relays?: string[] } = {},
   ): Promise<NostrEvent[]> {
     const events: NostrEvent[] = [];
 
@@ -100,7 +100,7 @@ export class NSimplePool implements NRelay {
   }
 
   /** Disconnect from the given relay URLs. */
-  disconnect(relays: WebSocket['url'][]): void {
+  disconnect(relays: string[]): void {
     this.pool.close(relays);
   }
 

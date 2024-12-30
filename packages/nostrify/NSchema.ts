@@ -87,6 +87,14 @@ class NSchema {
       .refine((value) => prefix ? value.startsWith(`${prefix}1`) : true) as z.ZodType<`${P}1${string}`>;
   }
 
+  /** WebSocket URL starting with `ws://` or `wss://`. */
+  static relayUrl(): z.ZodType<`ws://${string}` | `wss://${string}`> {
+    return z
+      .string()
+      .url()
+      .regex(/^wss?:\/\//) as z.ZodType<`ws://${string}` | `wss://${string}`>;
+  }
+
   /** NIP-01 `EVENT` message from client to relay. */
   static clientEVENT(): z.ZodType<NostrClientEVENT> {
     return z.tuple([z.literal('EVENT'), NSchema.event()]);

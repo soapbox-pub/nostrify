@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- NSchema: add `relayUrl` schema.
+
+### Fixed
+
+- NIP05: tolerate invalid documents, stricter validation of result.
+
 ### Changed
 
 - NConnectSigner: use `nip44` encryption by default.

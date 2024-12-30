@@ -1,4 +1,4 @@
-import { NostrJson, NProfilePointer } from '@nostrify/types';
+import { NProfilePointer } from '@nostrify/types';
 
 import { NSchema as n, z } from './NSchema.ts';
 
@@ -13,11 +13,11 @@ export class NIP05 {
     return /^(?:([\w.+-]+)@)?([\w.-]+)$/;
   }
 
-  /** `nostr.json` response schema. */
-  static nostrJsonSchema(): z.ZodType<NostrJson> {
+  /** Nostr pubkey with relays object. */
+  private static profilePointerSchema(): z.ZodType<NProfilePointer> {
     return z.object({
-      names: z.record(z.string().regex(/^[\w.+-]+$/), n.id()),
-      relays: z.record(n.id(), z.array(z.string().url())).optional(),
+      pubkey: n.id(),
+      relays: n.relayUrl().array().optional(),
     });
   }
 
@@ -30,17 +30,19 @@ export class NIP05 {
 
     const [_, name = '_', domain] = match;
 
-    const url = new URL(`/.well-known/nostr.json?name=${encodeURIComponent(name)}`, `https://${domain}/`);
-    const res = await fetch(url, { signal });
+    const url = new URL('/.well-known/nostr.json', `https://${domain}/`);
+    url.searchParams.set('name', name);
 
-    const { names, relays } = NIP05.nostrJsonSchema().parse(await res.json());
-    const pubkey = names[name] as string | undefined;
+    const response = await fetch(url, { signal });
+    const json = await response.json();
 
-    if (!pubkey) throw new Error(`NIP-05: no match for ${nip05}`);
+    try {
+      const pubkey = json.names[name];
+      const relays = json.relays?.[pubkey];
 
-    return {
-      pubkey,
-      relays: relays?.[pubkey] ?? [],
-    };
+      return NIP05.profilePointerSchema().parse({ pubkey, relays });
+    } catch {
+      throw new Error(`NIP-05: no match for ${nip05}`);
+    }
   }
 }

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 0.36.0 - 2024-12-30
+
 ### Changed
 
 - Remove `WebSocket['url']` from types in favor of `string`.

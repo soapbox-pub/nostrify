@@ -24,14 +24,34 @@ export async function strfry(policy: NPolicy, opts?: { signal?: AbortSignal }): 
 
   for await (const line of readable) {
     const msg = line as unknown as StrfryInputMessage;
-    const [, eventId, ok, reason] = await policy.call(msg.event, opts?.signal);
+    try {
+      const [, eventId, ok, reason] = await policy.call(msg.event, opts?.signal);
 
-    const output: StrfryOutputMessage = {
-      action: ok ? 'accept' : 'reject',
-      id: eventId,
-      msg: reason,
-    };
+      const output: StrfryOutputMessage = {
+        action: ok ? 'accept' : 'reject',
+        id: eventId,
+        msg: reason,
+      };
 
-    console.log(JSON.stringify(output));
+      console.log(JSON.stringify(output));
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        const output: StrfryOutputMessage = {
+          action: 'reject',
+          id: msg.event.id,
+          msg: 'error: relay policy plugin timed out',
+        };
+
+        console.log(JSON.stringify(output));
+      } else {
+        const output: StrfryOutputMessage = {
+          action: 'reject',
+          id: msg.event.id,
+          msg: 'error: an unexpected error occurred',
+        };
+
+        console.log(JSON.stringify(output));
+      }
+    }
   }
 }

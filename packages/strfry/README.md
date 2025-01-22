@@ -1,10 +1,12 @@
-# Nostrify Policies
+# Nostrify Strfry Policies
 
-Policies allow you to prevent spam on your relay (or in your client).
+This package adapts [Nostrify policies](https://nostrify.dev/policy/) for use in [strfry policy plugins](https://github.com/hoytech/strfry/blob/master/docs/plugins.md).
 
-Policies inspect one event at a time, which they either accept or reject. It's up to the application to decide how to handle the result.
+## Example
 
 ```ts
+#!/bin/sh
+//bin/true; exec deno run -A "$0" "$@"
 import {
   AntiDuplicationPolicy,
   FiltersPolicy,
@@ -14,7 +16,9 @@ import {
   PowPolicy,
   RegexPolicy,
 } from '@nostrify/policies';
+import { strfry } from '@nostrify/strfry';
 
+// Create a regular policy object however you want.
 const policy = new PipePolicy([
   new FiltersPolicy([{ kinds: [0, 1, 3, 5, 7, 1984, 9734, 9735, 10002] }]),
   new KeywordPolicy(['https://t.me/']),
@@ -24,11 +28,7 @@ const policy = new PipePolicy([
   new AntiDuplicationPolicy({ kv: await Deno.openKv(), expireIn: 60000, minLength: 50 }),
 ]);
 
-const [_, eventId, ok, reason] = await policy.call(event);
+// Call the `strfry` function at the bottom of the file.
+// This hooks up to stdin/stdout and runs the policy on strfry input.
+await strfry(policy);
 ```
-
-Full documentation: https://nostrify.dev/policy
-
-## License
-
-MIT

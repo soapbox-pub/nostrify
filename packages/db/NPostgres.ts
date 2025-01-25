@@ -1,7 +1,7 @@
 import { NKinds } from '@nostrify/nostrify';
 import { NostrEvent, NostrFilter, NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT, NRelay } from '@nostrify/types';
 import { Kysely, type SelectQueryBuilder, sql } from 'kysely';
-import { getFilterLimit } from 'nostr-tools';
+import { getFilterLimit, sortEvents } from 'nostr-tools';
 
 /** Kysely database schema for Nostr. */
 export interface NPostgresSchema {
@@ -210,13 +210,26 @@ export class NPostgres implements NRelay {
     }
   }
 
+  /** Whether results should be sorted reverse-chronologically by the database. */
+  static shouldOrder(filter: NostrFilter): boolean {
+    const { limit = Infinity, ...rest } = filter;
+    const potentialLimit = getFilterLimit(rest);
+    return potentialLimit === Infinity || limit < potentialLimit;
+  }
+
   /** Build the query for a filter. */
   protected getFilterQuery(trx: Kysely<NPostgresSchema>, filter: NostrFilter): SelectEventsQuery {
     let query = trx
       .selectFrom('nostr_events')
-      .selectAll('nostr_events')
-      .orderBy('nostr_events.created_at', 'desc')
-      .orderBy('nostr_events.id', 'asc');
+      .selectAll('nostr_events');
+
+    // Avoid ORDER BY for certain queries.
+    const shouldOrder = NPostgres.shouldOrder(filter);
+    if (shouldOrder) {
+      query = query
+        .orderBy('nostr_events.created_at', 'desc')
+        .orderBy('nostr_events.id', 'asc');
+    }
 
     if (filter.ids) {
       query = query.where('nostr_events.id', '=', ({ fn, val }) => fn.any(val(filter.ids)));
@@ -324,7 +337,10 @@ export class NPostgres implements NRelay {
         query = query.limit(opts.limit);
       }
 
-      return (await query.execute()).map((row) => this.parseEventRow(row));
+      const rows = await query.execute();
+      const events = rows.map((row) => this.parseEventRow(row));
+
+      return sortEvents(events);
     }, opts.timeout);
   }
 

@@ -588,3 +588,28 @@ Deno.test('NPostgres.req streams events', { ignore: !databaseUrl }, async () => 
 
   assertEquals(expected, results);
 });
+
+Deno.test('NPostgres.shouldOrder', () => {
+  assertEquals(NPostgres.shouldOrder({}), true);
+
+  assertEquals(NPostgres.shouldOrder({ ids: ['1', '2', '3'] }), false);
+  assertEquals(NPostgres.shouldOrder({ ids: ['1', '2', '3'], limit: 2 }), true); // the limit is less than the number of ids
+  assertEquals(NPostgres.shouldOrder({ ids: ['1', '2', '3'], limit: 3 }), false);
+  assertEquals(NPostgres.shouldOrder({ ids: ['1', '2', '3'], limit: 20 }), false);
+
+  assertEquals(NPostgres.shouldOrder({ kinds: [0], authors: ['alex'] }), false);
+  assertEquals(NPostgres.shouldOrder({ kinds: [0], authors: ['alex', 'patrick', 'shantaram'], limit: 1 }), true);
+  assertEquals(NPostgres.shouldOrder({ kinds: [0], authors: ['alex', 'patrick', 'shantaram'], limit: 20 }), false);
+  assertEquals(NPostgres.shouldOrder({ kinds: [0, 3], authors: ['alex'] }), false);
+  assertEquals(NPostgres.shouldOrder({ kinds: [0, 3], authors: ['alex'], limit: 1 }), true);
+  assertEquals(NPostgres.shouldOrder({ kinds: [0, 3], authors: ['alex'], limit: 2 }), false);
+  assertEquals(NPostgres.shouldOrder({ kinds: [0, 3], authors: ['alex'], limit: 20 }), false);
+
+  assertEquals(NPostgres.shouldOrder({ kinds: [1] }), true);
+  assertEquals(NPostgres.shouldOrder({ kinds: [1], limit: 20 }), true);
+  assertEquals(NPostgres.shouldOrder({ kinds: [1, 6] }), true);
+  assertEquals(NPostgres.shouldOrder({ kinds: [1, 6], limit: 20 }), true);
+
+  assertEquals(NPostgres.shouldOrder({ kinds: [30000], authors: ['alex'] }), true);
+  assertEquals(NPostgres.shouldOrder({ kinds: [30000], authors: ['alex'], '#d': ['yolo'] }), false);
+});

@@ -16,7 +16,9 @@ import type { StrfryInputMessage, StrfryOutputMessage } from './types.ts';
  * await strfry(policy);
  * ```
  */
-export async function strfry(policy: NPolicy, opts?: { signal?: AbortSignal }): Promise<void> {
+export async function strfry(policy: NPolicy, optsFn?: () => { signal?: AbortSignal }): Promise<void> {
+  const { signal } = optsFn?.() ?? {};
+
   const readable = Deno.stdin.readable
     .pipeThrough(new TextDecoderStream())
     .pipeThrough(new TextLineStream())
@@ -25,7 +27,7 @@ export async function strfry(policy: NPolicy, opts?: { signal?: AbortSignal }): 
   for await (const line of readable) {
     const msg = line as unknown as StrfryInputMessage;
     try {
-      const [, eventId, ok, reason] = await policy.call(msg.event, opts?.signal);
+      const [, eventId, ok, reason] = await policy.call(msg.event, signal);
 
       const output: StrfryOutputMessage = {
         action: ok ? 'accept' : 'reject',

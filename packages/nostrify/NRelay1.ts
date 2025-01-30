@@ -37,6 +37,14 @@ export interface NRelay1Opts {
   idleTimeout?: number | false;
   /** Ensure the event is valid before returning it. Default: `nostrTools.verifyEvent`. */
   verifyEvent?(event: NostrEvent): boolean;
+  /** Logger callback. */
+  log?(log: NRelay1Log): void;
+}
+
+export interface NRelay1Log {
+  level: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal' | 'critical';
+  ns: string;
+  [k: string]: JsonValue | undefined | { toJSON(): JsonValue } | Error;
 }
 
 /** Single relay connection over WebSocket. */
@@ -53,6 +61,10 @@ export class NRelay1 implements NRelay {
     return [...this.subs.values()];
   }
 
+  private log(log: NRelay1Log): void {
+    this.opts.log?.(log);
+  }
+
   constructor(private url: string, private opts: NRelay1Opts = {}) {
     this.socket = this.createSocket();
     this.maybeStartIdleTimer();
@@ -65,22 +77,60 @@ export class NRelay1 implements NRelay {
     return new WebsocketBuilder(this.url)
       .withBuffer(new ArrayQueue())
       .withBackoff(backoff === false ? undefined : backoff)
-      .onOpen(() => {
+      .onOpen((socket) => {
+        this.log({
+          level: 'debug',
+          ns: 'relay.ws.state',
+          state: 'open',
+          readyState: socket.readyState,
+          url: socket.url,
+        });
         for (const req of this.subs.values()) {
           this.send(req);
         }
       })
-      .onClose(() => {
+      .onClose((socket) => {
+        this.log({
+          level: 'debug',
+          ns: 'relay.ws.state',
+          state: 'close',
+          readyState: socket.readyState,
+          url: socket.url,
+        });
         // If the connection closes on its own and there are no active subscriptions, let it stay closed.
         if (!this.subs.size) {
           this.socket.close();
         }
       })
-      .onMessage((_ws, ev) => {
-        const result = n.json().pipe(n.relayMsg()).safeParse(ev.data);
+      .onReconnect((socket) => {
+        this.log({
+          level: 'debug',
+          ns: 'relay.ws.state',
+          state: 'reconnect',
+          readyState: socket.readyState,
+          url: socket.url,
+        });
+      })
+      .onRetry((socket, e) => {
+        this.log({
+          level: 'warn',
+          ns: 'relay.ws.retry',
+          readyState: socket.readyState,
+          url: socket.url,
+          backoff: e.detail.backoff,
+        });
+      })
+      .onError((socket) => {
+        this.log({ level: 'error', ns: 'relay.ws.error', readyState: socket.readyState, url: socket.url });
+      })
+      .onMessage((_ws, e) => {
+        const result = n.json().pipe(n.relayMsg()).safeParse(e.data);
 
         if (result.success) {
+          this.log({ level: 'trace', ns: 'relay.ws.message', data: result.data as JsonValue });
           this.receive(result.data);
+        } else {
+          this.log({ level: 'warn', ns: 'relay.ws.message', error: result.error });
         }
       })
       .build();
@@ -120,6 +170,7 @@ export class NRelay1 implements NRelay {
 
   /** Send a NIP-01 client message to the relay. */
   protected send(msg: NostrClientMsg): void {
+    this.log({ level: 'trace', ns: 'relay.ws.send', data: msg as JsonValue });
     this.wake();
 
     switch (msg[0]) {
@@ -264,11 +315,16 @@ export class NRelay1 implements NRelay {
     // If the connection was manually closed, there's no need to start a timer.
     if (this.closedByUser) return;
 
-    this.idleTimer = setTimeout(() => this.socket.close(), idleTimeout);
+    this.log({ level: 'debug', ns: 'relay.idletimer', state: 'running', timeout: idleTimeout });
+    this.idleTimer = setTimeout(() => {
+      this.log({ level: 'debug', ns: 'relay.idletimer', state: 'aborted', timeout: idleTimeout });
+      this.socket.close();
+    }, idleTimeout);
   }
 
   /** Stop the idle timer. */
   private stopIdleTimer(): void {
+    this.log({ level: 'debug', ns: 'relay.idletimer', state: 'stopped' });
     clearTimeout(this.idleTimer);
     this.idleTimer = undefined;
   }
@@ -278,7 +334,12 @@ export class NRelay1 implements NRelay {
     this.stopIdleTimer();
 
     if (!this.closedByUser && this.socket.closedByUser) {
+      this.log({ level: 'debug', ns: 'relay.wake', state: 'awoken' });
       this.socket = this.createSocket();
+    } else if (this.closedByUser || this.socket.closedByUser) {
+      this.log({ level: 'debug', ns: 'relay.wake', state: 'closed' });
+    } else {
+      this.log({ level: 'debug', ns: 'relay.wake', state: 'awake' });
     }
   }
 
@@ -302,3 +363,12 @@ export class NRelay1 implements NRelay {
     await this.close();
   }
 }
+
+/** Native JSON primitive value, including objects and arrays. */
+type JsonValue =
+  | { [key: string]: JsonValue | undefined }
+  | JsonValue[]
+  | string
+  | number
+  | boolean
+  | null;

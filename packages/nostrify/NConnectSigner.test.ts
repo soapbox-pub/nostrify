@@ -51,6 +51,7 @@ Deno.test('NConnectSigner.signEvent with nip04 encryption', async () => {
   }
 
   assert(verifyEvent(await promise));
+  assertEquals(relay.subs.size, 0); // cleanup
 });
 
 Deno.test('NConnectSigner.signEvent with nip44 encryption', async () => {
@@ -97,4 +98,5 @@ Deno.test('NConnectSigner.signEvent with nip44 encryption', async () => {
   }
 
   assert(verifyEvent(await promise));
+  assertEquals(relay.subs.size, 0); // cleanup
 });

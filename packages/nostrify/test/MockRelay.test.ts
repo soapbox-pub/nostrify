@@ -15,4 +15,6 @@ Deno.test('MockRelay', async () => {
 
   const result = await relay.query([{ ids: [event1.id] }]);
   assertEquals(result[0], event1);
+
+  assertEquals(relay.subs.size, 0); // cleanup
 });

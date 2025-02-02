@@ -265,13 +265,13 @@ export class NPostgres implements NRelay {
       const ext = tokens.filter((token) => typeof token === 'object');
       const txt = tokens.filter((token) => typeof token === 'string').join('');
 
-      query = query.where((eb) =>
-        eb.or(
-          ext.map(
-            ({ key, value }) => eb('nostr_events.search_ext', '@>', { [key]: value }),
-          ),
-        )
-      );
+      if (ext.length) {
+        query = query.where((eb) =>
+          eb.or(
+            ext.map(({ key, value }) => eb('nostr_events.search_ext', '@>', { [key]: value })),
+          )
+        );
+      }
 
       if (txt) {
         query = query.where('nostr_events.search', '@@', sql`phraseto_tsquery(${txt})`);

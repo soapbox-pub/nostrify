@@ -633,9 +633,9 @@ Deno.test('NPostgres search extensions', { ignore: !databaseUrl }, async () => {
 
   const { store } = db;
 
-  const en = genEvent({ kind: 1, content: 'hello' });
-  const zh = genEvent({ kind: 1, content: '藍天' });
-  const ja = genEvent({ kind: 1, content: 'こんにちは' });
+  const en = genEvent({ kind: 1, content: 'hello', created_at: 0 });
+  const zh = genEvent({ kind: 1, content: '藍天', created_at: 1 });
+  const ja = genEvent({ kind: 1, content: 'こんにちは', created_at: 2 });
 
   await store.event(en);
   await store.event(zh);
@@ -648,7 +648,7 @@ Deno.test('NPostgres search extensions', { ignore: !databaseUrl }, async () => {
 
   const results2 = await store.query([{ kinds: [1], search: 'language:zh language:ja' }]);
 
-  assertEquals(results2.map((e) => e.id), [zh.id, ja.id]);
+  assertEquals(results2.map((e) => e.id), [ja.id, zh.id]);
 
   const results3 = await store.query([{ kinds: [1], search: 'language:zh language:ja 藍天' }]);
 

@@ -617,10 +617,10 @@ Deno.test('NPostgres.shouldOrder', () => {
 Deno.test('NPostgres search extensions', { ignore: !databaseUrl }, async () => {
   await using db = await createDB({
     indexExtensions(event) {
-      const ext: Record<string, string[]> = {};
+      const ext: Record<string, string> = {};
 
       if (/[\u4E00-\u9FFF]/.test(event.content)) {
-        ext.language = ['zh'];
+        ext.language = 'zh';
       }
 
       return ext;

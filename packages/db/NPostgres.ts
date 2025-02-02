@@ -16,7 +16,7 @@ export interface NPostgresSchema {
     sig: string;
     d: string | null;
     search: unknown;
-    search_ext: Record<string, string[]>;
+    search_ext: Record<string, string>;
   };
 }
 
@@ -34,9 +34,9 @@ export interface NPostgresOpts {
   indexSearch?(event: NostrEvent): string | undefined;
   /**
    * Index NIP-50 search extensions.
-   * For example: returning an object like `{ language: ["pt"] }` will allow searching for events with `{ search: "language:pt" }`.
+   * For example: returning an object like `{ language: "pt" }` will allow searching for events with `{ search: "language:pt" }`.
    */
-  indexExtensions?(event: NostrEvent): Record<string, string[]> | Promise<Record<string, string[]>>;
+  indexExtensions?(event: NostrEvent): Record<string, string> | Promise<Record<string, string>>;
   /** Chunk size to use when streaming results with `.req`. Default: 100. */
   chunkSize?: number;
 }
@@ -52,7 +52,7 @@ export class NPostgres implements NRelay {
   private db: Kysely<NPostgresSchema>;
   private indexTags: (event: NostrEvent) => string[][];
   private indexSearch: (event: NostrEvent) => string | undefined;
-  private indexExtensions: (event: NostrEvent) => Record<string, string[]> | Promise<Record<string, string[]>>;
+  private indexExtensions: (event: NostrEvent) => Record<string, string> | Promise<Record<string, string>>;
   private chunkSize: number;
 
   constructor(db: Kysely<any>, opts?: NPostgresOpts) {
@@ -266,7 +266,7 @@ export class NPostgres implements NRelay {
         if (typeof token === 'string') {
           searchText += token;
         } else {
-          query = query.where((eb) => eb('nostr_events.search_ext', '@>', { [token.key]: [token.value] }));
+          query = query.where((eb) => eb('nostr_events.search_ext', '@>', { [token.key]: token.value }));
         }
       }
 

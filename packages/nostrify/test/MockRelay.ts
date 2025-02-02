@@ -16,7 +16,7 @@ import { NSet } from '../NSet.ts';
 
 /** Mock relay for testing. */
 export class MockRelay extends NSet implements NRelay {
-  readonly subs = new Map<string, { filters: NostrFilter[]; machina: Machina<NostrEvent> }>();
+  readonly subs: Map<string, { filters: NostrFilter[]; machina: Machina<NostrEvent> }> = new Map();
 
   async *req(
     filters: NostrFilter[],

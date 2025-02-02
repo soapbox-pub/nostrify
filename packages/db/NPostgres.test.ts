@@ -648,5 +648,9 @@ Deno.test('NPostgres search extensions', { ignore: !databaseUrl }, async () => {
 
   const results2 = await store.query([{ kinds: [1], search: 'language:zh language:ja' }]);
 
-  assertEquals(results2.length, 2);
+  assertEquals(results2.map((e) => e.id), [zh.id, ja.id]);
+
+  const results3 = await store.query([{ kinds: [1], search: 'language:zh language:ja 藍天' }]);
+
+  assertEquals(results3.map((e) => e.id), [zh.id]);
 });

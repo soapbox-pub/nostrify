@@ -1,4 +1,4 @@
-import { NKinds } from '@nostrify/nostrify';
+import { NIP50, NKinds } from '@nostrify/nostrify';
 import { NostrEvent, NostrFilter, NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT, NRelay } from '@nostrify/types';
 import { Kysely, type SelectQueryBuilder, sql } from 'kysely';
 import { getFilterLimit, sortEvents } from 'nostr-tools';
@@ -16,6 +16,7 @@ export interface NPostgresSchema {
     sig: string;
     d: string | null;
     search: unknown;
+    search_ext: Record<string, string[]>;
   };
 }
 
@@ -27,10 +28,15 @@ export interface NPostgresOpts {
    */
   indexTags?(event: NostrEvent): string[][];
   /**
-   * Build a search index from the event.
+   * Build NIP-50 search text from the event.
    * By default, only kinds 0 and 1 events are indexed for search, and the search text is the event content with tag values appended to it.
    */
   indexSearch?(event: NostrEvent): string | undefined;
+  /**
+   * Index NIP-50 search extensions.
+   * For example: returning an object like `{ language: ["pt"] }` will allow searching for events with `{ search: "language:pt" }`.
+   */
+  indexExtensions?(event: NostrEvent): Record<string, string[]> | Promise<Record<string, string[]>>;
   /** Chunk size to use when streaming results with `.req`. Default: 100. */
   chunkSize?: number;
 }
@@ -46,12 +52,14 @@ export class NPostgres implements NRelay {
   private db: Kysely<NPostgresSchema>;
   private indexTags: (event: NostrEvent) => string[][];
   private indexSearch: (event: NostrEvent) => string | undefined;
+  private indexExtensions: (event: NostrEvent) => Record<string, string[]> | Promise<Record<string, string[]>>;
   private chunkSize: number;
 
   constructor(db: Kysely<any>, opts?: NPostgresOpts) {
     this.db = db as Kysely<NPostgresSchema>;
     this.indexTags = opts?.indexTags ?? NPostgres.indexTags;
     this.indexSearch = opts?.indexSearch ?? NPostgres.indexSearch;
+    this.indexExtensions = opts?.indexExtensions ?? (() => ({}));
     this.chunkSize = opts?.chunkSize ?? 100;
   }
 
@@ -153,7 +161,7 @@ export class NPostgres implements NRelay {
     const replaceable = NKinds.replaceable(event.kind);
     const parameterized = NKinds.parameterizedReplaceable(event.kind);
 
-    const tagIndex = this.indexTags(event).reduce((result, [name, value]) => {
+    const tagsIndex = this.indexTags(event).reduce((result, [name, value]) => {
       if (!result[name]) {
         result[name] = [];
       }
@@ -165,7 +173,8 @@ export class NPostgres implements NRelay {
 
     const row: NPostgresSchema['nostr_events'] = {
       ...event,
-      tags_index: tagIndex,
+      tags_index: tagsIndex,
+      search_ext: await this.indexExtensions(event),
       search: searchText ? sql`to_tsvector(${searchText})` : null,
       d: parameterized ? d ?? '' : null,
     };
@@ -192,6 +201,7 @@ export class NPostgres implements NRelay {
               sig: eb.ref('excluded.sig'),
               d: eb.ref('excluded.d'),
               search: eb.ref('excluded.search'),
+              search_ext: eb.ref('excluded.search_ext'),
             })).where((eb) =>
               eb.or([
                 eb('nostr_events.created_at', '<', eb.ref('excluded.created_at')),
@@ -250,7 +260,19 @@ export class NPostgres implements NRelay {
       query = query.limit(filter.limit);
     }
     if (filter.search) {
-      query = query.where('nostr_events.search', '@@', sql`phraseto_tsquery(${filter.search})`);
+      let searchText = '';
+
+      for (const token of NIP50.parseInput(filter.search)) {
+        if (typeof token === 'string') {
+          searchText += token;
+        } else {
+          query = query.where((eb) => eb('nostr_events.search_ext', '@>', { [token.key]: [token.value] }));
+        }
+      }
+
+      if (searchText) {
+        query = query.where('nostr_events.search', '@@', sql`phraseto_tsquery(${searchText})`);
+      }
     }
 
     for (const [key, values] of Object.entries(filter)) {
@@ -466,10 +488,12 @@ export class NPostgres implements NRelay {
       .addColumn('sig', 'char(128)', (col) => col.notNull())
       .addColumn('d', 'text')
       .addColumn('search', sql`tsvector`)
+      .addColumn('search_ext', 'jsonb', (col) => col.notNull())
       .addCheckConstraint('nostr_events_kind_chk', sql`kind >= 0`)
       .addCheckConstraint('nostr_events_created_chk', sql`created_at >= 0`)
       .addCheckConstraint('nostr_events_tags_chk', sql`jsonb_typeof(tags) = 'array'`)
       .addCheckConstraint('nostr_events_tags_index_chk', sql`jsonb_typeof(tags_index) = 'object'`)
+      .addCheckConstraint('nostr_events_search_ext_chk', sql`jsonb_typeof(search_ext) = 'object'`)
       .addCheckConstraint(
         'nostr_events_d_chk',
         sql`(kind >= 30000 and kind < 40000 and d is not null) or ((kind < 30000 or kind >= 40000) and d is null)`,
@@ -520,6 +544,13 @@ export class NPostgres implements NRelay {
       .createIndex('nostr_events_search_idx').using('gin')
       .on('nostr_events')
       .column('search')
+      .ifNotExists()
+      .execute();
+
+    await schema
+      .createIndex('nostr_events_search_ext_idx').using('gin')
+      .on('nostr_events')
+      .column('search_ext')
       .ifNotExists()
       .execute();
   }

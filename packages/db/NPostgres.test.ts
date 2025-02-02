@@ -613,3 +613,30 @@ Deno.test('NPostgres.shouldOrder', () => {
   assertEquals(NPostgres.shouldOrder({ kinds: [30000], authors: ['alex'] }), true);
   assertEquals(NPostgres.shouldOrder({ kinds: [30000], authors: ['alex'], '#d': ['yolo'] }), false);
 });
+
+Deno.test('NPostgres search extensions', { ignore: !databaseUrl }, async () => {
+  await using db = await createDB({
+    indexExtensions(event) {
+      const ext: Record<string, string[]> = {};
+
+      if (/[\u4E00-\u9FFF]/.test(event.content)) {
+        ext.language = ['zh'];
+      }
+
+      return ext;
+    },
+  });
+
+  const { store } = db;
+
+  const en = genEvent({ kind: 1, content: 'hello' });
+  const zh = genEvent({ kind: 1, content: '藍天' });
+
+  await store.event(en);
+  await store.event(zh);
+
+  const results = await store.query([{ kinds: [1], search: 'language:zh' }]);
+
+  assertEquals(results.length, 1);
+  assertEquals(results[0].id, zh.id);
+});

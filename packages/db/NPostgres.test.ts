@@ -619,8 +619,12 @@ Deno.test('NPostgres search extensions', { ignore: !databaseUrl }, async () => {
     indexExtensions(event) {
       const ext: Record<string, string> = {};
 
-      if (/[\u4E00-\u9FFF]/.test(event.content)) {
+      if (/[\p{Script=Han}]/u.test(event.content)) {
         ext.language = 'zh';
+      }
+
+      if (/[\p{Script=Hiragana}\p{Script=Katakana}]/u.test(event.content)) {
+        ext.language = 'ja';
       }
 
       return ext;
@@ -631,12 +635,18 @@ Deno.test('NPostgres search extensions', { ignore: !databaseUrl }, async () => {
 
   const en = genEvent({ kind: 1, content: 'hello' });
   const zh = genEvent({ kind: 1, content: '藍天' });
+  const ja = genEvent({ kind: 1, content: 'こんにちは' });
 
   await store.event(en);
   await store.event(zh);
+  await store.event(ja);
 
   const results = await store.query([{ kinds: [1], search: 'language:zh' }]);
 
   assertEquals(results.length, 1);
   assertEquals(results[0].id, zh.id);
+
+  const results2 = await store.query([{ kinds: [1], search: 'language:zh language:ja' }]);
+
+  assertEquals(results2.length, 2);
 });

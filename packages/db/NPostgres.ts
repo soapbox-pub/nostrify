@@ -262,13 +262,20 @@ export class NPostgres implements NRelay {
     if (filter.search) {
       const tokens = NIP50.parseInput(filter.search);
 
-      const ext = tokens.filter((token) => typeof token === 'object');
       const txt = tokens.filter((token) => typeof token === 'string').join(' ');
+      const ext: Record<string, string[]> = {};
 
-      if (ext.length) {
+      for (const token of tokens) {
+        if (typeof token === 'object') {
+          ext[token.key] ??= [];
+          ext[token.key].push(token.value);
+        }
+      }
+
+      for (const [key, values] of Object.entries(ext)) {
         query = query.where((eb) =>
           eb.or(
-            ext.map(({ key, value }) => eb('nostr_events.search_ext', '@>', { [key]: value })),
+            values.map((value) => eb('nostr_events.search_ext', '@>', { [key]: value })),
           )
         );
       }

@@ -654,3 +654,44 @@ Deno.test('NPostgres search extensions', { ignore: !databaseUrl }, async () => {
 
   assertEquals(results3.map((e) => e.id), [zh.id]);
 });
+
+Deno.test('NPostgres search extensions with multiple keys and values', { ignore: !databaseUrl }, async () => {
+  await using db = await createDB({
+    indexExtensions(event) {
+      const ext: Record<string, string> = {};
+
+      const imeta: string[][][] = event.tags
+        .filter(([name]) => name === 'imeta')
+        .map(([_, ...entries]) =>
+          entries.map((entry) => {
+            const split = entry.split(' ');
+            return [split[0], split.splice(1).join(' ')];
+          })
+        );
+
+      if (imeta.length) {
+        ext.media = 'true';
+
+        if (imeta.every((tags) => tags.some(([name, value]) => name === 'm' && value.startsWith('video/')))) {
+          ext.video = 'true';
+        }
+      }
+
+      ext.protocol = event.tags.find(([name]) => name === 'proxy')?.[2] ?? 'nostr';
+
+      return ext;
+    },
+  });
+
+  const { store } = db;
+
+  const atpubVideo = genEvent({ kind: 1, tags: [['imeta', 'm video/mp4'], ['proxy', '', 'activitypub']] });
+  const nostrVideo = genEvent({ kind: 1, tags: [['imeta', 'm video/mp4']] });
+
+  await store.event(atpubVideo);
+  await store.event(nostrVideo);
+
+  const results = await store.query([{ kinds: [1], search: 'video:true protocol:nostr' }]);
+
+  assertEquals(results.map((e) => e.id), [nostrVideo.id]);
+});

@@ -432,6 +432,7 @@ export class NPostgres implements NRelay {
       const store = new NPostgres(trx as Kysely<NPostgresSchema>, {
         indexTags: this.indexTags,
         indexSearch: this.indexSearch,
+        indexExtensions: this.indexExtensions,
         chunkSize: this.chunkSize,
       });
 

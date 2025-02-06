@@ -695,3 +695,69 @@ Deno.test('NPostgres search extensions with multiple keys and values', { ignore:
 
   assertEquals(results.map((e) => e.id), [nostrVideo.id]);
 });
+
+Deno.test('NPostgres search extensions with negative tokens', { ignore: !databaseUrl }, async () => {
+  await using db = await createDB({
+    indexExtensions(event) {
+      const ext: Record<string, string> = {};
+
+      if (/[\p{Script=Han}]/u.test(event.content)) {
+        ext.language = 'zh';
+      }
+
+      if (/[\p{Script=Hiragana}\p{Script=Katakana}]/u.test(event.content)) {
+        ext.language = 'ja';
+      }
+
+      return ext;
+    },
+  });
+
+  const { store } = db;
+
+  const en = genEvent({ kind: 1, content: 'hello', created_at: 0 });
+  const zh = genEvent({ kind: 1, content: '藍天', created_at: 1 });
+  const ja = genEvent({ kind: 1, content: 'こんにちは', created_at: 2 });
+
+  await store.event(en);
+  await store.event(zh);
+  await store.event(ja);
+
+  const results = await store.query([{ kinds: [1], search: '-language:zh' }]);
+
+  assertEquals(results.map((e) => e.id), [ja.id, en.id]);
+});
+
+Deno.test('NPostgres search extensions with multiple negative tokens', { ignore: !databaseUrl }, async () => {
+  await using db = await createDB({
+    indexExtensions(event) {
+      const ext: Record<string, string> = {};
+
+      if (/[\p{Script=Han}]/u.test(event.content)) {
+        ext.language = 'zh';
+      }
+
+      if (/[\p{Script=Hiragana}\p{Script=Katakana}]/u.test(event.content)) {
+        ext.language = 'ja';
+      }
+
+      ext.always = 'true';
+
+      return ext;
+    },
+  });
+
+  const { store } = db;
+
+  const en = genEvent({ kind: 1, content: 'hello', created_at: 0 });
+  const zh = genEvent({ kind: 1, content: '藍天', created_at: 1 });
+  const ja = genEvent({ kind: 1, content: 'こんにちは', created_at: 2 });
+
+  await store.event(en);
+  await store.event(zh);
+  await store.event(ja);
+
+  const results = await store.query([{ kinds: [1], search: '-language:zh always:true -language:ja' }]);
+
+  assertEquals(results.map((e) => e.id), [en.id]);
+});

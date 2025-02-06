@@ -272,12 +272,25 @@ export class NPostgres implements NRelay {
         }
       }
 
-      for (const [key, values] of Object.entries(ext)) {
-        query = query.where((eb) =>
-          eb.or(
-            values.map((value) => eb('nostr_events.search_ext', '@>', { [key]: value })),
-          )
-        );
+      for (let [key, values] of Object.entries(ext)) {
+        let negated = false;
+
+        if (key.startsWith('-')) {
+          key = key.slice(1);
+          negated = true;
+        }
+
+        query = query.where((eb) => {
+          if (negated) {
+            return eb.and(
+              values.map((value) => eb.not(eb('nostr_events.search_ext', '@>', { [key]: value }))),
+            );
+          } else {
+            return eb.or(
+              values.map((value) => eb('nostr_events.search_ext', '@>', { [key]: value })),
+            );
+          }
+        });
       }
 
       if (txt) {

@@ -260,15 +260,29 @@ export class NPostgres implements NRelay {
       query = query.limit(filter.limit);
     }
     if (filter.search) {
-      const tokens = NIP50.parseInput(filter.search);
-
-      const txt = tokens.filter((token) => typeof token === 'string').join(' ');
       const ext: Record<string, string[]> = {};
+      const tsq: string[] = [];
 
-      for (const token of tokens) {
+      for (const token of NIP50.parseInput(filter.search)) {
         if (typeof token === 'object') {
           ext[token.key] ??= [];
           ext[token.key].push(token.value);
+        }
+
+        if (typeof token === 'string') {
+          const t = token.replace(/[^\p{L}\p{N}-]/gu, ' ');
+
+          const isWord = /^-?[\p{L}\p{N}]+$/u.test(t);
+          const isPhrase = /^([\p{L}\p{N}]+\s+)+[\p{L}\p{N}]+$/u.test(t);
+
+          if (isWord) {
+            tsq.push(t.replace(/^-/, '!')); // handle negated words
+          } else if (isPhrase) {
+            tsq.push(t.split(/\s+/g).join(' <-> ')); // join words in phrase
+          } else {
+            // unsupported token
+            return trx.selectFrom('nostr_events').selectAll().where('nostr_events.id', 'is', null);
+          }
         }
       }
 
@@ -293,8 +307,8 @@ export class NPostgres implements NRelay {
         });
       }
 
-      if (txt) {
-        query = query.where('nostr_events.search', '@@', sql`phraseto_tsquery(${txt})`);
+      if (tsq.length) {
+        query = query.where('nostr_events.search', '@@', sql`to_tsquery(${tsq.join(' & ')})`);
       }
     }
 

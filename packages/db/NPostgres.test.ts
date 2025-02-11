@@ -261,6 +261,23 @@ Deno.test('NPostgres.query with search', { ignore: !databaseUrl }, async (t) => 
   await t.step("don't match nonsense queries", async () => {
     assertEquals(await store.query([{ search: "this shouldn't match" }]), []);
   });
+
+  await t.step('match with multiple words', async () => {
+    assertEquals(await store.query([{ search: 'Fediverse vegan' }]), [event0]);
+  });
+
+  await t.step('match phrase', async () => {
+    assertEquals(await store.query([{ search: '"vegan btw"' }]), [event0]);
+  });
+
+  await t.step('negative word', async () => {
+    assertEquals(await store.query([{ search: '-btw' }]), [event1]);
+  });
+
+  await t.step('special characters', async () => {
+    // It just has to not throw an error
+    assertEquals(await store.query([{ search: '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~' }]), []);
+  });
 });
 
 Deno.test('NPostgres.query with search and fts disabled', { ignore: !databaseUrl }, async () => {
@@ -529,12 +546,127 @@ Deno.test('NPostgres timeout', { ignore: !databaseUrl }, async (t) => {
     );
   });
 
-  const slowFilters: NostrFilter[] = [
-    {
-      search:
-        'Block #: 836,386\nPrice: $70,219\nSats/$: 1,424\nFee: 23 sat/vB\nHashrate: 538 EH/s\nDifficulty: 83T nonces\nNodes: 7,685\nFull-node size: 521 GB',
-    },
-  ];
+  const slowFilters: NostrFilter[] = [{
+    '#t': [
+      'lorem',
+      'ipsum',
+      'dolor',
+      'sit',
+      'amet',
+      'consectetur',
+      'adipiscing',
+      'elit',
+      'etiam',
+      'sed',
+      'orci',
+      'faucibus',
+      'faucibus',
+      'mi',
+      'condimentum',
+      'blandit',
+      'orci',
+      'duis',
+      'ac',
+      'felis',
+      'nec',
+      'nulla',
+      'venenatis',
+      'laoreet',
+      'lorem',
+      'ipsum',
+      'dolor',
+      'sit',
+      'amet',
+      'consectetur',
+      'adipiscing',
+      'elit',
+      'vivamus',
+      'quis',
+      'facilisis',
+      'tellus',
+      'ut',
+      'condimentum',
+      'ante',
+      'pellentesque',
+      'interdum',
+      'molestie',
+      'vehicula',
+      'duis',
+      'tristique',
+      'euismod',
+      'convallis',
+      'in',
+      'tortor',
+      'purus',
+      'sollicitudin',
+      'ut',
+      'vestibulum',
+      'vitae',
+      'cursus',
+      'ut',
+      'velit',
+      'vivamus',
+      'libero',
+      'quam',
+      'commodo',
+      'a',
+      'purus',
+      'eget',
+      'molestie',
+      'convallis',
+      'felis',
+      'proin',
+      'bibendum',
+      'vitae',
+      'mauris',
+      'ac',
+      'maximus',
+      'sed',
+      'laoreet',
+      'ex',
+      'in',
+      'mi',
+      'maximus',
+      'porttitor',
+      'duis',
+      'ultrices',
+      'pharetra',
+      'nisi',
+      'quis',
+      'hendrerit',
+      'pellentesque',
+      'dui',
+      'libero',
+      'cursus',
+      'sit',
+      'amet',
+      'neque',
+      'vel',
+      'consectetur',
+      'dignissim',
+      'augue',
+      'aliquam',
+      'volutpat',
+      'sapien',
+      'vitae',
+      'ipsum',
+      'varius',
+      'luctus',
+      'donec',
+      'ac',
+      'erat',
+      'venenatis',
+      'vestibulum',
+      'arcu',
+      'ut',
+      'tincidunt',
+      'augue',
+      'etiam',
+      'vel',
+      'molestie',
+      'mi',
+    ],
+  }];
 
   await t.step('Slow query', async () => {
     await assertRejects(

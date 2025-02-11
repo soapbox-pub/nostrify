@@ -7,7 +7,7 @@ Deno.test('NIP50.parseInput', () => {
   assertEquals(NIP50.parseInput(' '), []);
   assertEquals(NIP50.parseInput('hello'), ['hello']);
   assertEquals(NIP50.parseInput('hello world'), ['hello', 'world']);
-  assertEquals(NIP50.parseInput('hello "world"'), ['hello', 'world']);
+  assertEquals(NIP50.parseInput('hello  "world"'), ['hello', 'world']);
 
   assertEquals(
     NIP50.parseInput('hello "world" "hello world"'),

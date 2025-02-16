@@ -62,7 +62,7 @@ export class NRelay1 implements NRelay {
   }
 
   private log(log: NRelay1Log): void {
-    this.opts.log?.(log);
+    this.opts.log?.({ ...log, url: this.url });
   }
 
   constructor(private url: string, private opts: NRelay1Opts = {}) {
@@ -83,7 +83,6 @@ export class NRelay1 implements NRelay {
           ns: 'relay.ws.state',
           state: 'open',
           readyState: socket.readyState,
-          url: socket.url,
         });
         for (const req of this.subs.values()) {
           this.send(req);
@@ -95,7 +94,6 @@ export class NRelay1 implements NRelay {
           ns: 'relay.ws.state',
           state: 'close',
           readyState: socket.readyState,
-          url: socket.url,
         });
         // If the connection closes on its own and there are no active subscriptions, let it stay closed.
         if (!this.subs.size) {
@@ -108,7 +106,6 @@ export class NRelay1 implements NRelay {
           ns: 'relay.ws.state',
           state: 'reconnect',
           readyState: socket.readyState,
-          url: socket.url,
         });
       })
       .onRetry((socket, e) => {
@@ -116,12 +113,11 @@ export class NRelay1 implements NRelay {
           level: 'warn',
           ns: 'relay.ws.retry',
           readyState: socket.readyState,
-          url: socket.url,
           backoff: e.detail.backoff,
         });
       })
       .onError((socket) => {
-        this.log({ level: 'error', ns: 'relay.ws.error', readyState: socket.readyState, url: socket.url });
+        this.log({ level: 'error', ns: 'relay.ws.error', readyState: socket.readyState });
       })
       .onMessage((_ws, e) => {
         const result = n.json().pipe(n.relayMsg()).safeParse(e.data);

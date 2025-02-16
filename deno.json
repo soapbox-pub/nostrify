@@ -42,7 +42,7 @@
     "lru-cache": "npm:lru-cache@^10.2.0",
     "mock-socket": "npm:mock-socket@9.3.1",
     "nostr-tools": "npm:nostr-tools@^2.10.4",
-    "websocket-ts": "npm:websocket-ts@^2.1.5",
+    "websocket-ts": "npm:websocket-ts@^2.2.0",
     "zod": "npm:zod@^3.23.8"
   }
 }

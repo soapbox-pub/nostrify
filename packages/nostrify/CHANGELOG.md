@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- NRelay1: upgraded websocket-ts to v2.2.1.
 - NRelay1: close automatically upon receiving a binary message.
 - NRelay1: pass url to all logs.
 

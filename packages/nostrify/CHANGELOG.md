@@ -9,7 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- NRelay1: upgrade websocket-ts to v2.2.0.
 - NRelay1: pass url to all logs.
 
 ## 0.38.1 - 2025-02-05

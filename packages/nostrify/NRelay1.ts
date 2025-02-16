@@ -54,6 +54,7 @@ export class NRelay1 implements NRelay {
   private subs = new Map<string, NostrClientREQ>();
   private closedByUser = false;
   private idleTimer?: number;
+  private controller = new AbortController();
 
   private ee = new EventTarget();
 
@@ -119,7 +120,12 @@ export class NRelay1 implements NRelay {
       .onError((socket) => {
         this.log({ level: 'error', ns: 'relay.ws.error', readyState: socket.readyState });
       })
-      .onMessage((_ws, e) => {
+      .onMessage((_socket, e) => {
+        if (typeof e.data !== 'string') {
+          this.close();
+          return;
+        }
+
         const result = n.json().pipe(n.relayMsg()).safeParse(e.data);
 
         if (result.success) {
@@ -270,9 +276,11 @@ export class NRelay1 implements NRelay {
 
   /** Get a stream of EE events. */
   private async *on<K extends keyof EventMap>(key: K, signal?: AbortSignal): AsyncIterable<EventMap[K]> {
-    if (signal?.aborted) throw this.abortError();
+    const _signal = signal ? AbortSignal.any([this.controller.signal, signal]) : this.controller.signal;
 
-    const machina = new Machina<EventMap[K]>(signal);
+    if (_signal.aborted) throw this.abortError();
+
+    const machina = new Machina<EventMap[K]>(_signal);
     const onMsg = (e: Event) => machina.push((e as CustomEvent<EventMap[K]>).detail);
 
     this.ee.addEventListener(key, onMsg);
@@ -347,6 +355,7 @@ export class NRelay1 implements NRelay {
     this.closedByUser = true;
     this.socket.close();
     this.stopIdleTimer();
+    this.controller.abort();
 
     if (this.socket.readyState !== WebSocket.CLOSED) {
       await new Promise((resolve) => {

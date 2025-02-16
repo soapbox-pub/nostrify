@@ -7,8 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+- NRelay1: calling `.close()` cancels any active subscriptions.
+
 ### Changed
 
+- NRelay1: close automatically upon receiving a binary message.
 - NRelay1: pass url to all logs.
 
 ## 0.38.1 - 2025-02-05

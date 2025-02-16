@@ -18,7 +18,7 @@ export class TestRelayServer {
   }
 
   private createServer(): Deno.HttpServer<Deno.NetAddr> {
-    return Deno.serve({ hostname: '127.0.0.1', port: this.port }, (req) => {
+    return Deno.serve({ hostname: '127.0.0.1', port: this.port, onListen: () => {} }, (req) => {
       const { response, socket } = Deno.upgradeWebSocket(req);
 
       socket.onopen = () => {

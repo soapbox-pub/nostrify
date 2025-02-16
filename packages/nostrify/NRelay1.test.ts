@@ -82,8 +82,12 @@ Deno.test('NRelay1 backoff', async (t) => {
 
   // Start a subscription so the relay will reconnect
   (async () => {
-    for await (const _msg of relay.req([{ kinds: [0] }])) {
-      // Do nothing
+    try {
+      for await (const _msg of relay.req([{ kinds: [0] }])) {
+        // Do nothing
+      }
+    } catch {
+      //
     }
   })();
 
@@ -138,4 +142,17 @@ Deno.test('NRelay1.count rejects when the server sends CLOSED', async () => {
   await using relay = new NRelay1(server.url);
 
   await assertRejects(() => relay.count([{ kinds: [1] }]));
+});
+
+Deno.test('NRelay1 closes when it receives a binary message', async () => {
+  await using server = new TestRelayServer({
+    // deno-lint-ignore require-await
+    async handleMessage(socket) {
+      socket.send(new Uint8Array([0x00, 0x01, 0x02, 0x03]));
+    },
+  });
+
+  await using relay = new NRelay1(server.url);
+
+  await assertRejects(() => relay.query([{ kinds: [1] }]));
 });

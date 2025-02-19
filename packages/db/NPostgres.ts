@@ -355,13 +355,17 @@ export class NPostgres implements NRelay {
    */
   async *req(
     filters: NostrFilter[],
-    opts?: { signal?: AbortSignal },
+    opts: { timeout?: number; signal?: AbortSignal } = {},
   ): AsyncIterable<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
     const subId = crypto.randomUUID();
     filters = this.normalizeFilters(filters);
 
     if (filters.length) {
-      const rows = this.getEventsQuery(this.db, filters).stream(this.chunkSize);
+      const rows = await this.withTimeout(
+        this.db,
+        (trx) => this.getEventsQuery(trx, filters).stream(this.chunkSize),
+        opts.timeout,
+      );
 
       for await (const row of rows) {
         const event = this.parseEventRow(row);
@@ -489,7 +493,7 @@ export class NPostgres implements NRelay {
   /** Maybe execute the callback in a transaction with a timeout, if a timeout is provided. */
   private async withTimeout<T>(
     db: Kysely<NPostgresSchema>,
-    callback: (trx: Kysely<NPostgresSchema>) => Promise<T>,
+    callback: (trx: Kysely<NPostgresSchema>) => T | Promise<T>,
     timeout: number | undefined,
   ): Promise<T> {
     if (typeof timeout === 'number') {

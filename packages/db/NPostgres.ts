@@ -371,7 +371,7 @@ export class NPostgres implements NRelay {
         const event = this.parseEventRow(row);
         yield ['EVENT', subId, event];
 
-        if (opts?.signal?.aborted) {
+        if (opts.signal?.aborted) {
           yield ['CLOSED', subId, 'aborted'];
           return;
         }

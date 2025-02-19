@@ -491,7 +491,7 @@ export class NPostgres implements NRelay {
   }
 
   /** Maybe execute the callback in a transaction with a timeout, if a timeout is provided. */
-  private async withTimeout<T>(
+  protected async withTimeout<T>(
     db: Kysely<NPostgresSchema>,
     callback: (trx: Kysely<NPostgresSchema>) => T | Promise<T>,
     timeout: number | undefined,

@@ -721,6 +721,26 @@ Deno.test('NPostgres.req streams events', { ignore: !databaseUrl }, async () => 
   assertEquals(expected, results);
 });
 
+Deno.test('NPostgres.req with an empty database', { ignore: !databaseUrl }, async () => {
+  await using db = await createDB();
+  const { store } = db;
+
+  for await (const _msg of store.req([{}], { signal: AbortSignal.timeout(1000) })) {
+    // Just don't freeze
+  }
+});
+
+Deno.test('NPostgres.req with timeout', { ignore: !databaseUrl }, async () => {
+  await using db = await createDB();
+  const { store } = db;
+
+  await store.event(genEvent());
+
+  for await (const _msg of store.req([{}], { timeout: 1000 })) {
+    // Just don't throw an error
+  }
+});
+
 Deno.test('NPostgres.shouldOrder', () => {
   assertEquals(NPostgres.shouldOrder({}), true);
 

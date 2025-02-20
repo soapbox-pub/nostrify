@@ -1,5 +1,6 @@
 import { NIP50, NKinds } from '@nostrify/nostrify';
 import { NostrEvent, NostrFilter, NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT, NRelay } from '@nostrify/types';
+import { Machina } from '@nostrify/nostrify/utils';
 import { Kysely, type SelectQueryBuilder, sql } from 'kysely';
 import { getFilterLimit, sortEvents } from 'nostr-tools';
 
@@ -37,7 +38,7 @@ export interface NPostgresOpts {
    * For example: returning an object like `{ language: "pt" }` will allow searching for events with `{ search: "language:pt" }`.
    */
   indexExtensions?(event: NostrEvent): Record<string, string> | Promise<Record<string, string>>;
-  /** Chunk size to use when streaming results with `.req`. Default: 100. */
+  /** Chunk size to use when streaming results with `.req`. Default: 20. */
   chunkSize?: number;
 }
 
@@ -60,7 +61,7 @@ export class NPostgres implements NRelay {
     this.indexTags = opts?.indexTags ?? NPostgres.indexTags;
     this.indexSearch = opts?.indexSearch ?? NPostgres.indexSearch;
     this.indexExtensions = opts?.indexExtensions ?? (() => ({}));
-    this.chunkSize = opts?.chunkSize ?? 100;
+    this.chunkSize = opts?.chunkSize ?? 20;
   }
 
   /** Default tag index function. */
@@ -84,12 +85,12 @@ export class NPostgres implements NRelay {
     }
 
     return await NPostgres.trx(this.db, (trx) => {
-      return this.withTimeout(trx, async (trx) => {
+      return this.withTimeout(trx, opts.timeout, async (trx) => {
         await Promise.all([
           this.deleteEvents(trx, event),
           this.insertEvent(trx, event),
         ]);
-      }, opts.timeout);
+      });
     });
   }
 
@@ -358,28 +359,50 @@ export class NPostgres implements NRelay {
     opts: { timeout?: number; signal?: AbortSignal } = {},
   ): AsyncIterable<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
     const subId = crypto.randomUUID();
+
     filters = this.normalizeFilters(filters);
 
     if (filters.length) {
-      const rows = await this.withTimeout(
-        this.db,
-        (trx) => this.getEventsQuery(trx, filters).stream(this.chunkSize),
-        opts.timeout,
-      );
+      const machina = new Machina<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>(opts.signal);
 
-      for await (const row of rows) {
-        const event = this.parseEventRow(row);
-        yield ['EVENT', subId, event];
+      this.withTimeout(this.db, opts.timeout, async (trx) => {
+        const rows = this.getEventsQuery(trx, filters).stream(this.chunkSize);
 
-        if (opts.signal?.aborted) {
-          yield ['CLOSED', subId, 'aborted'];
-          return;
+        for await (const row of rows) {
+          const event = this.parseEventRow(row);
+          machina.push(['EVENT', subId, event]);
         }
+
+        machina.push(['EOSE', subId]);
+      }).catch((error) => {
+        if (error instanceof Error && error.message.includes('timeout')) {
+          machina.push(['CLOSED', subId, 'error: the relay could not respond fast enough']);
+        } else {
+          machina.push(['CLOSED', subId, 'error: something went wrong']);
+        }
+      });
+
+      try {
+        for await (const msg of machina) {
+          const [verb] = msg;
+
+          yield msg;
+
+          if (verb === 'EOSE') {
+            break;
+          }
+
+          if (verb === 'CLOSED') {
+            return;
+          }
+        }
+      } catch {
+        yield ['CLOSED', subId, 'error: the relay could not respond fast enough'];
+        return;
       }
     }
 
-    yield ['EOSE', subId];
-    yield ['CLOSED', subId, 'finished'];
+    yield ['CLOSED', subId, 'error: realtime streaming is not supported'];
   }
 
   /** Get events for filters from the database. */
@@ -393,7 +416,7 @@ export class NPostgres implements NRelay {
       return [];
     }
 
-    return await this.withTimeout(this.db, async (trx) => {
+    return await this.withTimeout(this.db, opts.timeout, async (trx) => {
       let query = this.getEventsQuery(trx, filters);
 
       if (typeof opts.limit === 'number') {
@@ -404,7 +427,7 @@ export class NPostgres implements NRelay {
       const events = rows.map((row) => this.parseEventRow(row));
 
       return sortEvents(events);
-    }, opts.timeout);
+    });
   }
 
   /** Parse an event row from the database. */
@@ -441,7 +464,7 @@ export class NPostgres implements NRelay {
 
   /** Delete events based on filters from the database. */
   async remove(filters: NostrFilter[], opts: { signal?: AbortSignal; timeout?: number } = {}): Promise<void> {
-    await this.withTimeout(this.db, (trx) => this.removeEvents(trx, filters), opts.timeout);
+    await this.withTimeout(this.db, opts.timeout, (trx) => this.removeEvents(trx, filters));
   }
 
   /** Get number of events that would be returned by filters. */
@@ -449,7 +472,7 @@ export class NPostgres implements NRelay {
     filters: NostrFilter[],
     opts: { signal?: AbortSignal; timeout?: number } = {},
   ): Promise<{ count: number; approximate: boolean }> {
-    return await this.withTimeout(this.db, async (trx) => {
+    return await this.withTimeout(this.db, opts.timeout, async (trx) => {
       const query = this.getEventsQuery(trx, filters);
       const [{ count }] = await query
         .clearSelect()
@@ -461,7 +484,7 @@ export class NPostgres implements NRelay {
         count: Number(count),
         approximate: false,
       };
-    }, opts.timeout);
+    });
   }
 
   /** Execute NPostgres functions in a transaction. */
@@ -493,8 +516,8 @@ export class NPostgres implements NRelay {
   /** Maybe execute the callback in a transaction with a timeout, if a timeout is provided. */
   protected async withTimeout<T>(
     db: Kysely<NPostgresSchema>,
-    callback: (trx: Kysely<NPostgresSchema>) => T | Promise<T>,
     timeout: number | undefined,
+    callback: (trx: Kysely<NPostgresSchema>) => T | Promise<T>,
   ): Promise<T> {
     if (typeof timeout === 'number') {
       return await NPostgres.trx(db, async (trx) => {

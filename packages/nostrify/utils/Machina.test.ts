@@ -47,6 +47,16 @@ Deno.test('aborts with signal', async () => {
   });
 });
 
+Deno.test('already aborted signal in constructor', async () => {
+  const machina = new Machina<number>(AbortSignal.abort()); // doesn't throw
+
+  await assertRejects(async () => {
+    for await (const _msg of machina) {
+      // Should never reach here.
+    }
+  });
+});
+
 Deno.test('push after abort', async () => {
   const controller = new AbortController();
   const machina = new Machina<number>(controller.signal);

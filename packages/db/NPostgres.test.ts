@@ -1,3 +1,4 @@
+import { RelayError } from '@nostrify/nostrify';
 import { genEvent, jsonlEvents } from '@nostrify/nostrify/test';
 import { NostrEvent, NostrFilter } from '@nostrify/types';
 import { assert, assertEquals, assertRejects } from '@std/assert';
@@ -341,6 +342,27 @@ Deno.test('NPostgres.remove with multiple filters', { ignore: !databaseUrl }, as
   assertEquals(await store.query([{}]), []);
 });
 
+Deno.test('NPostgres.event with timeout', { ignore: !databaseUrl }, async () => {
+  await using db = await createDB();
+  const { store } = db;
+
+  await assertRejects(
+    async () => {
+      await store.event(event1, { timeout: 1 });
+    },
+    RelayError,
+    'the event could not be added fast enough',
+  );
+});
+
+Deno.test('NPostgres.event with the same event multiple times', { ignore: !databaseUrl }, async () => {
+  await using db = await createDB();
+  const { store } = db;
+
+  await store.event(event1);
+  await store.event(event1);
+});
+
 Deno.test('NPostgres.event with a deleted event', { ignore: !databaseUrl }, async () => {
   await using db = await createDB();
   const { store } = db;
@@ -541,8 +563,8 @@ Deno.test('NPostgres timeout', { ignore: !databaseUrl }, async (t) => {
           }, generateSecretKey()),
           { timeout: 1 },
         ),
-      postgres.PostgresError,
-      'canceling statement due to statement timeout',
+      RelayError,
+      'error: the event could not be added fast enough',
     );
   });
 

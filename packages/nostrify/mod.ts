@@ -13,5 +13,6 @@ export { NSchema } from './NSchema.ts';
 export { NSecSigner } from './NSecSigner.ts';
 export { NSeedSigner } from './NSeedSigner.ts';
 export { NSet } from './NSet.ts';
+export { RelayError } from './RelayError.ts';
 
 export type * from '@nostrify/types';

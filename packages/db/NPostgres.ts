@@ -1,4 +1,4 @@
-import { NIP50, NKinds } from '@nostrify/nostrify';
+import { NIP50, NKinds, RelayError } from '@nostrify/nostrify';
 import { NostrEvent, NostrFilter, NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT, NRelay } from '@nostrify/types';
 import { Machina } from '@nostrify/nostrify/utils';
 import { Kysely, type SelectQueryBuilder, sql } from 'kysely';
@@ -81,17 +81,32 @@ export class NPostgres implements NRelay {
     if (NKinds.ephemeral(event.kind)) return;
 
     if (await this.isDeleted(event)) {
-      throw new Error('Cannot add a deleted event');
+      throw new RelayError('invalid', 'the event has been deleted');
     }
 
-    return await NPostgres.trx(this.db, (trx) => {
-      return this.withTimeout(trx, opts.timeout, async (trx) => {
-        await Promise.all([
-          this.deleteEvents(trx, event),
-          this.insertEvent(trx, event),
-        ]);
+    try {
+      return await NPostgres.trx(this.db, (trx) => {
+        return this.withTimeout(trx, opts.timeout, async (trx) => {
+          await Promise.all([
+            this.deleteEvents(trx, event),
+            this.insertEvent(trx, event),
+          ]);
+        });
       });
-    });
+    } catch (e) {
+      if (e instanceof Error) {
+        switch (e.message) {
+          case 'duplicate key value violates unique constraint "nostr_events_pkey"':
+            return;
+          case 'canceling statement due to statement timeout':
+            throw new RelayError('error', 'the event could not be added fast enough');
+          default:
+            throw e;
+        }
+      } else {
+        throw e;
+      }
+    }
   }
 
   /** Check if an event has been deleted. */

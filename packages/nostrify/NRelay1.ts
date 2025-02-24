@@ -244,7 +244,12 @@ export class NRelay1 implements NRelay {
   async event(event: NostrEvent, opts?: { signal?: AbortSignal }): Promise<void> {
     const result = this.once(`ok:${event.id}`, opts?.signal);
 
-    this.send(['EVENT', event]);
+    try {
+      this.send(['EVENT', event]);
+    } catch (e) {
+      result.catch(() => {});
+      throw e;
+    }
 
     const [, , ok, reason] = await result;
 
@@ -260,7 +265,12 @@ export class NRelay1 implements NRelay {
     const subscriptionId = crypto.randomUUID();
     const result = this.once(`count:${subscriptionId}`, opts?.signal);
 
-    this.send(['COUNT', subscriptionId, ...filters]);
+    try {
+      this.send(['COUNT', subscriptionId, ...filters]);
+    } catch (e) {
+      result.catch(() => {});
+      throw e;
+    }
 
     const msg = await result;
 

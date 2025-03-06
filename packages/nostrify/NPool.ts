@@ -65,6 +65,12 @@ export class NPool<T extends NRelay> implements NRelay {
     return this._relays;
   }
 
+  /**
+   * Sends a `REQ` to relays based on the configured `reqRouter`.
+   *
+   * All `EVENT` messages from the selected relays are yielded, with no deduplication or order.
+   * `EOSE` and `CLOSE` messages are only yielded when all relays have emitted them.
+   */
   async *req(
     filters: NostrFilter[],
     opts?: { signal?: AbortSignal },
@@ -73,9 +79,11 @@ export class NPool<T extends NRelay> implements NRelay {
     const signal = opts?.signal ? AbortSignal.any([opts.signal, controller.signal]) : controller.signal;
 
     const routes = await this.opts.reqRouter(filters);
+
     if (routes.size < 1) {
       return;
     }
+
     const machina = new Machina<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>(signal);
 
     const eoses = new Set<string>();
@@ -113,8 +121,14 @@ export class NPool<T extends NRelay> implements NRelay {
     }
   }
 
+  /**
+   * Events are sent to relays according to the `eventRouter`.
+   * Returns a fulfilled promise if ANY relay accepted the event,
+   * or a rejected promise if ALL relays rejected or failed to publish the event.
+   */
   async event(event: NostrEvent, opts?: { signal?: AbortSignal }): Promise<void> {
     const relayUrls = await this.opts.eventRouter(event);
+
     if (relayUrls.length < 1) {
       return;
     }
@@ -124,6 +138,18 @@ export class NPool<T extends NRelay> implements NRelay {
     );
   }
 
+  /**
+   * This method calls `.req` internally and then post-processes the results.
+   * Please read the definition of `.req`.
+   *
+   * - The strategy is to seek regular events quickly, and to wait to find the latest versions of replaceable events.
+   * - Filters for replaceable events will wait for all relays to `EOSE` (or `CLOSE`, or for the signal to be aborted) to ensure the latest event versions are retrieved.
+   * - Filters for regular events will stop as soon as the filters are fulfilled.
+   * - Events are deduplicated, sorted, and only the latest version of replaceable events is kept.
+   * - If the signal is aborted, this method will return partial results instead of throwing.
+   *
+   * To implement a custom strategy, call `.req` directly.
+   */
   async query(filters: NostrFilter[], opts?: { signal?: AbortSignal }): Promise<NostrEvent[]> {
     const events = new NSet();
 
@@ -144,7 +170,7 @@ export class NPool<T extends NRelay> implements NRelay {
           break;
         }
       }
-    } catch (_) {
+    } catch {
       // Skip errors, return partial results.
     }
 

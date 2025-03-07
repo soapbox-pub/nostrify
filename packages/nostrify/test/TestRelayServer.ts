@@ -2,7 +2,7 @@ import { NostrClientMsg, NostrEvent, NostrRelayMsg, NSchema as n } from '@nostri
 import { MockRelay } from '@nostrify/nostrify/test';
 
 interface TestRelayServerOpts {
-  handleMessage?(socket: WebSocket, msg: NostrClientMsg): Promise<void>;
+  handleMessage?(socket: WebSocket, msg: NostrClientMsg): Promise<void> | void;
 }
 
 export class TestRelayServer {

@@ -35,8 +35,7 @@ Deno.test('NRelay1.query', async () => {
 
 Deno.test('NRelay1.query mismatched filter', async () => {
   await using server = new TestRelayServer({
-    // deno-lint-ignore require-await
-    async handleMessage(socket, msg) {
+    handleMessage(socket, msg) {
       if (msg[0] === 'REQ') {
         const [, subId, ..._filters] = msg;
         socket.send(JSON.stringify(['EVENT', subId, genEvent({ kind: 9001 })]));
@@ -150,8 +149,7 @@ Deno.test('NRelay1 idleTimeout', async (t) => {
 
 Deno.test('NRelay1.count rejects when the server sends CLOSED', async () => {
   await using server = new TestRelayServer({
-    // deno-lint-ignore require-await
-    async handleMessage(socket, msg) {
+    handleMessage(socket, msg) {
       if (msg[0] === 'COUNT') {
         server.send(socket, ['CLOSED', msg[1], 'unsupported: COUNT is not supported']);
       }
@@ -165,8 +163,7 @@ Deno.test('NRelay1.count rejects when the server sends CLOSED', async () => {
 
 Deno.test('NRelay1 closes when it receives a binary message', async () => {
   await using server = new TestRelayServer({
-    // deno-lint-ignore require-await
-    async handleMessage(socket) {
+    handleMessage(socket) {
       socket.send(new Uint8Array([0x00, 0x01, 0x02, 0x03]));
     },
   });

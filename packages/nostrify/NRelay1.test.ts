@@ -7,6 +7,7 @@ import { TestRelayServer } from './test/TestRelayServer.ts';
 import { NRelay1 } from './NRelay1.ts';
 
 import events from '../../fixtures/events.json' with { type: 'json' };
+import { genEvent } from './test/mod.ts';
 
 const event1s = events
   .filter((e) => e.kind === 1)
@@ -30,6 +31,24 @@ Deno.test('NRelay1.query', async () => {
   assert(events[0].created_at >= events[1].created_at);
 
   clearTimeout(tid);
+});
+
+Deno.test('NRelay1.query mismatched filter', async () => {
+  await using server = new TestRelayServer({
+    // deno-lint-ignore require-await
+    async handleMessage(socket, msg) {
+      if (msg[0] === 'REQ') {
+        const [, subId, ..._filters] = msg;
+        socket.send(JSON.stringify(['EVENT', subId, genEvent({ kind: 9001 })]));
+        socket.send(JSON.stringify(['EOSE', subId]));
+      }
+    },
+  });
+
+  await using relay = new NRelay1(server.url);
+  const events = await relay.query([{ kinds: [1] }]);
+
+  assertEquals(events, []);
 });
 
 Deno.test('NRelay1.req', async () => {

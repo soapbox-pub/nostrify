@@ -29,7 +29,7 @@ import { NSet } from './NSet.ts';
  */
 class NCache extends NSet implements NStore {
   constructor(...args: ConstructorParameters<typeof LRUCache<string, NostrEvent>>) {
-    super(new LRUCache<string, NostrEvent>(...args));
+    super(new LRUCache<string, NostrEvent>(...args) as Map<string, NostrEvent>);
   }
 
   async event(event: NostrEvent): Promise<void> {
@@ -65,7 +65,7 @@ class NCache extends NSet implements NStore {
     };
   }
 
-  [Symbol.toStringTag] = 'NCache';
+  override [Symbol.toStringTag] = 'NCache';
 }
 
 export { NCache };

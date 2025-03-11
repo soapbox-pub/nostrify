@@ -28,7 +28,7 @@ import { NostrEvent } from '@nostrify/types';
  * Any `Map` instance can be passed into `new NSet()`, making it compatible with
  * [lru-cache](https://www.npmjs.com/package/lru-cache), among others.
  */
-class NSet implements Set<NostrEvent> {
+class NSet {
   protected cache: Map<string, NostrEvent>;
 
   constructor(map?: Map<string, NostrEvent>) {

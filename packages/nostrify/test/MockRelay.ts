@@ -85,5 +85,5 @@ export class MockRelay extends NSet implements NRelay {
     return Promise.resolve();
   }
 
-  [Symbol.toStringTag] = 'MockRelay';
+  override [Symbol.toStringTag] = 'MockRelay';
 }

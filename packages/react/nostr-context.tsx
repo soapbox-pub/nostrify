@@ -1,53 +1,40 @@
-import { NRelay1 } from '@nostrify/nostrify';
-import { createContext, useContext, useEffect, useState } from 'react';
+import { NPool, type NRelay, NRelay1 } from '@nostrify/nostrify';
+import { createContext, useContext } from 'react';
 
-interface NostrContextType {
-  relay?: NRelay1;
-  isRelayLoading: boolean;
+export interface NostrContext {
+  userRelays?: Set<string>;
+  pool?: NPool<NRelay>;
 }
 
-const NostrContext = createContext<NostrContextType | undefined>(undefined);
+const Ctx = createContext<NostrContext | null>(null);
 
 interface NostrProviderProps {
-  relayUrl?: string;
+  defaultRelays?: string[];
   children: React.ReactNode;
 }
 
-export const NostrProvider: React.FC<NostrProviderProps> = ({ relayUrl, children }) => {
-  const [relay, setRelay] = useState<NRelay1>();
-  const [isRelayLoading, setIsRelayLoading] = useState(true);
-
-  const handleRelayOpen = () => {
-    setIsRelayLoading(false);
-  };
-
-  useEffect(() => {
-    if (relayUrl) {
-      const relay = new NRelay1(relayUrl);
-      relay.socket.underlyingWebsocket.addEventListener('open', handleRelayOpen);
-      setRelay(relay);
-    } else {
-      setIsRelayLoading(false);
-    }
-    return () => {
-      relay?.socket.underlyingWebsocket.removeEventListener('open', handleRelayOpen);
-      relay?.close();
-    };
-  }, [relayUrl]);
+export const NostrProvider: React.FC<NostrProviderProps> = ({ defaultRelays = [], children }) => {
+  const pool = new NPool({
+    open: (url: string) => new NRelay1(url),
+    reqRouter: () => {},
+    eventRouter: async () => {
+      const [relayList] = await pool.query([{ authors: [pubkey] }])
+    },
+  });
 
   return (
-    <NostrContext.Provider value={{ relay, isRelayLoading }}>
+    <Ctx.Provider value={{ pool }}>
       {children}
-    </NostrContext.Provider>
+    </Ctx.Provider>
   );
 };
 
-export const useNostr = () => {
-  const context = useContext(NostrContext);
+export function useNostr(): NostrContext {
+  const context = useContext(Ctx);
 
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useNostr must be used within a NostrProvider');
   }
 
   return context;
-};
+}

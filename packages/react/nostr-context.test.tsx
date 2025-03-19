@@ -8,11 +8,9 @@ import { polyfillWindow } from './test-setup.ts';
 
 polyfillWindow();
 
-Deno.test('NostrProvider', { sanitizeResources: false, sanitizeExit: false, sanitizeOps: false }, () => {
-  const relayUrl = 'wss://ditto.pub/relay';
-
+Deno.test('NostrProvider', () => {
   const screen = render(
-    <NostrProvider relayUrl={relayUrl}>
+    <NostrProvider>
       <p>Hello world!</p>
     </NostrProvider>,
   );

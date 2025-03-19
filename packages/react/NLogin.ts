@@ -16,4 +16,8 @@ export interface NLoginBunker extends NLoginBase {
   relays: string[];
 }
 
-export type NLogin = NLoginNsec | NLoginBunker;
+export interface NLoginExtension extends NLoginBase {
+  type: 'extension';
+}
+
+export type NLogin = NLoginNsec | NLoginBunker | NLoginExtension;

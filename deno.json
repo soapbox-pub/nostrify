@@ -39,10 +39,13 @@
     "@std/json": "jsr:@std/json@^1.0.1",
     "@std/streams": "jsr:@std/streams@^1.0.8",
     "@std/testing": "jsr:@std/testing@^0.222.1",
+    "@testing-library/react": "npm:@testing-library/react@^16.2.0",
+    "happy-dom": "npm:happy-dom@^17.4.4",
     "lru-cache": "npm:lru-cache@^10.2.0",
     "mock-socket": "npm:mock-socket@9.3.1",
     "nostr-tools": "npm:nostr-tools@^2.10.4",
     "react": "npm:react@^19.0.0",
+    "react-dom": "npm:react-dom@^19.0.0",
     "websocket-ts": "npm:websocket-ts@^2.2.1",
     "zod": "npm:zod@^3.23.8"
   },

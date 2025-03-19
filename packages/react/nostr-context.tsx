@@ -1,8 +1,6 @@
 import { NRelay1 } from '@nostrify/nostrify';
 import { createContext, useContext, useEffect, useState } from 'react';
 
-import { useInstance } from 'soapbox/hooks/useInstance.ts';
-
 interface NostrContextType {
   relay?: NRelay1;
   isRelayLoading: boolean;
@@ -11,16 +9,13 @@ interface NostrContextType {
 const NostrContext = createContext<NostrContextType | undefined>(undefined);
 
 interface NostrProviderProps {
+  relayUrl?: string;
   children: React.ReactNode;
 }
 
-export const NostrProvider: React.FC<NostrProviderProps> = ({ children }) => {
-  const { instance } = useInstance();
-
+export const NostrProvider: React.FC<NostrProviderProps> = ({ relayUrl, children }) => {
   const [relay, setRelay] = useState<NRelay1>();
   const [isRelayLoading, setIsRelayLoading] = useState(true);
-
-  const relayUrl = instance.nostr?.relay;
 
   const handleRelayOpen = () => {
     setIsRelayLoading(false);
@@ -49,8 +44,10 @@ export const NostrProvider: React.FC<NostrProviderProps> = ({ children }) => {
 
 export const useNostr = () => {
   const context = useContext(NostrContext);
+
   if (context === undefined) {
     throw new Error('useNostr must be used within a NostrProvider');
   }
+
   return context;
 };

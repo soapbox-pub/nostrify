@@ -42,7 +42,13 @@
     "lru-cache": "npm:lru-cache@^10.2.0",
     "mock-socket": "npm:mock-socket@9.3.1",
     "nostr-tools": "npm:nostr-tools@^2.10.4",
+    "react": "npm:react@^19.0.0",
     "websocket-ts": "npm:websocket-ts@^2.2.1",
     "zod": "npm:zod@^3.23.8"
+  },
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "jsxImportSourceTypes": "npm:@types/react@^19.0.0"
   }
 }

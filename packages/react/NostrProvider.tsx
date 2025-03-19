@@ -1,5 +1,6 @@
 import { NPool, NRelay1 } from '@nostrify/nostrify';
-import { NostrContext } from './NostrContext.ts';
+
+import { NostrContext, type NostrContextType } from './NostrContext.ts';
 
 interface NostrProviderProps {
   children: React.ReactNode;
@@ -18,8 +19,14 @@ export const NostrProvider: React.FC<NostrProviderProps> = ({ children }) => {
     },
   });
 
+  const context: NostrContextType = {
+    pool,
+    user: undefined,
+    logins: [],
+  };
+
   return (
-    <NostrContext.Provider value={{ pool }}>
+    <NostrContext.Provider value={context}>
       {children}
     </NostrContext.Provider>
   );

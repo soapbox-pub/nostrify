@@ -3,10 +3,10 @@
 import { assertEquals } from '@std/assert';
 import { render } from '@testing-library/react';
 
-import { NostrProvider } from './nostr-context.tsx';
-import { polyfillWindow } from './test-setup.ts';
+import { NostrProvider } from './NostrProvider.tsx';
+import { polyfillDOM } from './test-helpers.ts';
 
-polyfillWindow();
+polyfillDOM();
 
 Deno.test('NostrProvider', () => {
   const screen = render(

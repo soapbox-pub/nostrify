@@ -1,6 +1,6 @@
 import { PropertySymbol, Window } from 'happy-dom';
 
-export function polyfillWindow(): void {
+export function polyfillDOM(): void {
   const window = new Window();
   const document = window.document;
   const browserWindow = document[PropertySymbol.window];

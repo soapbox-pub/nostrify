@@ -15,8 +15,8 @@ export function nostrReducer(state: NState, action: NAction): NState {
     }
 
     case 'login.remove': {
-      const filtered = state.logins.filter((_, i) => i !== action.index);
-      return { ...state, logins: filtered };
+      const logins = state.logins.filter((_, i) => i !== action.index);
+      return { ...state, logins };
     }
 
     case 'login.switch': {
@@ -27,7 +27,9 @@ export function nostrReducer(state: NState, action: NAction): NState {
       }
 
       const filtered = state.logins.filter((_, i) => i !== action.index);
-      return { ...state, logins: [login, ...filtered] };
+      const logins = [login, ...filtered];
+
+      return { ...state, logins };
     }
 
     default: {

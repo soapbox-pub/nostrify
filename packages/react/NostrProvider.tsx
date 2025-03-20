@@ -1,4 +1,4 @@
-import { NPool, NRelay1 } from '@nostrify/nostrify';
+import { NostrSigner, NPool, NRelay1 } from '@nostrify/nostrify';
 import { useReducer } from 'react';
 
 import { NostrContext, type NostrContextType } from './NostrContext.ts';
@@ -28,6 +28,7 @@ export const NostrProvider: React.FC<NostrProviderProps> = ({ children, relays: 
     pool,
     state,
     dispatch,
+    windowSigner: (globalThis as unknown as { nostr?: NostrSigner }).nostr,
   };
 
   return (

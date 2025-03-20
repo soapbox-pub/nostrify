@@ -10,7 +10,7 @@ polyfillDOM();
 
 Deno.test('NostrProvider', () => {
   const screen = render(
-    <NostrProvider>
+    <NostrProvider relays={['wss://ditto.pub/relay']}>
       <p>Hello world!</p>
     </NostrProvider>,
   );

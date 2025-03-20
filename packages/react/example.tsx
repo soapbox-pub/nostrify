@@ -11,7 +11,7 @@ function App() {
 }
 
 function HomePage() {
-  const { user } = useNostr();
+  const { user, login } = useNostr();
 
   const { events } = useNostrEvents(
     [{ kinds: [0], authors: [user!.pubkey] }],
@@ -29,7 +29,18 @@ function HomePage() {
     return <div>You: {user.pubkey}</div>;
   }
 
-  return <div>Not logged in</div>;
+  if (login.isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  return (
+    <button
+      type='button'
+      onClick={() => login.extension()}
+    >
+      Log in
+    </button>
+  );
 }
 
 export default App;

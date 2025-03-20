@@ -1,8 +1,7 @@
 import { NConnectSigner, type NostrSigner, type NRelay, NSecSigner } from '@nostrify/nostrify';
 import { nip19 } from 'nostr-tools';
-import { useContext } from 'react';
 
-import { NostrContext } from './NostrContext.ts';
+import { useNostrContext } from './useNostrContext.ts';
 
 import type { NLogin } from './NState.ts';
 
@@ -19,13 +18,7 @@ interface UseNostr {
 }
 
 export function useNostr(): UseNostr {
-  const context = useContext(NostrContext);
-
-  if (!context) {
-    throw new Error('useNostr must be used within a NostrProvider');
-  }
-
-  const { pool, state } = context;
+  const { pool, state } = useNostrContext();
   const { logins } = state;
 
   const users = logins

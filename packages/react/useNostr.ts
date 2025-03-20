@@ -1,8 +1,21 @@
 import { useContext } from 'react';
 
-import { NostrContext, type NostrContextType } from './NostrContext.ts';
+import { NostrContext } from './NostrContext.ts';
 
-export function useNostr(): NostrContextType {
+import type { NostrSigner } from '@nostrify/nostrify';
+import type { NLogin } from './NState.ts';
+
+interface NUser {
+  pubkey: string;
+  signer: NostrSigner;
+  method: NLogin['type'];
+}
+
+interface UseNostr {
+  user: NUser | undefined;
+}
+
+export function useNostr(): UseNostr {
   const context = useContext(NostrContext);
 
   if (!context) {

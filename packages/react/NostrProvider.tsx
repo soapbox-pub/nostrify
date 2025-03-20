@@ -21,8 +21,9 @@ export const NostrProvider: React.FC<NostrProviderProps> = ({ children }) => {
 
   const context: NostrContextType = {
     pool,
-    user: undefined,
-    logins: [],
+    state: {
+      logins: [],
+    },
   };
 
   return (

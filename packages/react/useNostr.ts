@@ -18,12 +18,20 @@ interface UseNostr {
 }
 
 export function useNostr(): UseNostr {
-  const { pool, state } = useNostrContext();
+  const { pool, state, dispatch } = useNostrContext();
   const { logins } = state;
 
-  const users = logins
-    .map((login) => loginToUser(login, pool))
-    .filter((user): user is NUser => !!user);
+  const users: NUser[] = [];
+
+  logins.forEach((login, index) => {
+    try {
+      const user = loginToUser(login, pool);
+      users.push(user);
+    } catch {
+      console.error('Failed to create user from login', login);
+      dispatch({ type: 'login.remove', index });
+    }
+  });
 
   return {
     user: users[0],
@@ -32,7 +40,7 @@ export function useNostr(): UseNostr {
   };
 }
 
-function loginToUser(login: NLogin, relay: NRelay): NUser | undefined {
+function loginToUser(login: NLogin, relay: NRelay): NUser {
   switch (login.type) {
     case 'nsec': {
       const sk = nip19.decode(login.nsec);
@@ -61,7 +69,7 @@ function loginToUser(login: NLogin, relay: NRelay): NUser | undefined {
       const windowSigner = (globalThis as unknown as { nostr?: NostrSigner }).nostr;
 
       if (!windowSigner) {
-        return;
+        throw new Error('Nostr extension is not available');
       }
 
       return {

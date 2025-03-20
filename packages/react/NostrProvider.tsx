@@ -1,6 +1,8 @@
 import { NPool, NRelay1 } from '@nostrify/nostrify';
+import { useReducer } from 'react';
 
 import { NostrContext, type NostrContextType } from './NostrContext.ts';
+import { nostrReducer } from './nostrReducer.ts';
 
 interface NostrProviderProps {
   children: React.ReactNode;
@@ -8,6 +10,8 @@ interface NostrProviderProps {
 }
 
 export const NostrProvider: React.FC<NostrProviderProps> = ({ children, relays: relayUrls }) => {
+  const [state, dispatch] = useReducer(nostrReducer, { logins: [] });
+
   const pool = new NPool({
     open(url: string) {
       return new NRelay1(url);
@@ -22,9 +26,8 @@ export const NostrProvider: React.FC<NostrProviderProps> = ({ children, relays: 
 
   const context: NostrContextType = {
     pool,
-    state: {
-      logins: [],
-    },
+    state,
+    dispatch,
   };
 
   return (

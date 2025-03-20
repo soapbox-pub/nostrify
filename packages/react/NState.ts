@@ -23,5 +23,5 @@ export interface NLoginExtension extends NLoginBase {
 interface NLoginBase {
   type: string;
   pubkey: string;
-  createdAt: number;
+  createdAt: string;
 }

@@ -9,9 +9,9 @@ export interface NPoolOpts<T extends NRelay> {
   /** Creates an `NRelay` instance for the given URL. */
   open(url: string): T;
   /** Determines the relays to use for making `REQ`s to the given filters. To support the Outbox model, it should analyze the `authors` field of the filters. */
-  reqRouter(filters: NostrFilter[]): Promise<ReadonlyMap<string, NostrFilter[]>>;
+  reqRouter(filters: NostrFilter[]): ReadonlyMap<string, NostrFilter[]> | Promise<ReadonlyMap<string, NostrFilter[]>>;
   /** Determines the relays to use for publishing the given event. To support the Outbox model, it should analyze the `pubkey` field of the event. */
-  eventRouter(event: NostrEvent): Promise<string[]>;
+  eventRouter(event: NostrEvent): string[] | Promise<string[]>;
 }
 
 /**

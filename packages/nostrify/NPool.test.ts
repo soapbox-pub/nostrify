@@ -1,4 +1,3 @@
-// deno-lint-ignore-file require-await
 import { NostrEvent } from '@nostrify/types';
 import { assert, assertEquals } from '@std/assert';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
@@ -28,12 +27,12 @@ Deno.test('NPool.query', async () => {
 
   await using pool = new NPool({
     open: (url) => new NRelay1(url),
-    reqRouter: async (filters) =>
+    reqRouter: (filters) =>
       new Map([
         [server1.url, filters],
         [server2.url, filters],
       ]),
-    eventRouter: async () => [server1.url],
+    eventRouter: () => [server1.url],
   });
 
   const events = await pool.query([{ kinds: [1], limit: 15 }]);
@@ -60,12 +59,12 @@ Deno.test('NPool.req', async () => {
 
   await using pool = new NPool({
     open: (url) => new NRelay1(url),
-    reqRouter: async (filters) =>
+    reqRouter: (filters) =>
       new Map([
         [server1.url, filters],
         [server2.url, filters],
       ]),
-    eventRouter: async () => [server1.url],
+    eventRouter: () => [server1.url],
   });
 
   for await (const msg of pool.req([{ kinds: [1], limit: 3 }], { signal: controller.signal })) {
@@ -102,12 +101,12 @@ Deno.test('NPool.event', async () => {
 
   await using pool = new NPool({
     open: (url) => new NRelay1(url),
-    reqRouter: async (filters) =>
+    reqRouter: (filters) =>
       new Map([
         [server1.url, filters],
         [server2.url, filters],
       ]),
-    eventRouter: async () => [server1.url],
+    eventRouter: () => [server1.url],
   });
 
   await pool.event(event, { signal: controller.signal });

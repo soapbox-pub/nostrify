@@ -4,9 +4,10 @@ import { NostrContext, type NostrContextType } from './NostrContext.ts';
 
 interface NostrProviderProps {
   children: React.ReactNode;
+  relay: `wss://${string}` | `ws://${string}`;
 }
 
-export const NostrProvider: React.FC<NostrProviderProps> = ({ children }) => {
+export const NostrProvider: React.FC<NostrProviderProps> = ({ children, relay: relayUrl }) => {
   const pool = new NPool({
     open: (url: string) => new NRelay1(url),
     reqRouter: () => {
@@ -21,6 +22,7 @@ export const NostrProvider: React.FC<NostrProviderProps> = ({ children }) => {
 
   const context: NostrContextType = {
     pool,
+    relay: pool.relay(relayUrl),
     state: {
       logins: [],
     },

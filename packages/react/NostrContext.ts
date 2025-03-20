@@ -5,6 +5,7 @@ import type { NState } from './NState.ts';
 
 export interface NostrContextType {
   pool: NRelay;
+  relay: NRelay;
   state: NState;
 }
 

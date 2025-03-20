@@ -1,4 +1,4 @@
-import { NConnectSigner, type NostrSigner, NRelay, NSecSigner } from '@nostrify/nostrify';
+import { NConnectSigner, type NostrSigner, type NRelay, NSecSigner } from '@nostrify/nostrify';
 import { nip19 } from 'nostr-tools';
 import { useContext } from 'react';
 
@@ -15,6 +15,8 @@ interface NUser {
 interface UseNostr {
   user: NUser | undefined;
   users: NUser[];
+  relay: NRelay;
+  pool: NRelay;
 }
 
 export function useNostr(): UseNostr {
@@ -24,15 +26,18 @@ export function useNostr(): UseNostr {
     throw new Error('useNostr must be used within a NostrProvider');
   }
 
-  const { logins } = context.state;
+  const { relay, pool, state } = context;
+  const { logins } = state;
 
   const users = logins
-    .map((login) => loginToUser(login, context.pool))
+    .map((login) => loginToUser(login, pool))
     .filter((user): user is NUser => !!user);
 
   return {
     user: users[0],
     users,
+    relay,
+    pool,
   };
 }
 

@@ -1,27 +1,22 @@
-import { useEffect, useState } from 'react';
 import { NostrProvider } from './NostrProvider.tsx';
 import { useNostr } from './useNostr.ts';
-
-import type { NostrEvent } from '@nostrify/nostrify';
+import { useNostrEvents } from './useNostrEvents.ts';
 
 function App() {
   return (
-    <NostrProvider relay='wss://ditto.pub/relay'>
+    <NostrProvider relays={['wss://ditto.pub/relay']}>
       <HomePage />
     </NostrProvider>
   );
 }
 
 function HomePage() {
-  const { user, relay } = useNostr();
+  const { user } = useNostr();
 
-  const [events, setEvents] = useState<NostrEvent[]>([]);
-
-  useEffect(() => {
-    if (user) {
-      relay.query([{ kinds: [0], authors: [user.pubkey] }]).then(setEvents);
-    }
-  }, [user, relay]);
+  const { events } = useNostrEvents(
+    [{ kinds: [0], authors: [user!.pubkey] }],
+    { enabled: !!user },
+  );
 
   if (user) {
     const [author] = events;

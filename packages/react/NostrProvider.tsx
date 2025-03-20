@@ -4,25 +4,24 @@ import { NostrContext, type NostrContextType } from './NostrContext.ts';
 
 interface NostrProviderProps {
   children: React.ReactNode;
-  relay: `wss://${string}` | `ws://${string}`;
+  relays: Array<`wss://${string}` | `ws://${string}`>;
 }
 
-export const NostrProvider: React.FC<NostrProviderProps> = ({ children, relay: relayUrl }) => {
+export const NostrProvider: React.FC<NostrProviderProps> = ({ children, relays: relayUrls }) => {
   const pool = new NPool({
-    open: (url: string) => new NRelay1(url),
-    reqRouter: () => {
-      // TODO
-      return Promise.resolve(new Map());
+    open(url: string) {
+      return new NRelay1(url);
     },
-    eventRouter: () => {
-      // TODO
-      return Promise.resolve([]);
+    reqRouter(filters) {
+      return new Map(relayUrls.map((url) => [url, filters]));
+    },
+    eventRouter() {
+      return relayUrls;
     },
   });
 
   const context: NostrContextType = {
     pool,
-    relay: pool.relay(relayUrl),
     state: {
       logins: [],
     },

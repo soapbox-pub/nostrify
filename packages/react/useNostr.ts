@@ -15,7 +15,6 @@ interface NUser {
 interface UseNostr {
   user: NUser | undefined;
   users: NUser[];
-  relay: NRelay;
   pool: NRelay;
 }
 
@@ -26,7 +25,7 @@ export function useNostr(): UseNostr {
     throw new Error('useNostr must be used within a NostrProvider');
   }
 
-  const { relay, pool, state } = context;
+  const { pool, state } = context;
   const { logins } = state;
 
   const users = logins
@@ -36,7 +35,6 @@ export function useNostr(): UseNostr {
   return {
     user: users[0],
     users,
-    relay,
     pool,
   };
 }

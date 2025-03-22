@@ -17,7 +17,7 @@ interface UseNostr {
   user: NUser | undefined;
   users: NUser[];
   login: UseNostrLogin;
-  pool: NRelay;
+  nostr: NRelay;
   windowSigner?: NostrSigner;
 }
 
@@ -25,7 +25,7 @@ export function useNostr(): UseNostr {
   const login = useNostrLogin();
   const context = useNostrContext();
 
-  const { pool, state, dispatch } = context;
+  const { nostr, state, dispatch } = context;
   const { logins } = state;
 
   const users: NUser[] = [];
@@ -44,12 +44,12 @@ export function useNostr(): UseNostr {
     user: users[0],
     users,
     login,
-    pool,
+    nostr,
   };
 }
 
 function loginToUser(login: NLogin, context: NostrContextType): NUser {
-  const { pool, windowSigner } = context;
+  const { nostr, windowSigner } = context;
 
   switch (login.type) {
     case 'nsec': {
@@ -70,7 +70,7 @@ function loginToUser(login: NLogin, context: NostrContextType): NUser {
         signer: new NConnectSigner({
           pubkey: login.pubkey,
           signer: clientSigner,
-          relay: pool,
+          relay: nostr,
           timeout: 60_000,
         }),
       };

@@ -5,7 +5,7 @@ import type { NState } from './NState.ts';
 import type { NAction } from './nostrReducer.ts';
 
 export interface NostrContextType {
-  pool: NRelay;
+  nostr: NRelay;
   state: NState;
   dispatch: React.ActionDispatch<[action: NAction]>;
   windowSigner?: NostrSigner;

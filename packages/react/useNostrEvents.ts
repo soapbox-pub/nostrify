@@ -17,7 +17,7 @@ export interface UseNostrEventsOpts {
 }
 
 export function useNostrEvents(filters: NostrFilter[], opts: UseNostrEventsOpts = {}): UseNostrEvents {
-  const { pool } = useNostr();
+  const { nostr } = useNostr();
   const { enabled } = opts;
 
   const [events, setEvents] = useState<NostrEvent[]>([]);
@@ -30,7 +30,7 @@ export function useNostrEvents(filters: NostrFilter[], opts: UseNostrEventsOpts 
       setIsFetching(true);
       setError(null);
 
-      pool.query(filters).then((events) => {
+      nostr.query(filters).then((events) => {
         setEvents(events);
         setIsFetching(false);
       }).catch((error) => {
@@ -43,7 +43,7 @@ export function useNostrEvents(filters: NostrFilter[], opts: UseNostrEventsOpts 
         setIsFetching(false);
       });
     }
-  }, [filters, pool, enabled]);
+  }, [filters, nostr, enabled]);
 
   return {
     events,

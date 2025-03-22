@@ -25,7 +25,7 @@ export const NostrProvider: React.FC<NostrProviderProps> = ({ children, relays: 
   });
 
   const context: NostrContextType = {
-    pool,
+    nostr: pool,
     state,
     dispatch,
     windowSigner: (globalThis as unknown as { nostr?: NostrSigner }).nostr,

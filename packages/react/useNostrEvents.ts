@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useNostr } from './useNostr.ts';
 
@@ -25,12 +25,15 @@ export function useNostrEvents(filters: NostrFilter[], opts: UseNostrEventsOpts 
   const [isError, setIsError] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
+  const controller = useRef(new AbortController());
+  const { signal } = controller.current;
+
   useEffect(() => {
     if (enabled) {
       setIsFetching(true);
       setError(null);
 
-      nostr.query(filters).then((events) => {
+      nostr.query(filters, { signal }).then((events) => {
         setEvents(events);
         setIsFetching(false);
       }).catch((error) => {
@@ -43,6 +46,11 @@ export function useNostrEvents(filters: NostrFilter[], opts: UseNostrEventsOpts 
         setIsFetching(false);
       });
     }
+
+    return () => {
+      controller.current.abort();
+      controller.current = new AbortController();
+    };
   }, [filters, nostr, enabled]);
 
   return {

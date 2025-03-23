@@ -12,46 +12,41 @@ export interface UseNostrEvents {
   error: Error | null;
 }
 
-export interface UseNostrEventsOpts {
-  enabled?: boolean;
-}
-
-export function useNostrEvents(filters: NostrFilter[], opts: UseNostrEventsOpts = {}): UseNostrEvents {
+export function useNostrEvents(filters: NostrFilter[]): UseNostrEvents {
   const { nostr } = useNostr();
-  const { enabled } = opts;
 
   const [events, setEvents] = useState<NostrEvent[]>([]);
   const [isFetching, setIsFetching] = useState(false);
   const [isError, setIsError] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const controller = useRef(new AbortController());
-  const { signal } = controller.current;
+  const controller = useRef<AbortController>(undefined);
+  const filtersId = filters.map((filter) => getFilterId(filter)).join(',');
 
   useEffect(() => {
-    if (enabled) {
-      setIsFetching(true);
-      setError(null);
-
-      nostr.query(filters, { signal }).then((events) => {
-        setEvents(events);
-        setIsFetching(false);
-      }).catch((error) => {
-        if (error instanceof Error) {
-          setError(error);
-        } else {
-          setError(new Error('An unknown error occurred'));
-        }
-        setIsError(true);
-        setIsFetching(false);
-      });
-    }
-
+    controller.current = new AbortController();
     return () => {
-      controller.current.abort();
-      controller.current = new AbortController();
+      controller.current?.abort();
     };
-  }, [filters, nostr, enabled]);
+  }, []);
+
+  useEffect(() => {
+    setIsFetching(true);
+    setError(null);
+
+    nostr.query(filters, { signal: controller.current?.signal }).then((events) => {
+      setEvents(events);
+      setIsFetching(false);
+    }).catch((error) => {
+      if (error instanceof Error) {
+        setError(error);
+      } else {
+        setError(new Error('An unknown error occurred'));
+      }
+      setIsError(true);
+      setIsFetching(false);
+    });
+  }, [filtersId, nostr]);
 
   return {
     events,
@@ -60,4 +55,20 @@ export function useNostrEvents(filters: NostrFilter[], opts: UseNostrEventsOpts 
     isError,
     error,
   };
+}
+
+function getFilterId(filter: NostrFilter): string {
+  const { limit: _, ...clone } = structuredClone(filter);
+
+  const entries = Object.entries(clone)
+    .filter(([_, value]) => value !== undefined)
+    .sort(([a], [b]) => a.localeCompare(b));
+
+  for (const [_key, value] of entries) {
+    if (Array.isArray(value)) {
+      value.sort();
+    }
+  }
+
+  return JSON.stringify(entries);
 }

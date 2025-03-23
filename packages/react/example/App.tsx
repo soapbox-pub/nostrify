@@ -3,9 +3,13 @@ import { useNostr, useNostrEvents } from '@nostrify/react';
 function App() {
   const { user, login } = useNostr();
 
-  const { events } = useNostrEvents(
+  const { events, error } = useNostrEvents(
     user ? [{ kinds: [0], authors: [user.pubkey] }] : [],
   );
+
+  if (error) {
+    return <div>Error: {error.message}</div>;
+  }
 
   if (user) {
     const [author] = events;

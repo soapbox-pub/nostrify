@@ -6,6 +6,7 @@
     "./packages/ndk",
     "./packages/nostrify",
     "./packages/policies",
+    "./packages/react",
     "./packages/strfry",
     "./packages/types",
     "./packages/welshman"

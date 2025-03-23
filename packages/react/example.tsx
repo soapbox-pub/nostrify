@@ -1,6 +1,4 @@
-import { NostrProvider } from './NostrProvider.tsx';
-import { useNostr } from './useNostr.ts';
-import { useNostrEvents } from './useNostrEvents.ts';
+import { NostrProvider, useNostr, useNostrEvents } from '@nostrify/react';
 
 function App() {
   return (

@@ -1,19 +1,10 @@
-import { NostrProvider, useNostr, useNostrEvents } from '@nostrify/react';
+import { useNostr, useNostrEvents } from '@nostrify/react';
 
 function App() {
-  return (
-    <NostrProvider relays={['wss://ditto.pub/relay']}>
-      <HomePage />
-    </NostrProvider>
-  );
-}
-
-function HomePage() {
   const { user, login } = useNostr();
 
   const { events } = useNostrEvents(
-    [{ kinds: [0], authors: [user!.pubkey] }],
-    { enabled: !!user },
+    user ? [{ kinds: [0], authors: [user.pubkey] }] : [],
   );
 
   if (user) {

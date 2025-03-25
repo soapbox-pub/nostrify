@@ -1,6 +1,7 @@
 import { NostrFilter, NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT, NRelay } from '@nostrify/types';
 import { getFilterLimit, NostrEvent } from 'nostr-tools';
 
+import { CircularSet } from './utils/CircularSet.ts';
 import { Machina } from './utils/Machina.ts';
 import { NKinds } from './NKinds.ts';
 import { NSet } from './NSet.ts';
@@ -198,32 +199,5 @@ export class NPool implements NRelay {
 
   async [Symbol.asyncDispose](): Promise<void> {
     await this.close();
-  }
-}
-
-class CircularSet<T> {
-  private set: Set<T>;
-
-  constructor(private capacity: number) {
-    this.set = new Set();
-  }
-
-  add(item: T): void {
-    if (this.set.has(item)) {
-      return;
-    }
-
-    if (this.set.size >= this.capacity) {
-      const oldest = this.set.values().next().value;
-      if (oldest) {
-        this.set.delete(oldest);
-      }
-    }
-
-    this.set.add(item);
-  }
-
-  has(item: T): boolean {
-    return this.set.has(item);
   }
 }

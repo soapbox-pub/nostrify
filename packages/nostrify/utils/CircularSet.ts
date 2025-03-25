@@ -1,0 +1,26 @@
+export class CircularSet<T> {
+  private set: Set<T>;
+
+  constructor(private capacity: number) {
+    this.set = new Set();
+  }
+
+  add(item: T): void {
+    if (this.set.has(item)) {
+      return;
+    }
+
+    if (this.set.size >= this.capacity) {
+      const oldest = this.set.values().next().value;
+      if (oldest) {
+        this.set.delete(oldest);
+      }
+    }
+
+    this.set.add(item);
+  }
+
+  has(item: T): boolean {
+    return this.set.has(item);
+  }
+}

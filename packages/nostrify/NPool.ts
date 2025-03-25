@@ -46,7 +46,6 @@ export interface NPoolOpts {
  */
 export class NPool implements NRelay {
   private relays = new Map<string, NRelay>();
-  private seen = new CircularSet<string>(1000);
 
   constructor(private opts: NPoolOpts) {}
 
@@ -88,6 +87,7 @@ export class NPool implements NRelay {
 
     const eoses = new Set<string>();
     const closes = new Set<string>();
+    const events = new CircularSet<string>(1000);
 
     for (const [url, filters] of routes.entries()) {
       const relay = this.relay(url);
@@ -107,8 +107,8 @@ export class NPool implements NRelay {
           }
           if (msg[0] === 'EVENT') {
             const [, , event] = msg;
-            if (!this.seen.has(event.id)) {
-              this.seen.add(event.id);
+            if (!events.has(event.id)) {
+              events.add(event.id);
               machina.push(msg);
             }
           }

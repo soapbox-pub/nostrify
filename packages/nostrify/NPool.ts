@@ -170,7 +170,7 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
     }, false);
 
     const search = filters.reduce((result, filter) => {
-      return result || 'search' in filter;
+      return result || typeof filter.search === 'string';
     }, false);
 
     try {

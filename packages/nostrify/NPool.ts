@@ -44,41 +44,40 @@ export interface NPoolOpts<T extends NRelay> {
  * `pool.req` will only emit an `EOSE` when all relays in its set have emitted an `EOSE`, and likewise for `CLOSED`.
  */
 export class NPool<T extends NRelay> implements NRelay {
-  private _relays = new Map<string, T>();
+  private relays = new Map<string, T>();
+  private seen = new CircularSet<string>(1000);
 
   constructor(private opts: NPoolOpts<T>) {}
 
   /** Get or create a relay instance for the given URL. */
   public relay(url: string): T {
-    const relay = this._relays.get(url);
+    const relay = this.relays.get(url);
 
     if (relay) {
       return relay;
     } else {
       const relay = this.opts.open(url);
-      this._relays.set(url, relay);
+      this.relays.set(url, relay);
       return relay;
     }
-  }
-
-  public get relays(): ReadonlyMap<string, T> {
-    return this._relays;
   }
 
   /**
    * Sends a `REQ` to relays based on the configured `reqRouter`.
    *
-   * All `EVENT` messages from the selected relays are yielded, with no deduplication or order.
+   * All `EVENT` messages from the selected relays are yielded (deduplication is attempted).
    * `EOSE` and `CLOSE` messages are only yielded when all relays have emitted them.
    */
   async *req(
     filters: NostrFilter[],
-    opts?: { signal?: AbortSignal },
+    opts?: { signal?: AbortSignal; relays?: string[] },
   ): AsyncIterable<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
     const controller = new AbortController();
     const signal = opts?.signal ? AbortSignal.any([opts.signal, controller.signal]) : controller.signal;
 
-    const routes = await this.opts.reqRouter(filters);
+    const routes = opts?.relays
+      ? new Map(opts.relays.map((url) => [url, filters]))
+      : await this.opts.reqRouter(filters);
 
     if (routes.size < 1) {
       return;
@@ -106,7 +105,11 @@ export class NPool<T extends NRelay> implements NRelay {
             }
           }
           if (msg[0] === 'EVENT') {
-            machina.push(msg);
+            const [, , event] = msg;
+            if (!this.seen.has(event.id)) {
+              this.seen.add(event.id);
+              machina.push(msg);
+            }
           }
         }
       })().catch(() => {});
@@ -126,10 +129,10 @@ export class NPool<T extends NRelay> implements NRelay {
    * Returns a fulfilled promise if ANY relay accepted the event,
    * or a rejected promise if ALL relays rejected or failed to publish the event.
    */
-  async event(event: NostrEvent, opts?: { signal?: AbortSignal }): Promise<void> {
-    const relayUrls = await this.opts.eventRouter(event);
+  async event(event: NostrEvent, opts?: { signal?: AbortSignal; relays?: string[] }): Promise<void> {
+    const relayUrls = opts?.relays ?? await this.opts.eventRouter(event);
 
-    if (relayUrls.length < 1) {
+    if (!relayUrls.length) {
       return;
     }
 
@@ -150,14 +153,19 @@ export class NPool<T extends NRelay> implements NRelay {
    *
    * To implement a custom strategy, call `.req` directly.
    */
-  async query(filters: NostrFilter[], opts?: { signal?: AbortSignal }): Promise<NostrEvent[]> {
-    const events = new NSet();
+  async query(filters: NostrFilter[], opts?: { signal?: AbortSignal; relays?: string[] }): Promise<NostrEvent[]> {
+    const map = new Map<string, NostrEvent>();
+    const events = new NSet(map);
 
     const limit = filters.reduce((result, filter) => result + getFilterLimit(filter), 0);
     if (limit === 0) return [];
 
     const replaceable = filters.reduce((result, filter) => {
       return result || !!filter.kinds?.some((k) => NKinds.replaceable(k) || NKinds.parameterizedReplaceable(k));
+    }, false);
+
+    const search = filters.reduce((result, filter) => {
+      return result || 'search' in filter;
     }, false);
 
     try {
@@ -174,17 +182,48 @@ export class NPool<T extends NRelay> implements NRelay {
       // Skip errors, return partial results.
     }
 
-    return [...events];
+    if (search) {
+      return [...map.values()];
+    } else {
+      return [...events];
+    }
   }
 
   /** Close all the relays in the pool. */
   async close(): Promise<void> {
     await Promise.all(
-      [...this._relays.values()].map((relay) => relay.close()),
+      [...this.relays.values()].map((relay) => relay.close()),
     );
   }
 
   async [Symbol.asyncDispose](): Promise<void> {
     await this.close();
+  }
+}
+
+class CircularSet<T> {
+  private set: Set<T>;
+
+  constructor(private capacity: number) {
+    this.set = new Set();
+  }
+
+  add(item: T): void {
+    if (this.set.has(item)) {
+      return;
+    }
+
+    if (this.set.size >= this.capacity) {
+      const oldest = this.set.values().next().value;
+      if (oldest) {
+        this.set.delete(oldest);
+      }
+    }
+
+    this.set.add(item);
+  }
+
+  has(item: T): boolean {
+    return this.set.has(item);
   }
 }

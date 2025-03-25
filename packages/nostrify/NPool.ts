@@ -165,13 +165,14 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
     const limit = filters.reduce((result, filter) => result + getFilterLimit(filter), 0);
     if (limit === 0) return [];
 
-    const replaceable = filters.reduce((result, filter) => {
-      return result || !!filter.kinds?.some((k) => NKinds.replaceable(k) || NKinds.parameterizedReplaceable(k));
-    }, false);
+    let search = false;
+    let replaceable = false;
 
-    const search = filters.reduce((result, filter) => {
-      return result || typeof filter.search === 'string';
-    }, false);
+    for (const filter of filters) {
+      search = search || typeof filter.search === 'string';
+      replaceable = replaceable ||
+        !!filter.kinds?.some((k) => NKinds.replaceable(k) || NKinds.parameterizedReplaceable(k));
+    }
 
     try {
       for await (const msg of this.req(filters, opts)) {

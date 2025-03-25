@@ -6,9 +6,9 @@ import { Machina } from './utils/Machina.ts';
 import { NKinds } from './NKinds.ts';
 import { NSet } from './NSet.ts';
 
-export interface NPoolOpts {
+export interface NPoolOpts<T extends NRelay> {
   /** Creates an `NRelay` instance for the given URL. */
-  open(url: string): NRelay;
+  open(url: string): T;
   /** Determines the relays to use for making `REQ`s to the given filters. To support the Outbox model, it should analyze the `authors` field of the filters. */
   reqRouter(filters: NostrFilter[]): ReadonlyMap<string, NostrFilter[]> | Promise<ReadonlyMap<string, NostrFilter[]>>;
   /** Determines the relays to use for publishing the given event. To support the Outbox model, it should analyze the `pubkey` field of the event. */
@@ -44,22 +44,26 @@ export interface NPoolOpts {
  *
  * `pool.req` will only emit an `EOSE` when all relays in its set have emitted an `EOSE`, and likewise for `CLOSED`.
  */
-export class NPool implements NRelay {
-  private relays = new Map<string, NRelay>();
+export class NPool<T extends NRelay = NRelay> implements NRelay {
+  private _relays = new Map<string, T>();
 
-  constructor(private opts: NPoolOpts) {}
+  constructor(private opts: NPoolOpts<T>) {}
 
   /** Get or create a relay instance for the given URL. */
-  public relay(url: string): NRelay {
-    const relay = this.relays.get(url);
+  public relay(url: string): T {
+    const relay = this._relays.get(url);
 
     if (relay) {
       return relay;
     } else {
       const relay = this.opts.open(url);
-      this.relays.set(url, relay);
+      this._relays.set(url, relay);
       return relay;
     }
+  }
+
+  public get relays(): ReadonlyMap<string, T> {
+    return this._relays;
   }
 
   /**

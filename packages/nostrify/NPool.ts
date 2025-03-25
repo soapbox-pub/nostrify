@@ -5,9 +5,9 @@ import { Machina } from './utils/Machina.ts';
 import { NKinds } from './NKinds.ts';
 import { NSet } from './NSet.ts';
 
-export interface NPoolOpts<T extends NRelay> {
+export interface NPoolOpts {
   /** Creates an `NRelay` instance for the given URL. */
-  open(url: string): T;
+  open(url: string): NRelay;
   /** Determines the relays to use for making `REQ`s to the given filters. To support the Outbox model, it should analyze the `authors` field of the filters. */
   reqRouter(filters: NostrFilter[]): ReadonlyMap<string, NostrFilter[]> | Promise<ReadonlyMap<string, NostrFilter[]>>;
   /** Determines the relays to use for publishing the given event. To support the Outbox model, it should analyze the `pubkey` field of the event. */
@@ -43,14 +43,14 @@ export interface NPoolOpts<T extends NRelay> {
  *
  * `pool.req` will only emit an `EOSE` when all relays in its set have emitted an `EOSE`, and likewise for `CLOSED`.
  */
-export class NPool<T extends NRelay> implements NRelay {
-  private relays = new Map<string, T>();
+export class NPool implements NRelay {
+  private relays = new Map<string, NRelay>();
   private seen = new CircularSet<string>(1000);
 
-  constructor(private opts: NPoolOpts<T>) {}
+  constructor(private opts: NPoolOpts) {}
 
   /** Get or create a relay instance for the given URL. */
-  public relay(url: string): T {
+  public relay(url: string): NRelay {
     const relay = this.relays.get(url);
 
     if (relay) {

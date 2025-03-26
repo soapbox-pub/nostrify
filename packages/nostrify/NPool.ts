@@ -69,8 +69,12 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
   /**
    * Sends a `REQ` to relays based on the configured `reqRouter`.
    *
-   * All `EVENT` messages from the selected relays are yielded (deduplication is attempted).
+   * `EVENT` messages from the selected relays are yielded.
    * `EOSE` and `CLOSE` messages are only yielded when all relays have emitted them.
+   *
+   * Deduplication of `EVENT` messages is attempted, so that each event is only yielded once.
+   * A circular set of 1000 is used to track seen event IDs, so it's possible that very
+   * long-running subscriptions (with over 1000 results) may yield duplicate events.
    */
   async *req(
     filters: NostrFilter[],
@@ -198,7 +202,7 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
   /** Close all the relays in the pool. */
   async close(): Promise<void> {
     await Promise.all(
-      [...this.relays.values()].map((relay) => relay.close()),
+      [...this._relays.values()].map((relay) => relay.close()),
     );
   }
 

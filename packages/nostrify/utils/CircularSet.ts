@@ -1,3 +1,7 @@
+/**
+ * Like a Circular Buffer, but the values are deduplicated.
+ * Shares the properties of both a Circular Buffer and a Set.
+ */
 export class CircularSet<T> {
   private set: Set<T>;
 
@@ -22,5 +26,9 @@ export class CircularSet<T> {
 
   has(item: T): boolean {
     return this.set.has(item);
+  }
+
+  [Symbol.iterator](): Iterator<T> {
+    return this.set.values();
   }
 }

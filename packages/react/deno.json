@@ -3,5 +3,8 @@
   "verson": "0.0.1-alpha.1",
   "exports": {
     ".": "./mod.ts"
+  },
+  "compilerOptions": {
+    "lib": ["deno.ns", "dom"]
   }
 }

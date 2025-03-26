@@ -1,5 +1,3 @@
-/// <reference lib="dom" />
-
 import { assertEquals } from '@std/assert';
 import { render } from '@testing-library/react';
 

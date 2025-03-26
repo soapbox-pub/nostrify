@@ -8,7 +8,7 @@ export type NLoginAction =
 export function nostrLoginReducer(state: NLogin[], action: NLoginAction): NLogin[] {
   switch (action.type) {
     case 'login.add': {
-      const filtered = state.filter((login) => !loginsMatch(login, action.login));
+      const filtered = state.filter((login) => login.id !== action.login.id);
       return action.switch ? [action.login, ...filtered] : [...filtered, action.login];
     }
 
@@ -31,8 +31,4 @@ export function nostrLoginReducer(state: NLogin[], action: NLoginAction): NLogin
       return state;
     }
   }
-}
-
-function loginsMatch(a: NLogin, b: NLogin): boolean {
-  return a.type === b.type && a.pubkey === b.pubkey;
 }

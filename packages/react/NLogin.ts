@@ -17,6 +17,7 @@ export interface NLoginExtension extends NLoginBase {
 }
 
 interface NLoginBase {
+  id: `${string}:${string}`;
   type: string;
   pubkey: string;
   createdAt: string;

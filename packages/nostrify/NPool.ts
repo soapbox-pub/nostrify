@@ -1,6 +1,7 @@
 import { NostrFilter, NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT, NRelay } from '@nostrify/types';
 import { getFilterLimit, NostrEvent } from 'nostr-tools';
 
+import { CircularSet } from './utils/CircularSet.ts';
 import { Machina } from './utils/Machina.ts';
 import { NKinds } from './NKinds.ts';
 import { NSet } from './NSet.ts';
@@ -9,9 +10,9 @@ export interface NPoolOpts<T extends NRelay> {
   /** Creates an `NRelay` instance for the given URL. */
   open(url: string): T;
   /** Determines the relays to use for making `REQ`s to the given filters. To support the Outbox model, it should analyze the `authors` field of the filters. */
-  reqRouter(filters: NostrFilter[]): Promise<ReadonlyMap<string, NostrFilter[]>>;
+  reqRouter(filters: NostrFilter[]): ReadonlyMap<string, NostrFilter[]> | Promise<ReadonlyMap<string, NostrFilter[]>>;
   /** Determines the relays to use for publishing the given event. To support the Outbox model, it should analyze the `pubkey` field of the event. */
-  eventRouter(event: NostrEvent): Promise<string[]>;
+  eventRouter(event: NostrEvent): string[] | Promise<string[]>;
 }
 
 /**
@@ -43,7 +44,7 @@ export interface NPoolOpts<T extends NRelay> {
  *
  * `pool.req` will only emit an `EOSE` when all relays in its set have emitted an `EOSE`, and likewise for `CLOSED`.
  */
-export class NPool<T extends NRelay> implements NRelay {
+export class NPool<T extends NRelay = NRelay> implements NRelay {
   private _relays = new Map<string, T>();
 
   constructor(private opts: NPoolOpts<T>) {}
@@ -68,17 +69,23 @@ export class NPool<T extends NRelay> implements NRelay {
   /**
    * Sends a `REQ` to relays based on the configured `reqRouter`.
    *
-   * All `EVENT` messages from the selected relays are yielded, with no deduplication or order.
+   * `EVENT` messages from the selected relays are yielded.
    * `EOSE` and `CLOSE` messages are only yielded when all relays have emitted them.
+   *
+   * Deduplication of `EVENT` messages is attempted, so that each event is only yielded once.
+   * A circular set of 1000 is used to track seen event IDs, so it's possible that very
+   * long-running subscriptions (with over 1000 results) may yield duplicate events.
    */
   async *req(
     filters: NostrFilter[],
-    opts?: { signal?: AbortSignal },
+    opts?: { signal?: AbortSignal; relays?: string[] },
   ): AsyncIterable<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
     const controller = new AbortController();
     const signal = opts?.signal ? AbortSignal.any([opts.signal, controller.signal]) : controller.signal;
 
-    const routes = await this.opts.reqRouter(filters);
+    const routes = opts?.relays
+      ? new Map(opts.relays.map((url) => [url, filters]))
+      : await this.opts.reqRouter(filters);
 
     if (routes.size < 1) {
       return;
@@ -88,6 +95,7 @@ export class NPool<T extends NRelay> implements NRelay {
 
     const eoses = new Set<string>();
     const closes = new Set<string>();
+    const events = new CircularSet<string>(1000);
 
     for (const [url, filters] of routes.entries()) {
       const relay = this.relay(url);
@@ -106,7 +114,11 @@ export class NPool<T extends NRelay> implements NRelay {
             }
           }
           if (msg[0] === 'EVENT') {
-            machina.push(msg);
+            const [, , event] = msg;
+            if (!events.has(event.id)) {
+              events.add(event.id);
+              machina.push(msg);
+            }
           }
         }
       })().catch(() => {});
@@ -126,10 +138,10 @@ export class NPool<T extends NRelay> implements NRelay {
    * Returns a fulfilled promise if ANY relay accepted the event,
    * or a rejected promise if ALL relays rejected or failed to publish the event.
    */
-  async event(event: NostrEvent, opts?: { signal?: AbortSignal }): Promise<void> {
-    const relayUrls = await this.opts.eventRouter(event);
+  async event(event: NostrEvent, opts?: { signal?: AbortSignal; relays?: string[] }): Promise<void> {
+    const relayUrls = opts?.relays ?? await this.opts.eventRouter(event);
 
-    if (relayUrls.length < 1) {
+    if (!relayUrls.length) {
       return;
     }
 
@@ -150,15 +162,21 @@ export class NPool<T extends NRelay> implements NRelay {
    *
    * To implement a custom strategy, call `.req` directly.
    */
-  async query(filters: NostrFilter[], opts?: { signal?: AbortSignal }): Promise<NostrEvent[]> {
-    const events = new NSet();
+  async query(filters: NostrFilter[], opts?: { signal?: AbortSignal; relays?: string[] }): Promise<NostrEvent[]> {
+    const map = new Map<string, NostrEvent>();
+    const events = new NSet(map);
 
     const limit = filters.reduce((result, filter) => result + getFilterLimit(filter), 0);
     if (limit === 0) return [];
 
-    const replaceable = filters.reduce((result, filter) => {
-      return result || !!filter.kinds?.some((k) => NKinds.replaceable(k) || NKinds.parameterizedReplaceable(k));
-    }, false);
+    let search = false;
+    let replaceable = false;
+
+    for (const filter of filters) {
+      search = search || typeof filter.search === 'string';
+      replaceable = replaceable ||
+        !!filter.kinds?.some((k) => NKinds.replaceable(k) || NKinds.parameterizedReplaceable(k));
+    }
 
     try {
       for await (const msg of this.req(filters, opts)) {
@@ -174,7 +192,11 @@ export class NPool<T extends NRelay> implements NRelay {
       // Skip errors, return partial results.
     }
 
-    return [...events];
+    if (search) {
+      return [...map.values()];
+    } else {
+      return [...events];
+    }
   }
 
   /** Close all the relays in the pool. */

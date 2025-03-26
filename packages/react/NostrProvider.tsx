@@ -3,7 +3,7 @@ import { type FC, type ReactNode, useEffect, useReducer, useRef } from 'react';
 
 import { IdbRelay } from './IdbRelay.ts';
 import { NostrContext, type NostrContextType } from './NostrContext.ts';
-import { nostrReducer } from './nostrReducer.ts';
+import { nostrLoginReducer } from './nostrLoginReducer.ts';
 
 interface NostrProviderProps {
   storageKey?: string;
@@ -12,9 +12,9 @@ interface NostrProviderProps {
 }
 
 export const NostrProvider: FC<NostrProviderProps> = ({ children, relays: relayUrls, storageKey = 'nostr' }) => {
-  const [state, dispatch] = useReducer(nostrReducer, undefined, () => {
+  const [logins, dispatch] = useReducer(nostrLoginReducer, undefined, () => {
     const stored = localStorage.getItem(storageKey);
-    return stored ? JSON.parse(stored) : { logins: [] };
+    return stored ? JSON.parse(stored) : [];
   });
 
   const pool = useRef<NPool<NRelay1>>(undefined);
@@ -39,12 +39,12 @@ export const NostrProvider: FC<NostrProviderProps> = ({ children, relays: relayU
   }
 
   useEffect(() => {
-    localStorage.setItem(storageKey, JSON.stringify(state));
-  }, [state]);
+    localStorage.setItem(storageKey, JSON.stringify(logins));
+  }, [logins]);
 
   const context: NostrContextType = {
     nostr: pool.current,
-    state,
+    logins,
     dispatch,
     windowSigner: (globalThis as unknown as { nostr?: NostrSigner }).nostr,
     local: local.current,

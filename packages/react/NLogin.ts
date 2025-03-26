@@ -1,7 +1,3 @@
-export interface NState {
-  logins: NLogin[];
-}
-
 export type NLogin = NLoginNsec | NLoginBunker | NLoginExtension;
 
 export interface NLoginNsec extends NLoginBase {

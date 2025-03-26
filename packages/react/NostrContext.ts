@@ -1,18 +1,29 @@
 import { type Context, createContext } from 'react';
 
-import type { NostrSigner, NRelay } from '@nostrify/nostrify';
-import type { NState } from './NState.ts';
-import type { NAction } from './nostrReducer.ts';
+import type { NostrSigner, NPool } from '@nostrify/nostrify';
+
+export interface NUser {
+  pubkey: string;
+  signer: NostrSigner;
+  method: 'nsec' | 'bunker' | 'extension';
+}
+
+export interface NostrLogin {
+  nsec(nsec: string): void;
+  bunker(uri: string): Promise<void>;
+  extension(): Promise<void>;
+  logout(id: number): void;
+  clear(): void;
+  isLoading: boolean;
+  isError: boolean;
+  error: Error | null;
+}
 
 export interface NostrContextType {
-  nostr: NRelay;
-  local: NRelay;
-  /** @deprecated FIXME: remove, expose only actions */
-  state: NState;
-  /** @deprecated FIXME: remove, expose only actions */
-  dispatch: (action: NAction) => void;
-  windowSigner?: NostrSigner;
-  pool: { relay(url: string): NRelay };
+  nostr: NPool;
+  user: NUser | undefined;
+  logins: NUser[];
+  login: NostrLogin;
 }
 
 export const NostrContext: Context<NostrContextType | undefined> = createContext<NostrContextType | undefined>(

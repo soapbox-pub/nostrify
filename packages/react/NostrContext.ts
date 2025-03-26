@@ -1,4 +1,4 @@
-import { createContext } from 'react';
+import { type Context, createContext } from 'react';
 
 import type { NostrSigner, NRelay } from '@nostrify/nostrify';
 import type { NState } from './NState.ts';
@@ -15,4 +15,6 @@ export interface NostrContextType {
   pool: { relay(url: string): NRelay };
 }
 
-export const NostrContext = createContext<NostrContextType | undefined>(undefined);
+export const NostrContext: Context<NostrContextType | undefined> = createContext<NostrContextType | undefined>(
+  undefined,
+);

@@ -15,6 +15,7 @@ interface NostrProviderProps {
 
 export const NostrProvider: FC<NostrProviderProps> = ({ children, relays: relayUrls, storageKey = 'nostr' }) => {
   const pool = useRef<NPool<NRelay1>>(undefined);
+  const user = useRef<NUser | undefined>(undefined);
   const local = useRef<IdbRelay>(undefined);
 
   if (!pool.current) {
@@ -37,9 +38,13 @@ export const NostrProvider: FC<NostrProviderProps> = ({ children, relays: relayU
 
   const { logins, ...login } = useNostrLogin(pool.current, storageKey);
 
+  useEffect(() => {
+    user.current = logins[0];
+  }, [logins]);
+
   const context: NostrContextType = {
     nostr: pool.current,
-    user: logins[0],
+    user: user.current,
     login,
     logins,
   };

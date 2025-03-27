@@ -12,7 +12,7 @@ export interface NostrLogin {
   nsec(nsec: string): void;
   bunker(uri: string): Promise<void>;
   extension(): Promise<void>;
-  logout(id: number): void;
+  logout(id: string): void;
   clear(): void;
   isLoading: boolean;
   isError: boolean;

@@ -2,8 +2,9 @@ import type { NLogin } from './NLogin.ts';
 
 export type NLoginAction =
   | { type: 'login.add'; login: NLogin; switch?: boolean }
-  | { type: 'login.remove'; index: number }
-  | { type: 'login.switch'; index: number };
+  | { type: 'login.remove'; id: string }
+  | { type: 'login.switch'; id: string }
+  | { type: 'login.clear' };
 
 export function nostrLoginReducer(state: NLogin[], action: NLoginAction): NLogin[] {
   switch (action.type) {
@@ -13,18 +14,22 @@ export function nostrLoginReducer(state: NLogin[], action: NLoginAction): NLogin
     }
 
     case 'login.remove': {
-      return state.filter((_, i) => i !== action.index);
+      return state.filter((login) => login.id !== action.id);
     }
 
     case 'login.switch': {
-      const login = state[action.index];
+      const login = state.find((login) => login.id === action.id);
 
       if (!login) {
         return state;
       }
 
-      const filtered = state.filter((_, i) => i !== action.index);
+      const filtered = state.filter((login) => login.id !== action.id);
       return [login, ...filtered];
+    }
+
+    case 'login.clear': {
+      return [];
     }
 
     default: {

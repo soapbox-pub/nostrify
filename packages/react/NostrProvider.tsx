@@ -1,4 +1,4 @@
-import { NConnectSigner, NostrSigner, NPool, NRelay1, NSecSigner } from '@nostrify/nostrify';
+import { NConnectSigner, NostrEvent, NostrSigner, NPool, type NRelay, NRelay1, NSecSigner } from '@nostrify/nostrify';
 import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools';
 import { type FC, type ReactNode, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
@@ -9,11 +9,14 @@ import { nostrLoginReducer } from './nostrLoginReducer.ts';
 interface NostrProviderProps {
   storageKey?: string;
   children: ReactNode;
-  relays: Array<`wss://${string}` | `ws://${string}`>;
+  relays: Array<`wss://${string}`>;
+  outbox?: boolean;
 }
 
-export const NostrProvider: FC<NostrProviderProps> = ({ children, relays: relayUrls, storageKey = 'nostr' }) => {
-  const pool = useRef<NPool<NRelay1>>(undefined);
+export const NostrProvider: FC<NostrProviderProps> = (
+  { children, relays: relayUrls, storageKey = 'nostr', outbox = true },
+) => {
+  const pool = useRef<NPool>(undefined);
   const user = useRef<NUser | undefined>(undefined);
 
   if (!pool.current) {
@@ -21,11 +24,41 @@ export const NostrProvider: FC<NostrProviderProps> = ({ children, relays: relayU
       open(url: string) {
         return new NRelay1(url);
       },
-      reqRouter(filters) {
-        return new Map(relayUrls.map((url) => [url, filters]));
+      async reqRouter(filters) {
+        if (outbox && user.current && pool.current) {
+          const relays = await fetchUserRelayUrls({
+            relay: pool.current.group([...relayUrls]),
+            pubkey: user.current.pubkey,
+            marker: 'read',
+            signal: AbortSignal.timeout(500),
+          });
+
+          for (const url of relayUrls) {
+            relays.add(url);
+          }
+
+          return new Map([...relays].map((url) => [url, filters]));
+        } else {
+          return new Map(relayUrls.map((url) => [url, filters]));
+        }
       },
-      eventRouter() {
-        return relayUrls;
+      async eventRouter(_event: NostrEvent) {
+        if (outbox && user.current && pool.current) {
+          const relays = await fetchUserRelayUrls({
+            relay: pool.current.group([...relayUrls]),
+            pubkey: user.current.pubkey,
+            marker: 'write',
+            signal: AbortSignal.timeout(500),
+          });
+
+          for (const url of relayUrls) {
+            relays.add(url);
+          }
+
+          return [...relays];
+        } else {
+          return relayUrls;
+        }
       },
     });
   }
@@ -243,4 +276,44 @@ function parseBunkerUri(uri: string): { pubkey: string; secret?: string; relays:
   }
 
   return { pubkey, secret, relays };
+}
+
+async function fetchUserRelayUrls(
+  opts: { relay: NRelay; pubkey: string; marker?: 'read' | 'write'; signal?: AbortSignal },
+): Promise<Set<`wss://${string}`>> {
+  const { relay, pubkey, marker, signal } = opts;
+
+  const relayUrls = new Set<`wss://${string}`>();
+
+  const events = await relay.query(
+    [{ kinds: [10002], authors: [pubkey], limit: 1 }],
+    { signal },
+  );
+
+  for (const event of events) {
+    for (const relayUrl of extractRelayUrls(event, marker)) {
+      relayUrls.add(relayUrl);
+    }
+  }
+
+  return relayUrls;
+}
+
+function extractRelayUrls(event: NostrEvent, marker?: 'read' | 'write'): Set<`wss://${string}`> {
+  const relayUrls = new Set<`wss://${string}`>();
+
+  for (const [name, relayUrl, tagMarker] of event.tags) {
+    if (name === 'r' && (!marker || !tagMarker || marker === tagMarker)) {
+      try {
+        const url = new URL(relayUrl);
+        if (url.protocol === 'wss:') {
+          relayUrls.add(url.toString() as `wss://${string}`);
+        }
+      } catch {
+        // fallthrough
+      }
+    }
+  }
+
+  return relayUrls;
 }

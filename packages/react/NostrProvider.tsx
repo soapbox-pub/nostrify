@@ -1,4 +1,13 @@
-import { NConnectSigner, NostrEvent, NostrSigner, NPool, type NRelay, NRelay1, NSecSigner } from '@nostrify/nostrify';
+import {
+  NConnectSigner,
+  NostrEvent,
+  type NostrFilter,
+  NostrSigner,
+  NPool,
+  type NRelay,
+  NRelay1,
+  NSecSigner,
+} from '@nostrify/nostrify';
 import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools';
 import { type FC, type ReactNode, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
@@ -26,18 +35,68 @@ export const NostrProvider: FC<NostrProviderProps> = (
       },
       async reqRouter(filters) {
         if (outbox && user.current && pool.current) {
-          const relays = await fetchUserRelayUrls({
+          const pubkey = user.current.pubkey;
+
+          const routes = new Map<string, NostrFilter[]>();
+          const authors = new Set<string>();
+
+          for (const filter of filters) {
+            for (const author of filter.authors ?? []) {
+              authors.add(author);
+            }
+          }
+
+          const map = new Map<string, NostrEvent>();
+          const signal = AbortSignal.timeout(800);
+
+          const userRelays = await fetchUserRelayUrls({
             relay: pool.current.group([...relayUrls]),
-            pubkey: user.current.pubkey,
-            marker: 'read',
-            signal: AbortSignal.timeout(500),
+            pubkey,
+            marker: 'write',
+            signal,
           });
 
           for (const url of relayUrls) {
-            relays.add(url);
+            userRelays.add(url);
           }
 
-          return new Map([...relays].map((url) => [url, filters]));
+          const relay = pool.current.group([...userRelays]);
+
+          for (const event of await relay.query([{ kinds: [10002], authors: [...authors] }], { signal })) {
+            map.set(event.pubkey, event);
+          }
+
+          for (const filter of filters) {
+            if (filter.authors) {
+              const relayAuthors = new Map<`wss://${string}`, Set<string>>();
+
+              for (const author of filter.authors) {
+                const event = map.get(author) ?? map.get(pubkey);
+                if (event) {
+                  for (const relayUrl of [...extractRelayUrls(event, 'write')]) {
+                    const value = relayAuthors.get(relayUrl);
+                    relayAuthors.set(relayUrl, value ? new Set([...value, author]) : new Set([author]));
+                  }
+                }
+              }
+
+              for (const [relayUrl, authors] of relayAuthors) {
+                const value = routes.get(relayUrl);
+                const _filter = { ...filter, authors: [...authors] };
+                routes.set(relayUrl, value ? [...value, _filter] : [_filter]);
+              }
+            } else {
+              const event = map.get(pubkey);
+              if (event) {
+                for (const relayUrl of [...extractRelayUrls(event, 'read')]) {
+                  const value = routes.get(relayUrl);
+                  routes.set(relayUrl, value ? [...value, filter] : [filter]);
+                }
+              }
+            }
+          }
+
+          return routes;
         } else {
           return new Map(relayUrls.map((url) => [url, filters]));
         }

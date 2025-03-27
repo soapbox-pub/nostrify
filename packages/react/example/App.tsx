@@ -1,19 +1,18 @@
-import { useNostr, useNostrEvents } from '@nostrify/react';
+import { useNostr } from '@nostrify/react';
+
+import { useProfile } from './useProfile.ts';
+import { useSocialFeed } from './useSocialFeed.ts';
 
 function App() {
   const { user, login } = useNostr();
 
-  const { events: [author] } = useNostrEvents(
-    user ? [{ kinds: [0], authors: [user.pubkey] }] : [],
-  );
-
-  const { events: notes } = useNostrEvents([{ kinds: [1], limit: 20 }]);
+  const profile = useProfile();
+  const feed = useSocialFeed();
 
   function renderLogin() {
     if (user) {
-      if (author) {
-        const { name } = JSON.parse(author.content);
-        return <div>Welcome back, {name}!</div>;
+      if (profile.data) {
+        return <div>Welcome back, {profile.data.name}!</div>;
       }
 
       return <div>You: {user.pubkey}</div>;
@@ -39,7 +38,7 @@ function App() {
       {renderLogin()}
 
       <h2>Notes</h2>
-      {notes.map((note) => (
+      {feed.data?.map((note) => (
         <div key={note.id}>
           {note.content}
           <br />

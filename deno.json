@@ -42,6 +42,7 @@
     "@std/json": "jsr:@std/json@^1.0.1",
     "@std/streams": "jsr:@std/streams@^1.0.8",
     "@std/testing": "jsr:@std/testing@^0.222.1",
+    "@tanstack/react-query": "npm:@tanstack/react-query@^5.69.0",
     "@testing-library/react": "npm:@testing-library/react@^16.2.0",
     "@vitejs/plugin-react": "npm:@vitejs/plugin-react@^4.3.4",
     "happy-dom": "npm:happy-dom@^17.4.4",

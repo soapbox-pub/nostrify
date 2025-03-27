@@ -124,9 +124,7 @@ export const NostrProvider: FC<NostrProviderProps> = (
 
   const { logins, ...login } = useNostrLogin(pool.current, storageKey);
 
-  useEffect(() => {
-    user.current = logins[0];
-  }, [logins]);
+  user.current = logins[0];
 
   const context: NostrContextType = {
     nostr: pool.current,
@@ -143,7 +141,7 @@ export const NostrProvider: FC<NostrProviderProps> = (
 };
 
 function useNostrLogin(pool: NPool, storageKey: string): NostrLogin & { logins: NUser[] } {
-  const [state, dispatch] = useReducer(nostrLoginReducer, undefined, () => {
+  const [state, dispatch] = useReducer(nostrLoginReducer, [], () => {
     const stored = localStorage.getItem(storageKey);
     return stored ? JSON.parse(stored) : [];
   });

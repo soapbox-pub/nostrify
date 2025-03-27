@@ -2,7 +2,6 @@ import { NConnectSigner, NostrSigner, NPool, NRelay1, NSecSigner } from '@nostri
 import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools';
 import { type FC, type ReactNode, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
-import { IdbRelay } from './IdbRelay.ts';
 import { NLogin } from './NLogin.ts';
 import { NostrContext, type NostrContextType, type NostrLogin, NUser } from './NostrContext.ts';
 import { nostrLoginReducer } from './nostrLoginReducer.ts';
@@ -16,7 +15,6 @@ interface NostrProviderProps {
 export const NostrProvider: FC<NostrProviderProps> = ({ children, relays: relayUrls, storageKey = 'nostr' }) => {
   const pool = useRef<NPool<NRelay1>>(undefined);
   const user = useRef<NUser | undefined>(undefined);
-  const local = useRef<IdbRelay>(undefined);
 
   if (!pool.current) {
     pool.current = new NPool({
@@ -30,10 +28,6 @@ export const NostrProvider: FC<NostrProviderProps> = ({ children, relays: relayU
         return relayUrls;
       },
     });
-  }
-
-  if (!local.current) {
-    local.current = new IdbRelay(storageKey);
   }
 
   const { logins, ...login } = useNostrLogin(pool.current, storageKey);
@@ -123,14 +117,12 @@ function useNostrLogin(pool: NPool, storageKey: string): NostrLogin & { logins: 
           throw new Error('No relay provided');
         }
 
-        const relay = pool.relay(relays[0]); // TODO: handle multiple relays
-
         const sk = generateSecretKey();
         const nsec = nip19.nsecEncode(sk);
         const clientSigner = new NSecSigner(sk);
 
         const signer = new NConnectSigner({
-          relay,
+          relay: pool.group(relays),
           pubkey: bunkerPubkey,
           signer: clientSigner,
           timeout: 20_000,

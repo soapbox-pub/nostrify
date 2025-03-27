@@ -62,6 +62,15 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
     }
   }
 
+  /** Returns a new pool instance that uses the given relays. Connections are shared with the original pool. */
+  public group(urls: string[]): NPool<T> {
+    return new NPool({
+      open: (url) => this.relay(url),
+      reqRouter: (filters) => new Map(urls.map((url) => [url, filters])),
+      eventRouter: () => urls,
+    });
+  }
+
   public get relays(): ReadonlyMap<string, T> {
     return this._relays;
   }

@@ -9,6 +9,10 @@ export function useSocialFeed(): UseQueryResult<NostrEvent[]> {
 
   return useQuery({
     queryKey: ['social-feed'],
-    queryFn: () => nostr.query([{ kinds: [1], limit: 20 }]),
+    queryFn: () => nostr.query(
+      [{ kinds: [1], limit: 20 }],
+      { signal: AbortSignal.timeout(5000) },
+    ),
+    staleTime: 1000,
   });
 }

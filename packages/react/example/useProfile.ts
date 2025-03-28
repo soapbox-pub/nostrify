@@ -13,7 +13,7 @@ export function useProfile(): UseQueryResult<NostrMetadata> {
         return {};
       }
 
-      const [event] = await nostr.query([{ kinds: [0], authors: [user.pubkey] }]);
+      const [event] = await nostr.query([{ kinds: [0], authors: [user.pubkey], limit: 1 }]);
 
       if (!event) {
         return {};

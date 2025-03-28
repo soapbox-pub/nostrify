@@ -38,7 +38,7 @@ export const NostrProvider: FC<NostrProviderProps> = (
           const pubkey = user.current.pubkey;
 
           const routes = new Map<string, NostrFilter[]>();
-          const authors = new Set<string>();
+          const authors = new Set<string>([pubkey]);
 
           for (const filter of filters) {
             for (const author of filter.authors ?? []) {
@@ -47,12 +47,12 @@ export const NostrProvider: FC<NostrProviderProps> = (
           }
 
           const map = new Map<string, NostrEvent>();
-          const signal = AbortSignal.timeout(800);
+          const signal = AbortSignal.timeout(5000);
 
           const userRelays = await fetchUserRelayUrls({
             relay: pool.current.group([...relayUrls]),
             pubkey,
-            marker: 'write',
+            marker: 'read',
             signal,
           });
 
@@ -93,6 +93,12 @@ export const NostrProvider: FC<NostrProviderProps> = (
                   routes.set(relayUrl, value ? [...value, filter] : [filter]);
                 }
               }
+            }
+          }
+
+          for (const url of relayUrls) {
+            if (!routes.has(url)) {
+              routes.set(url, filters);
             }
           }
 

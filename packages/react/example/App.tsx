@@ -11,7 +11,7 @@ function App() {
 
   function renderLogin() {
     if (user) {
-      if (profile.data) {
+      if (profile.data?.name) {
         return <div>Welcome back, {profile.data.name}!</div>;
       }
 

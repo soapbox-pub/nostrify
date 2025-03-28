@@ -390,7 +390,7 @@ export class NPostgres implements NRelay {
 
         machina.push(['EOSE', subId]);
       }).catch((error) => {
-        if (error instanceof Error && error.message.includes('timeout')) {
+        if (error instanceof Error && (error.name === 'TimeoutError' || error.message.includes('timeout'))) {
           machina.push(['CLOSED', subId, 'error: the relay could not respond fast enough']);
         } else {
           machina.push(['CLOSED', subId, 'error: something went wrong']);

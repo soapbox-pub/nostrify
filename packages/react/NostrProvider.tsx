@@ -23,7 +23,7 @@ interface NostrProviderProps {
 }
 
 export const NostrProvider: FC<NostrProviderProps> = (
-  { children, relays: relayUrls, storageKey = 'nostr', outbox = true },
+  { children, relays: relayUrls, storageKey = 'nostr', outbox = false },
 ) => {
   const pool = useRef<NPool>(undefined);
   const user = useRef<NUser | undefined>(undefined);

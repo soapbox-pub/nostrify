@@ -1,0 +1,93 @@
+# Nostrify
+
+Nostrify is a comprehensive Nostr framework for web browsers and Deno, designed to be modular, interoperable, and easy to adopt.
+
+## Project Structure
+
+- **Technology Stack**: Deno, TypeScript
+- **Package Manager**: Uses Deno workspaces
+- **Configuration**: `deno.json` defines workspaces, tasks, and imports
+- **License**: MIT
+
+## Key Packages
+
+1. **@nostrify/nostrify**: Core package containing the main framework components
+   - Schema validation with Zod
+   - Storage interfaces and implementations (NStore, NCache, NSet)
+   - Relay interfaces and implementations (NRelay, NRelay1, NPool)
+   - Signer interfaces and implementations (NSecSigner, NSeedSigner, NPhraseSigner, NCustodial)
+
+2. **@nostrify/types**: TypeScript type definitions for Nostr
+   - Standard Nostr types (NostrEvent, NostrFilter, etc.)
+   - Nostrify-specific interfaces (NStore, NRelay, NPolicy, NUploader)
+   - Follows naming conventions: `Nostr*` for standard NIP types, `N*` for Nostrify types
+
+3. **@nostrify/db**: SQL database implementations
+   - NPostgres: High-performance Postgres implementation
+   - NDatabase: General-purpose SQL implementation for SQLite, MySQL, etc.
+   - Built on Kysely ORM
+
+4. **@nostrify/denokv**: Deno KV implementation for Nostr storage
+
+5. **@nostrify/ndk**: Integration with NDK (Nostr Development Kit)
+
+6. **@nostrify/policies**: Content filtering policies for Nostr
+
+7. **@nostrify/strfry**: Integration with strfry relay
+
+8. **@nostrify/welshman**: Integration with Welshman
+
+## Core Concepts
+
+1. **Storage (NStore)**: Interface for storing and querying Nostr events
+   - Databases, relays, and caches all implement this interface
+   - Methods: event(), query(), count(), remove()
+
+2. **Relay (NRelay)**: Extended storage with real-time streaming capabilities
+   - Implements NStore interface plus req() method for streaming
+   - NRelay1: Single relay connection
+   - NPool: Connection to multiple relays
+
+3. **Signer (NostrSigner)**: Interface for signing Nostr events
+   - Compatible with NIP-07
+   - Various implementations: NSecSigner, NSeedSigner, NPhraseSigner, NCustodial
+
+4. **Schema (NSchema)**: Zod schemas for Nostr data validation
+
+## Usage Examples
+
+### Using a Cache
+```ts
+const cache = new NCache({ max: 1000 });
+cache.add(event1);
+cache.add(event2);
+const events = await cache.query([{ kinds: [1] }]);
+```
+
+### Connecting to a Relay
+```ts
+const relay = new NRelay1('wss://relay.mostr.pub');
+for await (const msg of relay.req([{ kinds: [1] }])) {
+  if (msg[0] === 'EVENT') console.log(msg[2]);
+  if (msg[0] === 'EOSE') break;
+}
+```
+
+### Using a Signer
+```ts
+const signer = new NSecSigner(secretKey);
+const pubkey = await signer.getPublicKey();
+const event = await signer.signEvent({ 
+  kind: 1, 
+  content: 'Hello, world!', 
+  tags: [], 
+  created_at: 0 
+});
+```
+
+## Key Design Philosophy
+
+1. **Modularity**: Components can be used independently or swapped out
+2. **Interoperability**: Works alongside other Nostr tools like nostr-tools and NDK
+3. **Gradual Adoption**: Can be integrated piece by piece into existing applications
+4. **Type Safety**: Comprehensive TypeScript types for developer experience

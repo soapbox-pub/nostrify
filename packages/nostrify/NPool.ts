@@ -1,5 +1,5 @@
-import { NostrFilter, NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT, NRelay } from '@nostrify/types';
-import { getFilterLimit, NostrEvent } from 'nostr-tools';
+import { NostrEvent, NostrFilter, NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT, NRelay } from '@nostrify/types';
+import { getFilterLimit } from 'nostr-tools';
 
 import { CircularSet } from './utils/CircularSet.ts';
 import { Machina } from './utils/Machina.ts';

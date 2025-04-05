@@ -1,13 +1,16 @@
 import { useNostr } from '@nostrify/react';
+import { Suspense } from 'react';
 
 import { useProfile } from './useProfile.ts';
 import { useSocialFeed } from './useSocialFeed.ts';
+import { useAuthor } from './useAuthor.ts';
+
+import type { NostrEvent } from '@nostrify/nostrify';
 
 function App() {
   const { user, login } = useNostr();
 
   const profile = useProfile();
-  const feed = useSocialFeed();
 
   function renderLogin() {
     if (user) {
@@ -38,13 +41,30 @@ function App() {
       {renderLogin()}
 
       <h2>Notes</h2>
-      {feed.data?.map((note) => (
-        <div key={note.id}>
-          {note.content}
-          <br />
-          <br />
-        </div>
-      ))}
+      <Suspense fallback={<div>Loading...</div>}>
+        <Feed />
+      </Suspense>
+    </div>
+  );
+}
+
+function Feed() {
+  const feed = useSocialFeed();
+
+  return (
+    <>
+      {feed.data?.map((note) => <FeedPost key={note.id} event={note} />)}
+    </>
+  );
+}
+
+function FeedPost({ event }: { event: NostrEvent }) {
+  const { data: author } = useAuthor(event.pubkey);
+
+  return (
+    <div key={event.id} style={{ border: '1px solid gray', padding: '10px', margin: '20px 0' }}>
+      <div>{author.name ?? event.pubkey}</div>
+      <div>{event.content}</div>
     </div>
   );
 }

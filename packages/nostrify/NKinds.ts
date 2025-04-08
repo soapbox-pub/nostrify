@@ -14,8 +14,13 @@ export class NKinds {
     return 20000 <= kind && kind < 30000;
   }
 
-  /** Events are **parameterized replaceable**, which means that, for each combination of `pubkey`, `kind` and the `d` tag, only the latest event is expected to be stored by relays, older versions are expected to be discarded. */
-  static parameterizedReplaceable(kind: number): boolean {
+  /** Events are **addressable**, which means that, for each combination of `pubkey`, `kind` and the `d` tag, only the latest event is expected to be stored by relays, older versions are expected to be discarded. */
+  static addressable(kind: number): boolean {
     return 30000 <= kind && kind < 40000;
+  }
+
+  /** @deprecated Use `NKinds.addressable()` instead. */
+  static parameterizedReplaceable(kind: number): boolean {
+    return NKinds.addressable(kind);
   }
 }

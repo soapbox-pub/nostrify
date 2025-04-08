@@ -5,11 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 0.41.0 - 2025-03-26
+## Unreleased
 
 ### Added
 
+- Added `@nostrify/react` package.
 - NPool: add `.group` method to create sub-pools.
+
+## 0.41.1 - 2025-04-07
+
+### Changed
+
+- NKinds: deprecate `parameterizedReplaceable` in favor of `addressable`.
+
+## 0.41.0 - 2025-04-07
+
+### Added
+
+- NRelay1: batch ids-only filters and filters for replaceable events by author/kind within the same event loop.
 
 ## 0.40.0 - 2025-03-26
 

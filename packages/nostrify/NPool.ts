@@ -184,7 +184,7 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
     for (const filter of filters) {
       search = search || typeof filter.search === 'string';
       replaceable = replaceable ||
-        !!filter.kinds?.some((k) => NKinds.replaceable(k) || NKinds.parameterizedReplaceable(k));
+        !!filter.kinds?.some((k) => NKinds.replaceable(k) || NKinds.addressable(k));
     }
 
     try {

@@ -109,7 +109,7 @@ export class NDenoKv implements NStore {
       );
     }
 
-    if (NKinds.parameterizedReplaceable(event.kind)) {
+    if (NKinds.addressable(event.kind)) {
       const d = event.tags.find(([tag]) => tag === 'd')?.[1];
       if (d) {
         await this.deleteReplaced(

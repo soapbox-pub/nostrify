@@ -29,14 +29,14 @@ Deno.test('NKinds', () => {
   assertEquals(NKinds.ephemeral(40000), false);
   assertEquals(NKinds.ephemeral(100000), false);
 
-  assertEquals(NKinds.parameterizedReplaceable(1000), false);
-  assertEquals(NKinds.parameterizedReplaceable(10000), false);
-  assertEquals(NKinds.parameterizedReplaceable(0), false);
-  assertEquals(NKinds.parameterizedReplaceable(3), false);
-  assertEquals(NKinds.parameterizedReplaceable(44), false);
-  assertEquals(NKinds.parameterizedReplaceable(45), false);
-  assertEquals(NKinds.parameterizedReplaceable(20000), false);
-  assertEquals(NKinds.parameterizedReplaceable(30000), true);
-  assertEquals(NKinds.parameterizedReplaceable(40000), false);
-  assertEquals(NKinds.parameterizedReplaceable(100000), false);
+  assertEquals(NKinds.addressable(1000), false);
+  assertEquals(NKinds.addressable(10000), false);
+  assertEquals(NKinds.addressable(0), false);
+  assertEquals(NKinds.addressable(3), false);
+  assertEquals(NKinds.addressable(44), false);
+  assertEquals(NKinds.addressable(45), false);
+  assertEquals(NKinds.addressable(20000), false);
+  assertEquals(NKinds.addressable(30000), true);
+  assertEquals(NKinds.addressable(40000), false);
+  assertEquals(NKinds.addressable(100000), false);
 });

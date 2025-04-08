@@ -128,7 +128,7 @@ export class NDatabase implements NRelay {
       { kinds: [5], authors: [event.pubkey], '#e': [event.id], limit: 1 },
     ];
 
-    if (NKinds.replaceable(event.kind) || NKinds.parameterizedReplaceable(event.kind)) {
+    if (NKinds.replaceable(event.kind) || NKinds.addressable(event.kind)) {
       const d = event.tags.find(([tag]) => tag === 'd')?.[1] ?? '';
 
       filters.push({
@@ -195,7 +195,7 @@ export class NDatabase implements NRelay {
       );
     }
 
-    if (NKinds.parameterizedReplaceable(event.kind)) {
+    if (NKinds.addressable(event.kind)) {
       const d = event.tags.find(([tag]) => tag === 'd')?.[1];
       if (d) {
         await this.deleteReplaced(

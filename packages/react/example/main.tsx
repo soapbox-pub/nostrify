@@ -17,7 +17,7 @@ const queryClient = new QueryClient({
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <NostrProvider relays={['wss://ditto.pub/relay']}>
+    <NostrProvider appName='MyApp' relays={['wss://ditto.pub/relay']}>
       <QueryClientProvider client={queryClient}>
         <App />
       </QueryClientProvider>

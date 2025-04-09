@@ -16,14 +16,14 @@ import { NostrContext, type NostrContextType, type NostrLogin, NUser } from './N
 import { nostrLoginReducer } from './nostrLoginReducer.ts';
 
 interface NostrProviderProps {
-  storageKey?: string;
+  appName: string;
   children: ReactNode;
   relays: Array<`wss://${string}`>;
   outbox?: boolean;
 }
 
 export const NostrProvider: FC<NostrProviderProps> = (
-  { children, relays: relayUrls, storageKey = 'nostr', outbox = false },
+  { children, relays: relayUrls, appName, outbox = false },
 ) => {
   const pool = useRef<NPool>(undefined);
   const user = useRef<NUser | undefined>(undefined);
@@ -128,11 +128,12 @@ export const NostrProvider: FC<NostrProviderProps> = (
     });
   }
 
-  const { logins, ...login } = useNostrLogin(pool.current, storageKey);
+  const { logins, ...login } = useNostrLogin(pool.current, appName);
 
   user.current = logins[0];
 
   const context: NostrContextType = {
+    appName,
     nostr: pool.current,
     user: user.current,
     login,

@@ -62,6 +62,9 @@ export interface NostrLogin {
  * The shape of the Nostr context provided by NostrProvider.
  */
 export interface NostrContextType {
+  /** Name of the application used for storage keys and NIP-89 "client" tags. */
+  appName: string;
+
   /** The Nostr relay pool for querying and publishing events */
   nostr: NPool;
 

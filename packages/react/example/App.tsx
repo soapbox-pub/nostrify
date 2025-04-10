@@ -8,14 +8,14 @@ import { useSocialFeed } from './useSocialFeed.ts';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 function App() {
-  const { user, profile } = useCurrentUser();
+  const { user, metadata } = useCurrentUser();
 
   const login = useLoginActions();
 
   function renderLogin() {
     if (user) {
-      if (profile.name) {
-        return <div>Welcome back, {profile.name}!</div>;
+      if (metadata.name) {
+        return <div>Welcome back, {metadata.name}!</div>;
       }
 
       return <div>You: {user.pubkey}</div>;

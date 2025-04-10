@@ -1,8 +1,8 @@
 import { type NLoginType, NUser, useNostrLogin } from '@nostrify/react';
 import { useMemo } from 'react';
 
+import { useAuthor } from './useAuthor.ts';
 import { useNostr } from '../useNostr.ts';
-import { useProfile } from './useProfile.ts';
 
 export function useCurrentUser() {
   const { nostr } = useNostr();
@@ -39,11 +39,11 @@ export function useCurrentUser() {
 
   const user: NUser | undefined = users[0];
 
-  const profile = useProfile(user?.pubkey);
+  const { data: metadata } = useAuthor(user?.pubkey);
 
   return {
     user,
     users,
-    profile,
+    metadata,
   };
 }

@@ -1,7 +1,5 @@
-import { NConnectSigner, type NostrSigner, NPool, NSecSigner } from '@nostrify/nostrify';
+import { BunkerURI, NConnectSigner, type NostrSigner, NPool, NSecSigner } from '@nostrify/nostrify';
 import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools';
-
-import { parseBunkerUri } from './utils/parseBunkerUri.ts';
 
 import type { NLoginAction } from './nostrLoginReducer.ts';
 
@@ -34,7 +32,7 @@ export class NostrLoginActions {
   }
 
   async bunker(uri: string): Promise<void> {
-    const { pubkey: bunkerPubkey, secret, relays } = parseBunkerUri(uri);
+    const { pubkey: bunkerPubkey, secret, relays } = new BunkerURI(uri);
 
     if (!relays.length) {
       throw new Error('No relay provided');

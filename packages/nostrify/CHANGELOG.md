@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `@nostrify/react` package.
 - NPool: add `.group` method to create sub-pools.
 
+## 0.41.2 - 2025-04-10
+
+### Added
+
+- Added `BunkerURI` class to parse NIP-46 connection strings.
+
 ## 0.41.1 - 2025-04-07
 
 ### Changed

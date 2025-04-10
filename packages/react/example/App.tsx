@@ -1,14 +1,14 @@
-import { useNostr } from '@nostrify/react';
 import { Suspense } from 'react';
 
+import { useAuthor } from './useAuthor.ts';
+import { useNostrUser } from './useNostrUser.ts';
 import { useProfile } from './useProfile.ts';
 import { useSocialFeed } from './useSocialFeed.ts';
-import { useAuthor } from './useAuthor.ts';
 
 import type { NostrEvent } from '@nostrify/nostrify';
 
 function App() {
-  const { user, login } = useNostr();
+  const { user } = useNostrUser();
 
   const profile = useProfile();
 

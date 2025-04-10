@@ -8,7 +8,7 @@ import type { NLogin } from './NLogin.ts';
  */
 export type NostrLoginContextType = {
   /** The list of Nostr logins. */
-  logins: NLogin[];
+  logins: readonly NLogin[];
   /** Dispatch an action to add a login to the state. */
   addLogin: (login: NLogin) => void;
   /** Dispatch an action to remove a login from the state. */

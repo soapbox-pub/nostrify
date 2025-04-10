@@ -1,12 +1,9 @@
+import { type NLogin, NUser, useNostrLogin } from '@nostrify/react';
 import { useMemo } from 'react';
 
-import { NUser } from './NUser.ts';
-import { useNostrLogin } from './useNostrLogin.ts';
 import { useNostr } from '../useNostr.ts';
 
-import type { NLogin } from './NLogin.ts';
-
-export function useNostrUsers(): NUser[] {
+export function useNostrUser(): { user: NUser; users: NUser[] } {
   const { nostr } = useNostr();
   const { logins } = useNostrLogin();
 
@@ -19,11 +16,12 @@ export function useNostrUsers(): NUser[] {
       case 'extension':
         return NUser.fromExtensionLogin(login);
       default:
+        // Learn how to define other login types: https://nostrify.dev/react/logins#custom-login-types
         throw new Error(`Unsupported login type: ${login.type}`);
     }
   }
 
-  return useMemo(() => {
+  const users = useMemo(() => {
     const users: NUser[] = [];
 
     for (const login of logins) {
@@ -37,4 +35,9 @@ export function useNostrUsers(): NUser[] {
 
     return users;
   }, [logins, nostr]);
+
+  return {
+    user: users[0],
+    users,
+  };
 }

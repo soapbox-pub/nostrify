@@ -3,8 +3,8 @@ import { type FC, type ReactNode, useMemo, useRef } from 'react';
 
 import { NostrContext, type NostrContextType, NUser } from './NostrContext.ts';
 import { NostrLoginActions } from './login/NostrLoginActions.ts';
-import { useNostrLoginState } from './login/useNostrLoginState.ts';
 import { loginToUser } from './login/utils/loginToUser.ts';
+import { useNostrLoginReducer } from './login/useNostrLoginReducer.ts';
 
 interface NostrProviderProps {
   appName: string;
@@ -14,7 +14,8 @@ interface NostrProviderProps {
 
 export const NostrProvider: FC<NostrProviderProps> = (props) => {
   const { children, relays: relayUrls, appName } = props;
-  const { state, dispatch } = useNostrLoginState();
+
+  const [state, dispatch] = useNostrLoginReducer(appName);
 
   const pool = useRef<NPool>(undefined);
   const user = useRef<NUser | undefined>(undefined);

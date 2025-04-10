@@ -3,21 +3,19 @@ import { Suspense } from 'react';
 import { useAuthor } from './useAuthor.ts';
 import { useCurrentUser } from './useCurrentUser.ts';
 import { useLoginActions } from './useLoginActions.ts';
-import { useProfile } from './useProfile.ts';
 import { useSocialFeed } from './useSocialFeed.ts';
 
 import type { NostrEvent } from '@nostrify/nostrify';
 
 function App() {
-  const { user } = useCurrentUser();
+  const { user, profile } = useCurrentUser();
 
   const login = useLoginActions();
-  const profile = useProfile();
 
   function renderLogin() {
     if (user) {
-      if (profile.data?.name) {
-        return <div>Welcome back, {profile.data.name}!</div>;
+      if (profile.name) {
+        return <div>Welcome back, {profile.name}!</div>;
       }
 
       return <div>You: {user.pubkey}</div>;

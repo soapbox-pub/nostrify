@@ -2,8 +2,9 @@ import { type NLoginType, NUser, useNostrLogin } from '@nostrify/react';
 import { useMemo } from 'react';
 
 import { useNostr } from '../useNostr.ts';
+import { useProfile } from './useProfile.ts';
 
-export function useCurrentUser(): { user: NUser | undefined; users: NUser[] } {
+export function useCurrentUser() {
   const { nostr } = useNostr();
   const { logins } = useNostrLogin();
 
@@ -36,8 +37,13 @@ export function useCurrentUser(): { user: NUser | undefined; users: NUser[] } {
     return users;
   }, [logins, nostr]);
 
+  const user: NUser | undefined = users[0];
+
+  const profile = useProfile(user?.pubkey);
+
   return {
-    user: users[0],
+    user,
     users,
+    profile,
   };
 }

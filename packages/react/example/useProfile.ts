@@ -1,21 +1,18 @@
 import { type NostrMetadata, NSchema as n } from '@nostrify/nostrify';
 import { useNostr } from '@nostrify/react';
-import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 
-import { useCurrentUser } from './useCurrentUser.ts';
-
-export function useProfile(): UseQueryResult<NostrMetadata> {
+export function useProfile(pubkey: string | undefined): NostrMetadata {
   const { nostr } = useNostr();
-  const { user } = useCurrentUser();
 
-  return useQuery<NostrMetadata>({
-    queryKey: ['profile', user?.pubkey ?? ''],
+  const { data } = useQuery<NostrMetadata>({
+    queryKey: ['profile', pubkey ?? ''],
     queryFn: async () => {
-      if (!user) {
+      if (!pubkey) {
         return {};
       }
 
-      const [event] = await nostr.query([{ kinds: [0], authors: [user.pubkey], limit: 1 }]);
+      const [event] = await nostr.query([{ kinds: [0], authors: [pubkey], limit: 1 }]);
 
       if (!event) {
         return {};
@@ -28,6 +25,8 @@ export function useProfile(): UseQueryResult<NostrMetadata> {
         return {};
       }
     },
-    enabled: !!user,
+    enabled: !!pubkey,
   });
+
+  return data ?? {};
 }

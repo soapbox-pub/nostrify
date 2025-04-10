@@ -26,7 +26,7 @@ export function polyfillDOM(): void {
     setInterval: browserWindow.setInterval,
     clearInterval: browserWindow.clearInterval,
     queueMicrotask: browserWindow.queueMicrotask,
-    abortController: browserWindow.AbortController,
+    AbortController: browserWindow.AbortController,
     cancelAsync,
     setInnerHTML,
   });

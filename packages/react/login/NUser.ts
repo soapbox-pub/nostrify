@@ -17,11 +17,11 @@ export class NUser {
   static fromNsecLogin(login: NLoginNsec): NUser {
     const sk = nip19.decode(login.data.nsec);
 
-    return {
-      method: login.type,
-      pubkey: login.pubkey,
-      signer: new NSecSigner(sk.data),
-    };
+    return new NUser(
+      login.type,
+      login.pubkey,
+      new NSecSigner(sk.data),
+    );
   }
 
   static fromBunkerLogin(login: NLoginBunker, pool: NPool): NUser {

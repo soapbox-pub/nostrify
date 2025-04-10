@@ -28,7 +28,7 @@ export interface NLoginOther extends NLoginBase {
 
 /** Base properties shared by Nostr login objects. */
 interface NLoginBase {
-  id: `${string}:${string}`;
+  id: string;
   type: string;
   pubkey: string;
   createdAt: string;

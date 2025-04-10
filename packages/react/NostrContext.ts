@@ -1,42 +1,6 @@
 import { type Context, createContext } from 'react';
 
 import type { NPool } from '@nostrify/nostrify';
-import type { NUser } from './login/NUser.ts';
-
-/**
- * Authentication interface for Nostr login/logout operations.
- */
-export interface NostrLoginActions {
-  /**
-   * Log in with a private key in bech32 nsec format.
-   * @param nsec The private key in bech32 nsec format (e.g., nsec1...)
-   */
-  nsec(nsec: string): void;
-
-  /**
-   * Log in with a Nostr Bunker URI.
-   * Format: nostr+bunker://<pubkey>?relay=<relay_url>&secret=<secret>
-   * @param uri The Bunker URI to connect with
-   */
-  bunker(uri: string): Promise<void>;
-
-  /**
-   * Log in with a NIP-07 browser extension (e.g., Alby, nos2x).
-   * Requires window.nostr to be available.
-   */
-  extension(): Promise<void>;
-
-  /**
-   * Log out a specific user by ID.
-   * @param id The ID of the user to log out in format 'method:pubkey'
-   */
-  logout(id: string): void;
-
-  /**
-   * Log out all users.
-   */
-  clear(): void;
-}
 
 /**
  * The shape of the Nostr context provided by NostrProvider.
@@ -47,15 +11,6 @@ export interface NostrContextType {
 
   /** The Nostr relay pool for querying and publishing events */
   nostr: NPool;
-
-  /** The currently active user, or undefined if not logged in */
-  user: NUser | undefined;
-
-  /** All authenticated users */
-  logins: NUser[];
-
-  /** Authentication methods and state */
-  login: NostrLoginActions;
 }
 
 /**

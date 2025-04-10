@@ -8,7 +8,7 @@ import type { NLogin } from './NLogin.ts';
 
 export function useNostrUsers(): NUser[] {
   const { nostr } = useNostr();
-  const [logins] = useNostrLogin();
+  const { logins } = useNostrLogin();
 
   function loginToUser(login: NLogin): NUser {
     switch (login.type) {

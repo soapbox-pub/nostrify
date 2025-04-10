@@ -1,5 +1,5 @@
-import { NostrFilter, NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT, NRelay } from '@nostrify/types';
-import { getFilterLimit, NostrEvent } from 'nostr-tools';
+import { NostrEvent, NostrFilter, NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT, NRelay } from '@nostrify/types';
+import { getFilterLimit } from 'nostr-tools';
 
 import { CircularSet } from './utils/CircularSet.ts';
 import { Machina } from './utils/Machina.ts';
@@ -60,6 +60,15 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
       this._relays.set(url, relay);
       return relay;
     }
+  }
+
+  /** Returns a new pool instance that uses the given relays. Connections are shared with the original pool. */
+  public group(urls: string[]): NPool<T> {
+    return new NPool({
+      open: (url) => this.relay(url),
+      reqRouter: (filters) => new Map(urls.map((url) => [url, filters])),
+      eventRouter: () => urls,
+    });
   }
 
   public get relays(): ReadonlyMap<string, T> {

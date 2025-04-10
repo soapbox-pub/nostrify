@@ -1,0 +1,11 @@
+{
+  "name": "@nostrify/react",
+  "version": "0.0.1-alpha.1",
+  "exports": {
+    ".": "./mod.ts",
+    "./test": "./test-helpers.ts"
+  },
+  "compilerOptions": {
+    "lib": ["deno.ns", "dom"]
+  }
+}

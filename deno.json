@@ -6,13 +6,15 @@
     "./packages/ndk",
     "./packages/nostrify",
     "./packages/policies",
+    "./packages/react",
     "./packages/strfry",
     "./packages/types",
     "./packages/welshman"
   ],
   "tasks": {
     "test": "deno test -A --junit-path=./deno-test.xml",
-    "check": "deno check packages/*/mod.ts"
+    "check": "deno check packages/*/mod.ts",
+    "react:dev": "deno run -A --node-modules-dir npm:vite packages/react/example"
   },
   "lint": {
     "rules": {
@@ -30,6 +32,7 @@
   },
   "unstable": ["ffi", "kv"],
   "imports": {
+    "@deno/vite-plugin": "npm:@deno/vite-plugin@^1.0.4",
     "@scure/base": "npm:@scure/base@^1.1.6",
     "@scure/bip32": "npm:@scure/bip32@^1.4.0",
     "@scure/bip39": "npm:@scure/bip39@^1.3.0",
@@ -39,10 +42,22 @@
     "@std/json": "jsr:@std/json@^1.0.1",
     "@std/streams": "jsr:@std/streams@^1.0.8",
     "@std/testing": "jsr:@std/testing@^0.222.1",
+    "@tanstack/react-query": "npm:@tanstack/react-query@^5.69.0",
+    "@testing-library/react": "npm:@testing-library/react@^16.2.0",
+    "@vitejs/plugin-react": "npm:@vitejs/plugin-react@^4.3.4",
+    "happy-dom": "npm:happy-dom@^17.4.4",
     "lru-cache": "npm:lru-cache@^10.2.0",
     "mock-socket": "npm:mock-socket@9.3.1",
     "nostr-tools": "npm:nostr-tools@^2.10.4",
+    "react": "npm:react@^19.0.0",
+    "react-dom": "npm:react-dom@^19.0.0",
+    "vite": "npm:vite@^6.2.2",
     "websocket-ts": "npm:websocket-ts@^2.2.1",
     "zod": "npm:zod@^3.23.8"
+  },
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "jsxImportSourceTypes": "npm:@types/react@^19.0.0"
   }
 }

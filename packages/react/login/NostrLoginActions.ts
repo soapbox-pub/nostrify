@@ -48,7 +48,7 @@ export class NostrLoginActions {
       relay: this.pool.group(relays),
       pubkey: bunkerPubkey,
       signer: clientSigner,
-      timeout: 20_000,
+      timeout: 60_000,
     });
 
     await signer.connect(secret);

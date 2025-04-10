@@ -22,9 +22,9 @@ export function loginToUser(login: NLogin, pool: NPool): NUser {
         method: login.type,
         pubkey: login.pubkey,
         signer: new NConnectSigner({
+          relay: pool.group(login.relays),
           pubkey: login.pubkey,
           signer: clientSigner,
-          relay: pool.relay(login.relays[0]),
           timeout: 60_000,
         }),
       };

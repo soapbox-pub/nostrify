@@ -1,10 +1,10 @@
 import { NostrEvent, NPool, NRelay1 } from '@nostrify/nostrify';
-import { type FC, type ReactNode, useMemo, useRef } from 'react';
+import { type FC, type ReactNode, useRef } from 'react';
 
-import { NostrContext, type NostrContextType, NUser } from './NostrContext.ts';
+import { NostrContext, type NostrContextType } from './NostrContext.ts';
 import { NostrLoginActions } from './login/NostrLoginActions.ts';
-import { loginToUser } from './login/utils/loginToUser.ts';
-import { useNostrLoginContext } from './login/useNostrLoginContext.ts';
+import { useNostrLogin } from './login/useNostrLogin.ts';
+import { useNostrUsers } from './login/useNostrUsers.ts';
 
 interface NostrProviderProps {
   appName: string;
@@ -14,8 +14,8 @@ interface NostrProviderProps {
 
 export const NostrProvider: FC<NostrProviderProps> = (props) => {
   const { appName, children, relays } = props;
-  const { state, dispatch } = useNostrLoginContext();
 
+  const [_state, dispatch] = useNostrLogin();
   const pool = useRef<NPool>(undefined);
 
   if (!pool.current) {
@@ -32,24 +32,7 @@ export const NostrProvider: FC<NostrProviderProps> = (props) => {
     });
   }
 
-  const logins = useMemo(() => {
-    const users: NUser[] = [];
-
-    if (!pool.current) {
-      return [];
-    }
-
-    for (const login of state) {
-      try {
-        const user = loginToUser(login, pool.current);
-        users.push(user);
-      } catch {
-        console.error('Invalid login', login);
-      }
-    }
-
-    return users;
-  }, [state, pool]);
+  const logins = useNostrUsers(pool.current);
 
   const context: NostrContextType = {
     appName,

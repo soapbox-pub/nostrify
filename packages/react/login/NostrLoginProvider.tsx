@@ -16,10 +16,10 @@ interface NostrLoginProviderProps {
  * It uses a reducer to handle the state of logins and stores them in localStorage.
  */
 export const NostrLoginProvider: FC<NostrLoginProviderProps> = ({ children, storageKey }) => {
-  const [state, dispatch] = useNostrLoginReducer(storageKey);
+  const value = useNostrLoginReducer(storageKey);
 
   return (
-    <NostrLoginContext.Provider value={{ state, dispatch }}>
+    <NostrLoginContext.Provider value={value}>
       {children}
     </NostrLoginContext.Provider>
   );

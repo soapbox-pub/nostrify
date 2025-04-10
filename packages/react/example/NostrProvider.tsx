@@ -1,7 +1,6 @@
 import { NostrEvent, NPool, NRelay1 } from '@nostrify/nostrify';
+import { NostrContext, type NostrContextType } from '@nostrify/react';
 import { type FC, type ReactNode, useRef } from 'react';
-
-import { NostrContext, type NostrContextType } from './NostrContext.ts';
 
 interface NostrProviderProps {
   appName: string;
@@ -9,7 +8,7 @@ interface NostrProviderProps {
   relays: Array<`wss://${string}`>;
 }
 
-export const NostrProvider: FC<NostrProviderProps> = (props) => {
+const NostrProvider: FC<NostrProviderProps> = (props) => {
   const { appName, children, relays } = props;
 
   const pool = useRef<NPool>(undefined);
@@ -39,3 +38,5 @@ export const NostrProvider: FC<NostrProviderProps> = (props) => {
     </NostrContext.Provider>
   );
 };
+
+export default NostrProvider;

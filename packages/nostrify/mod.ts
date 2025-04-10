@@ -1,3 +1,4 @@
+export { BunkerURI } from './BunkerURI.ts';
 export { NCache } from './NCache.ts';
 export { NConnectSigner, type NConnectSignerOpts } from './NConnectSigner.ts';
 export { NCustodial } from './NCustodial.ts';

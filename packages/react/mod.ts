@@ -1,4 +1,4 @@
-export { NLogin } from './login/NLogin.ts';
+export { NLogin, type NLoginType } from './login/NLogin.ts';
 export { NostrLoginProvider } from './login/NostrLoginProvider.tsx';
 export { NUser } from './login/NUser.ts';
 export { useNostrLogin } from './login/useNostrLogin.ts';

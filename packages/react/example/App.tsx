@@ -1,15 +1,15 @@
 import { Suspense } from 'react';
 
 import { useAuthor } from './useAuthor.ts';
+import { useCurrentUser } from './useCurrentUser.ts';
 import { useLoginActions } from './useLoginActions.ts';
-import { useNostrUser } from './useNostrUser.ts';
 import { useProfile } from './useProfile.ts';
 import { useSocialFeed } from './useSocialFeed.ts';
 
 import type { NostrEvent } from '@nostrify/nostrify';
 
 function App() {
-  const { user } = useNostrUser();
+  const { user } = useCurrentUser();
 
   const login = useLoginActions();
   const profile = useProfile();

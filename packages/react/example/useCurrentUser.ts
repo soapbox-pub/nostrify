@@ -1,13 +1,13 @@
-import { type NLogin, NUser, useNostrLogin } from '@nostrify/react';
+import { type NLoginType, NUser, useNostrLogin } from '@nostrify/react';
 import { useMemo } from 'react';
 
 import { useNostr } from '../useNostr.ts';
 
-export function useNostrUser(): { user: NUser; users: NUser[] } {
+export function useCurrentUser(): { user: NUser | undefined; users: NUser[] } {
   const { nostr } = useNostr();
   const { logins } = useNostrLogin();
 
-  function loginToUser(login: NLogin): NUser {
+  function loginToUser(login: NLoginType): NUser {
     switch (login.type) {
       case 'nsec':
         return NUser.fromNsecLogin(login);

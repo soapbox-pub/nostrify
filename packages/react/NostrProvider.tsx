@@ -1,30 +1,21 @@
-import {
-  NConnectSigner,
-  NostrEvent,
-  type NostrFilter,
-  NostrSigner,
-  NPool,
-  type NRelay,
-  NRelay1,
-  NSecSigner,
-} from '@nostrify/nostrify';
+import { NConnectSigner, NostrEvent, NostrSigner, NPool, NRelay1, NSecSigner } from '@nostrify/nostrify';
 import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools';
 import { type FC, type ReactNode, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
-import { NLogin } from './login/NLogin.ts';
 import { nostrLoginReducer } from './login/nostrLoginReducer.ts';
+import { loginToUser } from './login/utils/loginToUser.ts';
+import { parseBunkerUri } from './login/utils/parseBunkerUri.ts';
 import { NostrContext, type NostrContextType, type NostrLogin, NUser } from './NostrContext.ts';
 
 interface NostrProviderProps {
   appName: string;
   children: ReactNode;
   relays: Array<`wss://${string}`>;
-  outbox?: boolean;
 }
 
-export const NostrProvider: FC<NostrProviderProps> = (
-  { children, relays: relayUrls, appName, outbox = false },
-) => {
+export const NostrProvider: FC<NostrProviderProps> = (props) => {
+  const { children, relays: relayUrls, appName } = props;
+
   const pool = useRef<NPool>(undefined);
   const user = useRef<NUser | undefined>(undefined);
 
@@ -33,97 +24,11 @@ export const NostrProvider: FC<NostrProviderProps> = (
       open(url: string) {
         return new NRelay1(url);
       },
-      async reqRouter(filters) {
-        if (outbox && user.current && pool.current) {
-          const pubkey = user.current.pubkey;
-
-          const routes = new Map<string, NostrFilter[]>();
-          const authors = new Set<string>([pubkey]);
-
-          for (const filter of filters) {
-            for (const author of filter.authors ?? []) {
-              authors.add(author);
-            }
-          }
-
-          const map = new Map<string, NostrEvent>();
-          const signal = AbortSignal.timeout(5000);
-
-          const userRelays = await fetchUserRelayUrls({
-            relay: pool.current.group([...relayUrls]),
-            pubkey,
-            marker: 'read',
-            signal,
-          });
-
-          for (const url of relayUrls) {
-            userRelays.add(url);
-          }
-
-          const relay = pool.current.group([...userRelays]);
-
-          for (const event of await relay.query([{ kinds: [10002], authors: [...authors] }], { signal })) {
-            map.set(event.pubkey, event);
-          }
-
-          for (const filter of filters) {
-            if (filter.authors) {
-              const relayAuthors = new Map<`wss://${string}`, Set<string>>();
-
-              for (const author of filter.authors) {
-                const event = map.get(author) ?? map.get(pubkey);
-                if (event) {
-                  for (const relayUrl of [...extractRelayUrls(event, 'write')]) {
-                    const value = relayAuthors.get(relayUrl);
-                    relayAuthors.set(relayUrl, value ? new Set([...value, author]) : new Set([author]));
-                  }
-                }
-              }
-
-              for (const [relayUrl, authors] of relayAuthors) {
-                const value = routes.get(relayUrl);
-                const _filter = { ...filter, authors: [...authors] };
-                routes.set(relayUrl, value ? [...value, _filter] : [_filter]);
-              }
-            } else {
-              const event = map.get(pubkey);
-              if (event) {
-                for (const relayUrl of [...extractRelayUrls(event, 'read')]) {
-                  const value = routes.get(relayUrl);
-                  routes.set(relayUrl, value ? [...value, filter] : [filter]);
-                }
-              }
-            }
-          }
-
-          for (const url of relayUrls) {
-            if (!routes.has(url)) {
-              routes.set(url, filters);
-            }
-          }
-
-          return routes;
-        } else {
-          return new Map(relayUrls.map((url) => [url, filters]));
-        }
+      reqRouter(filters) {
+        return new Map(relayUrls.map((url) => [url, filters]));
       },
-      async eventRouter(_event: NostrEvent) {
-        if (outbox && user.current && pool.current) {
-          const relays = await fetchUserRelayUrls({
-            relay: pool.current.group([...relayUrls]),
-            pubkey: user.current.pubkey,
-            marker: 'write',
-            signal: AbortSignal.timeout(500),
-          });
-
-          for (const url of relayUrls) {
-            relays.add(url);
-          }
-
-          return [...relays];
-        } else {
-          return relayUrls;
-        }
+      eventRouter(_event: NostrEvent) {
+        return relayUrls;
       },
     });
   }
@@ -283,101 +188,4 @@ function useNostrLogin(pool: NPool, storageKey: string): NostrLogin & { logins: 
     isError,
     error,
   };
-}
-
-function loginToUser(login: NLogin, pool: NPool): NUser {
-  switch (login.type) {
-    case 'nsec': {
-      const sk = nip19.decode(login.nsec);
-      return {
-        method: login.type,
-        pubkey: login.pubkey,
-        signer: new NSecSigner(sk.data),
-      };
-    }
-    case 'bunker': {
-      const clientSk = nip19.decode(login.clientNsec);
-      const clientSigner = new NSecSigner(clientSk.data);
-
-      return {
-        method: login.type,
-        pubkey: login.pubkey,
-        signer: new NConnectSigner({
-          pubkey: login.pubkey,
-          signer: clientSigner,
-          relay: pool.relay(login.relays[0]),
-          timeout: 60_000,
-        }),
-      };
-    }
-    case 'extension': {
-      const windowSigner = (globalThis as unknown as { nostr?: NostrSigner }).nostr;
-
-      if (!windowSigner) {
-        throw new Error('Nostr extension is not available');
-      }
-
-      return {
-        method: login.type,
-        pubkey: login.pubkey,
-        signer: windowSigner,
-      };
-    }
-  }
-}
-
-function parseBunkerUri(uri: string): { pubkey: string; secret?: string; relays: string[] } {
-  const url = new URL(uri);
-  const params = new URLSearchParams(url.search);
-
-  // https://github.com/denoland/deno/issues/26440
-  const pubkey = url.hostname || url.pathname.slice(2);
-  const secret = params.get('secret') ?? undefined;
-  const relays = params.getAll('relay');
-
-  if (!pubkey) {
-    throw new Error('Invalid bunker URI');
-  }
-
-  return { pubkey, secret, relays };
-}
-
-async function fetchUserRelayUrls(
-  opts: { relay: NRelay; pubkey: string; marker?: 'read' | 'write'; signal?: AbortSignal },
-): Promise<Set<`wss://${string}`>> {
-  const { relay, pubkey, marker, signal } = opts;
-
-  const relayUrls = new Set<`wss://${string}`>();
-
-  const events = await relay.query(
-    [{ kinds: [10002], authors: [pubkey], limit: 1 }],
-    { signal },
-  );
-
-  for (const event of events) {
-    for (const relayUrl of extractRelayUrls(event, marker)) {
-      relayUrls.add(relayUrl);
-    }
-  }
-
-  return relayUrls;
-}
-
-function extractRelayUrls(event: NostrEvent, marker?: 'read' | 'write'): Set<`wss://${string}`> {
-  const relayUrls = new Set<`wss://${string}`>();
-
-  for (const [name, relayUrl, tagMarker] of event.tags) {
-    if (name === 'r' && (!marker || !tagMarker || marker === tagMarker)) {
-      try {
-        const url = new URL(relayUrl);
-        if (url.protocol === 'wss:') {
-          relayUrls.add(url.toString() as `wss://${string}`);
-        }
-      } catch {
-        // fallthrough
-      }
-    }
-  }
-
-  return relayUrls;
 }

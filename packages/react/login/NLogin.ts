@@ -1,5 +1,5 @@
 /** An object represeting any supported Nostr login credentials. */
-export type NLogin = NLoginNsec | NLoginBunker | NLoginExtension;
+export type NLogin = NLoginNsec | NLoginBunker | NLoginExtension | NLoginOther;
 
 /** Nostr login with nsec. */
 export interface NLoginNsec extends NLoginBase {
@@ -18,6 +18,12 @@ export interface NLoginBunker extends NLoginBase {
 /** NIP-07 (browser extension) login. */
 export interface NLoginExtension extends NLoginBase {
   type: 'extension';
+}
+
+/** Additional login types created by the library user. */
+export interface NLoginOther extends NLoginBase {
+  type: `x-${string}`;
+  [key: string]: unknown;
 }
 
 /** Base properties shared by Nostr login objects. */

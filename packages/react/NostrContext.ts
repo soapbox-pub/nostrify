@@ -1,18 +1,7 @@
 import { type Context, createContext } from 'react';
 
-import type { NostrSigner, NPool } from '@nostrify/nostrify';
-
-/**
- * Represents a Nostr user with authentication credentials.
- */
-export interface NUser {
-  /** The public key of the user in hex format */
-  pubkey: string;
-  /** The signer that can sign events on behalf of this user */
-  signer: NostrSigner;
-  /** The authentication method used for this user */
-  method: 'nsec' | 'bunker' | 'extension';
-}
+import type { NPool } from '@nostrify/nostrify';
+import type { NUser } from './login/NUser.ts';
 
 /**
  * Authentication interface for Nostr login/logout operations.

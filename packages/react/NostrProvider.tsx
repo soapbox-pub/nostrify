@@ -32,7 +32,7 @@ export const NostrProvider: FC<NostrProviderProps> = (props) => {
     });
   }
 
-  const logins = useNostrUsers(pool.current);
+  const logins = useNostrUsers();
 
   const context: NostrContextType = {
     appName,

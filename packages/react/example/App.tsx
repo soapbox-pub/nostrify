@@ -21,10 +21,6 @@ function App() {
       return <div>You: {user.pubkey}</div>;
     }
 
-    if (login.isLoading) {
-      return <div>Loading...</div>;
-    }
-
     return (
       <button
         type='button'

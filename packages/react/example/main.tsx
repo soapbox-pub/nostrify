@@ -1,4 +1,4 @@
-import { NostrProvider } from '@nostrify/react';
+import { NostrLoginProvider, NostrProvider } from '@nostrify/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
@@ -17,10 +17,12 @@ const queryClient = new QueryClient({
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <NostrProvider appName='MyApp' relays={['wss://ditto.pub/relay']}>
-      <QueryClientProvider client={queryClient}>
-        <App />
-      </QueryClientProvider>
-    </NostrProvider>
+    <QueryClientProvider client={queryClient}>
+      <NostrLoginProvider storageKey='myapp'>
+        <NostrProvider appName='MyApp' relays={['wss://ditto.pub/relay']}>
+          <App />
+        </NostrProvider>
+      </NostrLoginProvider>
+    </QueryClientProvider>
   </React.StrictMode>,
 );

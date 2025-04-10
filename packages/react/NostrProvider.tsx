@@ -11,9 +11,9 @@ import {
 import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools';
 import { type FC, type ReactNode, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
-import { NLogin } from './NLogin.ts';
+import { NLogin } from './login/NLogin.ts';
+import { nostrLoginReducer } from './login/nostrLoginReducer.ts';
 import { NostrContext, type NostrContextType, type NostrLogin, NUser } from './NostrContext.ts';
-import { nostrLoginReducer } from './nostrLoginReducer.ts';
 
 interface NostrProviderProps {
   appName: string;

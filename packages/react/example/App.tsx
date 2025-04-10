@@ -55,7 +55,7 @@ function Feed() {
 }
 
 function FeedPost({ event }: { event: NostrEvent }) {
-  const { data: author } = useAuthor(event.pubkey);
+  const author = useAuthor(event.pubkey);
 
   return (
     <div key={event.id} style={{ border: '1px solid gray', padding: '10px', margin: '20px 0' }}>

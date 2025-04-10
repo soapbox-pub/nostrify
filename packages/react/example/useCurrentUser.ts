@@ -38,8 +38,7 @@ export function useCurrentUser() {
   }, [logins, nostr]);
 
   const user: NUser | undefined = users[0];
-
-  const { data: metadata } = useAuthor(user?.pubkey);
+  const metadata = useAuthor(user?.pubkey);
 
   return {
     user,

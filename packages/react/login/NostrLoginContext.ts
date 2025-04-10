@@ -9,7 +9,7 @@ import type { NLoginAction } from './nostrLoginReducer.ts';
  */
 export interface NostrLoginContextType {
   /** The list of Nostr logins. */
-  logins: NLogin[];
+  state: NLogin[];
   /** A function to dispatch actions to update the login state. */
   dispatch(action: NLoginAction): void;
 }

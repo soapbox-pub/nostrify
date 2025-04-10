@@ -17,7 +17,7 @@ export interface NUser {
 /**
  * Authentication interface for Nostr login/logout operations.
  */
-export interface NostrLogin {
+export interface NostrLoginActions {
   /**
    * Log in with a private key in bech32 nsec format.
    * @param nsec The private key in bech32 nsec format (e.g., nsec1...)
@@ -47,15 +47,6 @@ export interface NostrLogin {
    * Log out all users.
    */
   clear(): void;
-
-  /** Whether a login operation is currently in progress */
-  isLoading: boolean;
-
-  /** Whether the last login operation resulted in an error */
-  isError: boolean;
-
-  /** Error from the last login operation, or null if no error */
-  error: Error | null;
 }
 
 /**
@@ -75,7 +66,7 @@ export interface NostrContextType {
   logins: NUser[];
 
   /** Authentication methods and state */
-  login: NostrLogin;
+  login: NostrLoginActions;
 }
 
 /**

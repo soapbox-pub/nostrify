@@ -1,4 +1,4 @@
-import { type FC, type ReactNode, useReducer } from 'react';
+import { type FC, type ReactNode, useEffect, useReducer } from 'react';
 
 import { nostrLoginReducer } from './nostrLoginReducer.ts';
 import { NostrLoginContext } from './NostrLoginContext.ts';
@@ -16,13 +16,17 @@ interface NostrLoginProviderProps {
  * It uses a reducer to handle the state of logins and stores them in localStorage.
  */
 export const NostrLoginProvider: FC<NostrLoginProviderProps> = ({ children, storageKey }) => {
-  const [logins, dispatch] = useReducer(nostrLoginReducer, [], () => {
+  const [state, dispatch] = useReducer(nostrLoginReducer, [], () => {
     const stored = localStorage.getItem(storageKey);
     return stored ? JSON.parse(stored) : [];
   });
 
+  useEffect(() => {
+    localStorage.setItem(storageKey, JSON.stringify(state));
+  }, [state]);
+
   return (
-    <NostrLoginContext.Provider value={{ logins, dispatch }}>
+    <NostrLoginContext.Provider value={{ state, dispatch }}>
       {children}
     </NostrLoginContext.Provider>
   );

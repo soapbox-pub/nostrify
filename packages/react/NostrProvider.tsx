@@ -4,7 +4,7 @@ import { type FC, type ReactNode, useMemo, useRef } from 'react';
 import { NostrContext, type NostrContextType, NUser } from './NostrContext.ts';
 import { NostrLoginActions } from './login/NostrLoginActions.ts';
 import { loginToUser } from './login/utils/loginToUser.ts';
-import { useNostrLoginReducer } from './login/useNostrLoginReducer.ts';
+import { useNostrLoginContext } from './login/useNostrLoginContext.ts';
 
 interface NostrProviderProps {
   appName: string;
@@ -13,12 +13,10 @@ interface NostrProviderProps {
 }
 
 export const NostrProvider: FC<NostrProviderProps> = (props) => {
-  const { children, relays: relayUrls, appName } = props;
-
-  const [state, dispatch] = useNostrLoginReducer(appName);
+  const { appName, children, relays } = props;
+  const { state, dispatch } = useNostrLoginContext();
 
   const pool = useRef<NPool>(undefined);
-  const user = useRef<NUser | undefined>(undefined);
 
   if (!pool.current) {
     pool.current = new NPool({
@@ -26,10 +24,10 @@ export const NostrProvider: FC<NostrProviderProps> = (props) => {
         return new NRelay1(url);
       },
       reqRouter(filters) {
-        return new Map(relayUrls.map((url) => [url, filters]));
+        return new Map(relays.map((url) => [url, filters]));
       },
       eventRouter(_event: NostrEvent) {
-        return relayUrls;
+        return relays;
       },
     });
   }
@@ -53,12 +51,10 @@ export const NostrProvider: FC<NostrProviderProps> = (props) => {
     return users;
   }, [state, pool]);
 
-  user.current = logins[0];
-
   const context: NostrContextType = {
     appName,
     nostr: pool.current,
-    user: user.current,
+    user: logins[0],
     login: new NostrLoginActions(pool.current, dispatch),
     logins,
   };

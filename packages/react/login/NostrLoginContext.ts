@@ -1,6 +1,6 @@
 import { type Context, createContext } from 'react';
 
-import type { NLogin } from './NLogin.ts';
+import type { NLoginType } from './NLogin.ts';
 
 /**
  * NostrLoginContextType defines the shape of the context that will be provided
@@ -8,9 +8,9 @@ import type { NLogin } from './NLogin.ts';
  */
 export type NostrLoginContextType = {
   /** The list of Nostr logins. */
-  logins: readonly NLogin[];
+  logins: readonly NLoginType[];
   /** Dispatch an action to add a login to the state. */
-  addLogin: (login: NLogin) => void;
+  addLogin: (login: NLoginType) => void;
   /** Dispatch an action to remove a login from the state. */
   removeLogin: (loginId: string) => void;
   /** Dispatch an action to set the user's current login (by moving it to the top of the state). */

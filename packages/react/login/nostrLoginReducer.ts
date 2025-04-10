@@ -1,12 +1,12 @@
-import type { NLogin } from './NLogin.ts';
+import type { NLoginType } from './NLogin.ts';
 
 export type NLoginAction =
-  | { type: 'login.add'; login: NLogin; set?: boolean }
+  | { type: 'login.add'; login: NLoginType; set?: boolean }
   | { type: 'login.remove'; id: string }
   | { type: 'login.set'; id: string }
   | { type: 'login.clear' };
 
-export function nostrLoginReducer(state: NLogin[], action: NLoginAction): NLogin[] {
+export function nostrLoginReducer(state: NLoginType[], action: NLoginAction): NLoginType[] {
   switch (action.type) {
     case 'login.add': {
       const filtered = state.filter((login) => login.id !== action.login.id);

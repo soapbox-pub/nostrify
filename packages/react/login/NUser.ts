@@ -15,7 +15,7 @@ export class NUser {
   ) {}
 
   static fromNsecLogin(login: NLoginNsec): NUser {
-    const sk = nip19.decode(login.nsec);
+    const sk = nip19.decode(login.data.nsec);
 
     return {
       method: login.type,
@@ -25,14 +25,14 @@ export class NUser {
   }
 
   static fromBunkerLogin(login: NLoginBunker, pool: NPool): NUser {
-    const clientSk = nip19.decode(login.clientNsec);
+    const clientSk = nip19.decode(login.data.clientNsec);
     const clientSigner = new NSecSigner(clientSk.data);
 
     return new NUser(
       login.type,
       login.pubkey,
       new NConnectSigner({
-        relay: pool.group(login.relays),
+        relay: pool.group(login.data.relays),
         pubkey: login.pubkey,
         signer: clientSigner,
         timeout: 60_000,

@@ -2,7 +2,7 @@ import { NostrEvent, NPool, NRelay1 } from '@nostrify/nostrify';
 import { type FC, type ReactNode, useMemo, useRef } from 'react';
 
 import { NostrContext, type NostrContextType, NUser } from './NostrContext.ts';
-import { useNostrLoginActions } from './login/useNostrLoginActions.ts';
+import { NostrLoginActions } from './login/NostrLoginActions.ts';
 import { useNostrLoginState } from './login/useNostrLoginState.ts';
 import { loginToUser } from './login/utils/loginToUser.ts';
 
@@ -52,15 +52,13 @@ export const NostrProvider: FC<NostrProviderProps> = (props) => {
     return users;
   }, [state, pool]);
 
-  const loginActions = useNostrLoginActions(pool.current, dispatch);
-
   user.current = logins[0];
 
   const context: NostrContextType = {
     appName,
     nostr: pool.current,
     user: user.current,
-    login: loginActions,
+    login: new NostrLoginActions(pool.current, dispatch),
     logins,
   };
 

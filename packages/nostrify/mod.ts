@@ -9,7 +9,6 @@ export { NKinds } from './NKinds.ts';
 export { NPhraseSigner, type NPhraseSignerOpts } from './NPhraseSigner.ts';
 export { NPool, type NPoolOpts } from './NPool.ts';
 export { NRelay1, type NRelay1Opts } from './NRelay1.ts';
-export { NSimplePool, type NSimplePoolOpts } from './NSimplePool.ts';
 export { NSchema } from './NSchema.ts';
 export { NSecSigner } from './NSecSigner.ts';
 export { NSeedSigner } from './NSeedSigner.ts';

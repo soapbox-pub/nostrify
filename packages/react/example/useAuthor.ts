@@ -9,6 +9,10 @@ export function useAuthor(pubkey: string | undefined): NostrMetadata & { event?:
   const { data } = useSuspenseQuery<NostrMetadata & { event?: NostrEvent }>({
     queryKey: ['author', pubkey ?? ''],
     queryFn: async ({ signal }) => {
+      if (!pubkey) {
+        return {};
+      }
+
       const [event] = await nostr.query(
         [{ kinds: [0], authors: [pubkey!], limit: 1 }],
         { signal: AbortSignal.any([signal, AbortSignal.timeout(500)]) },
@@ -25,7 +29,6 @@ export function useAuthor(pubkey: string | undefined): NostrMetadata & { event?:
         return { event };
       }
     },
-    enabled: !!pubkey,
   });
 
   return data;

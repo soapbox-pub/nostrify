@@ -1,6 +1,5 @@
+import { NSecSigner } from '@nostrify/nostrify';
 import { HDKey } from '@scure/bip32';
-
-import { NSecSigner } from './NSecSigner.ts';
 
 /**
  * Accepts an HD seed which it uses to derive the secret key according to [NIP-06](https://github.com/nostr-protocol/nips/blob/master/06.md).

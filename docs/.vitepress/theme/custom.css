@@ -1,0 +1,32 @@
+:root {
+  --vp-c-brand-1: #3c727b;
+  --vp-c-brand-2: #83aec1;
+  --vp-c-brand-3: #395360;
+
+  --vp-button-brand-bg: #3c727b;
+  --vp-button-brand-hover-bg: #2d7589;
+  --vp-button-brand-active-bg: #2d7589;
+}
+
+.dark {
+  --vp-c-brand-1: #00bca3;
+}
+
+.nostrify-layout-bottom {
+  margin-bottom: 60px;
+}
+
+@media (min-width: 768px) {
+  .nostrify-layout-bottom {
+    margin-bottom: 92px;
+  }
+}
+
+.nostrify-layout-bottom img {
+  margin: 0 auto;
+  height: 36px;
+}
+
+.dark .nostrify-layout-bottom img {
+  filter: brightness(0) invert(1);
+}

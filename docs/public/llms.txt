@@ -1,0 +1,54 @@
+# Nostrify
+
+> Nostrify is a TypeScript library for building clients and relays for [Nostr](https://raw.githubusercontent.com/nostr-protocol/nips/refs/heads/master/README.md).
+
+## Introduction
+
+- [Getting Started](https://nostrify.dev/start/index.md): Nostrify basics, including install instructions.
+- [Nostr Schema](https://nostrify.dev/schema/index.md): Parsing Nostr data with zod schemas.
+
+## Signers
+
+- [Signers](https://nostrify.dev/sign/index.md): How to use signer objects in Nostrify.
+- [Private Key](https://nostrify.dev/sign/nsec.md): Signing Nostr events with a secret key.
+- [HD Seed](https://nostrify.dev/sign/seed.md): Signing Nostr events with a [BIP-32](https://bips.xyz/32) hierarchical deterministic wallet (or mnemonic seed phrase).
+- [Nostr Connect](https://nostrify.dev/sign/connect.md): Signing Nostr events with a [NIP-46](https://raw.githubusercontent.com/nostr-protocol/nips/refs/heads/master/46.md) remote signer (also called a "bunker" or "Nostr Connect").
+- [Custodial Signer](https://nostrify.dev/sign/custodial.md): Manage a large number of signers mapped to entries in a database. Useful for bridges to other networks.
+
+## Storages
+
+- [Storages](https://nostrify.dev/store/index.md): How to store Nostr events with Nostrify.
+- [Memory](https://nostrify.dev/store/memory.md): In-memory Nostr events storage solution.
+- [Postgres](https://nostrify.dev/store/postgres.md): Postgres storage for Nostr events.
+- [SQL Databases](https://nostrify.dev/store/sql.md): General purpose SQL storage for Nostr events, including SQLite.
+- [Deno KV](https://nostrify.dev/store/denokv.md): Storage solution using Deno's key-value store.
+
+## Relays
+
+- [Relays](https://nostrify.dev/relay/index.md): How to connect to Nostr relays with Nostrify.
+- [Single Relay](https://nostrify.dev/relay/single.md): Connect to a single Nostr relay.
+- [Relay Pool](https://nostrify.dev/relay/pool.md): Manage multiple relay connections.
+- [Outbox Model](https://nostrify.dev/relay/outbox.md): Manage event delivery with the outbox model.
+
+## Moderation Policies
+
+- [Moderation Policies](https://nostrify.dev/policy/index.md): Managing content policies in Nostrify.
+- [All Policies](https://nostrify.dev/policy/all.md): Complete list of available moderation policies.
+- [Policy Pipelines](https://nostrify.dev/policy/pipe.md): Chain multiple policies together.
+- [strfry Policies](https://nostrify.dev/policy/strfry.md): Integration with strfry relay policies.
+
+## Uploaders
+
+- [Uploaders](https://nostrify.dev/upload/index.md): File upload solutions for Nostr.
+- [Blossom](https://nostrify.dev/upload/blossom.md): Upload files using the Blossom protocol.
+- [nostr.build](https://nostrify.dev/upload/nostr-build.md): Upload files using the nostr.build service.
+
+## Integrations
+
+- [Integrations](https://nostrify.dev/integrations/index.md): Connect Nostrify with other tools and libraries.
+- [NDK](https://nostrify.dev/integrations/ndk.md): Integration with Nostr Development Kit.
+- [Welshman](https://nostrify.dev/integrations/welshman.md): Integration with Welshman.
+
+## Optional
+
+- [API Reference](https://jsr.io/@nostrify/nostrify): Complete API documentation for Nostrify.

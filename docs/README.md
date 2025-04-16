@@ -5,6 +5,5 @@ Documentation for [Nostrify](https://gitlab.com/soapbox-pub/nostrify), built on 
 ## Local development
 
 ```sh
-npm install
-npm run dev
+deno task dev
 ```

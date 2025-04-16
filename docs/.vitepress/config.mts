@@ -24,10 +24,6 @@ export default defineConfig({
         link: '/start/',
       },
       {
-        text: 'MCP Integration',
-        link: '/mcp/',
-      },
-      {
         text: 'Nostr Schema',
         link: '/schema/',
       },

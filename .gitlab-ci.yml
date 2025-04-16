@@ -1,22 +1,27 @@
-image: denoland/deno:2.2.3
+image: denoland/deno:2.2.10
 
 default:
   interruptible: true
+  before_script:
+    - apt-get update
+    - apt-get install -y git
 
 stages:
   - test
-
-fmt:
-  stage: test
-  script: deno fmt --check
-
-lint:
-  stage: test
-  script: deno lint
+  - docs
 
 test:
   stage: test
-  script: deno task test
+  timeout: 2 minutes
+  script:
+    - deno fmt --check
+    - deno lint
+    - deno task test
+  services:
+    - postgres:16
+  variables:
+    DATABASE_URL: postgres://postgres:postgres@postgres:5432/postgres
+    POSTGRES_HOST_AUTH_METHOD: trust
   artifacts:
     when: always
     paths:
@@ -24,11 +29,15 @@ test:
     reports:
       junit: deno-test.xml
 
-postgres:
-  stage: test
-  script: deno task test packages/db
-  services:
-    - postgres:16
-  variables:
-    DATABASE_URL: postgres://postgres:postgres@postgres:5432/postgres
-    POSTGRES_HOST_AUTH_METHOD: trust
+pages:
+  stage: docs
+  timeout: 2 minutes
+  script:
+    - deno task docs:build
+    - mv docs/.vitepress/dist public
+  artifacts:
+    paths:
+      - public
+  only:
+    variables:
+      - $CI_DEFAULT_BRANCH == $CI_COMMIT_REF_NAME

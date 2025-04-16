@@ -1,0 +1,13 @@
+{
+  "workspace": [],
+  "tasks": {
+    "dev": "deno run -A npm:vitepress dev",
+    "build": "deno run -A npm:vitepress build && deno run -A scripts/llmstxt.ts",
+    "preview": "deno run -A npm:vitepress preview"
+  },
+  "nodeModulesDir": "auto",
+  "imports": {
+    "vitepress": "npm:vitepress@^1.6.3",
+    "vue": "npm:vue@^3.5.13"
+  }
+}

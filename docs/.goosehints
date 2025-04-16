@@ -1,0 +1,35 @@
+# Nostrify Documentation Project Hints
+
+## Project Description
+This repository contains documentation for the Nostrify framework, a TypeScript library for building Nostr applications. The documentation is built with VitePress, a Vue-powered static site generator.
+
+## Project Structure
+- Documentation source files are Markdown (.md) files organized into directories representing different components/features
+- The main sections include:
+  - /start/ - Getting started guide
+  - /relay/ - Relay connection management
+  - /store/ - Storage implementations
+  - /sign/ - Signing capabilities
+  - /policy/ - Moderation policies
+  - /schema/ - Nostr event schemas
+  - /upload/ - File uploaders
+  - /integrations/ - Third-party integrations
+
+## Key Technologies
+- VitePress - Vue-powered static site generator
+- Markdown - Content format
+- TypeScript - Language used in code examples
+- JSR - Package registry for distributing Nostrify
+
+## About Nostr
+Nostr is a decentralized social network protocol. Nostrify is a framework that makes it easier to build applications using this protocol. Key concepts in Nostr include:
+- Events - Data structures that are signed and shared between clients
+- Relays - Servers that store and forward events
+- Clients - Applications that users interact with
+- Kinds - Different types of events (e.g., Kind 1 = text notes, Kind 0 = profiles)
+- NIP - Nostr Implementation Possibilities (protocol standards)
+
+## Project Links
+- Main Nostrify Repository: https://gitlab.com/soapbox-pub/nostrify
+- Documentation Site: https://nostrify.dev
+- API Reference: https://jsr.io/@nostrify/nostrify

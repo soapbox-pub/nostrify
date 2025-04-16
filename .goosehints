@@ -8,7 +8,7 @@ Nostrify is a comprehensive Nostr framework for web browsers and Deno, designed 
 - **Package Manager**: Uses Deno workspaces
 - **Configuration**: `deno.json` defines workspaces, tasks, and imports
 - **License**: MIT
-- **Documentation**: Built with VitePress, a Vue-powered static site generator in the `docs/` directory
+- **Documentation**: Built with VitePress, a Vue-powered static site generator in the `docs/` directory. You can test and develop the documentation locally using `deno task docs:dev`
 
 ### Documentation Structure
 - Documentation source files are Markdown (.md) files organized into directories representing different components/features

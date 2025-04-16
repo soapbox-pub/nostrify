@@ -10,7 +10,15 @@ Policies inspect one event at a time, which they either accept or reject.
 It's up to the application to decide how to handle the result.
 
 ```ts
-import { AntiDuplicationPolicy, FiltersPolicy, HellthreadPolicy, KeywordPolicy, PipePolicy, PowPolicy, RegexPolicy } from '@nostrify/policies';
+import {
+  AntiDuplicationPolicy,
+  FiltersPolicy,
+  HellthreadPolicy,
+  KeywordPolicy,
+  PipePolicy,
+  PowPolicy,
+  RegexPolicy,
+} from '@nostrify/policies';
 
 const policy = new PipePolicy([
   new FiltersPolicy([{ kinds: [0, 1, 3, 5, 7, 1984, 9734, 9735, 10002] }]),
@@ -42,25 +50,25 @@ If the [`NostrRelayOK`](https://jsr.io/@nostrify/types/doc/~/NostrRelayOK) messa
 
 Nostrify ships with a few policies to get you started.
 
-| Policy                                                     | Description                                                                                                                 | Example Options                                                   |
-| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| [AntiDuplicationPolicy](/policy/all#antiduplicationpolicy) | Prevent messages with the exact same content from being submitted repeatedly.                                               | `{ kv: await Deno.openKv(), expireIn: 60000, minLength: 50 }`     |
-| [AnyPolicy](/policy/all#anypolicy)                         | Accepts an event if any policy accepts it.                                                                                  | `[new PowPolicy(), new KeywordPolicy()]`                          |
-| [DomainPolicy](/policy/all#domainpolicy)                   | Filters events by the author's NIP-05 domain.                                                                               | `{ blacklist: ['replyguy.dev'] }`                                 |
-| [FiltersPolicy](/policy/all#filterspolicy)                 | Reject events that don't match the filters.                                                                                 | `[{ kinds: [0, 1, 3, 5, 6, 7] }]`                                 |
-| [HashtagPolicy](/policy/all#hashtagpolicy)                 | Reject events containing any of the banned hashtags.                                                                        | `['nsfw']`                                                        |
-| [HellthreadPolicy](/policy/all#hellthreadpolicy)           | Reject messages that tag too many participants.                                                                             | `{ limit: 15 }`                                                   |
-| [InvertPolicy](/policy/all#invertpolicy)                   | Inverts the result of another policy.                                                                                       | `new PubkeyBanPolicy([...])`                                      |
-| [KeywordPolicy](/policy/all#keywordpolicy)                 | Reject events containing any of the strings in its content.                                                                 | `['moo', 'oink', 'honk']`                                         |
-| [NoOpPolicy](/policy/all#nooppolicy)                       | Minimal sample policy for demonstration purposes. Allows all events through.                                                |                                                                   |
-| [OpenAIPolicy](/policy/all#openaipolicy)                   | Passes event content to OpenAI and then rejects flagged events.                                                             | `{ apiKey: '123...' }`                                            |
-| [PipePolicy](/policy/all#pipepolicy)                       | Compose multiple policies into a single policy.                                                                             | `[new PowPolicy(), new KeywordPolicy()]`                          |
-| [PowPolicy](/policy/all#powpolicy)                         | Reject events which don't meet Proof-of-Work ([NIP-13](https://github.com/nostr-protocol/nips/blob/master/13.md)) criteria. | `{ difficulty: 20 }`                                              |
-| [PubkeyBanPolicy](/policy/all#pubkeybanpolicy)             | Ban individual pubkeys from publishing events to the relay.                                                                 | `['e810...', 'fafa...', '1e89...']`                               |
-| [ReadOnlyPolicy](/policy/all#readonlypolicy)               | This policy rejects all messages.                                                                                           |                                                                   |
-| [RegexPolicy](/policy/all#regexpolicy)                     | Reject events whose content matches the regex.                                                                              | `/(🟠\|🔥\|😳)ChtaGPT/i`                                          |
-| [SizePolicy](/policy/all#sizepolicy)                       | Reject events that are too large.                                                                                           | `{ maxBytes: 8192 }`                                  |
-| [WhitelistPolicy](/policy/all#whitelistpolicy)             | Allows only the listed pubkeys to post to the relay. All other events are rejected.                                         | `['e810...', 'fafa...', '1e89...']`                               |
+| Policy                                                     | Description                                                                                                                 | Example Options                                               |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| [AntiDuplicationPolicy](/policy/all#antiduplicationpolicy) | Prevent messages with the exact same content from being submitted repeatedly.                                               | `{ kv: await Deno.openKv(), expireIn: 60000, minLength: 50 }` |
+| [AnyPolicy](/policy/all#anypolicy)                         | Accepts an event if any policy accepts it.                                                                                  | `[new PowPolicy(), new KeywordPolicy()]`                      |
+| [DomainPolicy](/policy/all#domainpolicy)                   | Filters events by the author's NIP-05 domain.                                                                               | `{ blacklist: ['replyguy.dev'] }`                             |
+| [FiltersPolicy](/policy/all#filterspolicy)                 | Reject events that don't match the filters.                                                                                 | `[{ kinds: [0, 1, 3, 5, 6, 7] }]`                             |
+| [HashtagPolicy](/policy/all#hashtagpolicy)                 | Reject events containing any of the banned hashtags.                                                                        | `['nsfw']`                                                    |
+| [HellthreadPolicy](/policy/all#hellthreadpolicy)           | Reject messages that tag too many participants.                                                                             | `{ limit: 15 }`                                               |
+| [InvertPolicy](/policy/all#invertpolicy)                   | Inverts the result of another policy.                                                                                       | `new PubkeyBanPolicy([...])`                                  |
+| [KeywordPolicy](/policy/all#keywordpolicy)                 | Reject events containing any of the strings in its content.                                                                 | `['moo', 'oink', 'honk']`                                     |
+| [NoOpPolicy](/policy/all#nooppolicy)                       | Minimal sample policy for demonstration purposes. Allows all events through.                                                |                                                               |
+| [OpenAIPolicy](/policy/all#openaipolicy)                   | Passes event content to OpenAI and then rejects flagged events.                                                             | `{ apiKey: '123...' }`                                        |
+| [PipePolicy](/policy/all#pipepolicy)                       | Compose multiple policies into a single policy.                                                                             | `[new PowPolicy(), new KeywordPolicy()]`                      |
+| [PowPolicy](/policy/all#powpolicy)                         | Reject events which don't meet Proof-of-Work ([NIP-13](https://github.com/nostr-protocol/nips/blob/master/13.md)) criteria. | `{ difficulty: 20 }`                                          |
+| [PubkeyBanPolicy](/policy/all#pubkeybanpolicy)             | Ban individual pubkeys from publishing events to the relay.                                                                 | `['e810...', 'fafa...', '1e89...']`                           |
+| [ReadOnlyPolicy](/policy/all#readonlypolicy)               | This policy rejects all messages.                                                                                           |                                                               |
+| [RegexPolicy](/policy/all#regexpolicy)                     | Reject events whose content matches the regex.                                                                              | `/(🟠\|🔥\|😳)ChtaGPT/i`                                      |
+| [SizePolicy](/policy/all#sizepolicy)                       | Reject events that are too large.                                                                                           | `{ maxBytes: 8192 }`                                          |
+| [WhitelistPolicy](/policy/all#whitelistpolicy)             | Allows only the listed pubkeys to post to the relay. All other events are rejected.                                         | `['e810...', 'fafa...', '1e89...']`                           |
 
 See [All Policies](/policy/all) for more information.
 

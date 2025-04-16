@@ -12,21 +12,27 @@ It uses a powerful relay selection algorithm to choose the best relays for each 
 You will need the [`@nostrify/welshman`](https://jsr.io/@nostrify/welshman) package.
 
 ::: code-group
+
 ```sh [npm]
 npx jsr add @nostrify/welshman
 ```
+
 ```sh [Deno]
 deno add @nostrify/welshman
 ```
+
 ```sh [yarn]
 yarn dlx jsr add @nostrify/welshman
 ```
+
 ```sh [pnpm]
 pnpm dlx jsr add @nostrify/welshman
 ```
+
 ```sh [Bun]
 bunx jsr add @nostrify/welshman
 ```
+
 :::
 
 ## Usage
@@ -44,7 +50,7 @@ const pool = new NWelshman(router);
 The Router class comes from Welshman itself. Here is a template to get you started:
 
 ```ts
-import { Router, RelayMode } from '@welshman/util';
+import { RelayMode, Router } from '@welshman/util';
 
 const router = new Router({
   getUserPubkey: (): string | null => null,

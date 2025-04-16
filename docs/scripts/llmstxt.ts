@@ -1,10 +1,10 @@
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const rootDir = path.resolve(__dirname, "..");
+const rootDir = path.resolve(__dirname, '..');
 
 /**
  * Copy Markdown source files to dist directory.
@@ -28,7 +28,7 @@ function copyMarkdownFiles(srcDir: string, destDir: string): void {
         fs.mkdirSync(destPath, { recursive: true });
       }
       copyMarkdownFiles(srcPath, destPath);
-    } else if (entry.isFile() && entry.name.endsWith(".md")) {
+    } else if (entry.isFile() && entry.name.endsWith('.md')) {
       // Copy markdown file
       fs.copyFileSync(srcPath, destPath);
       console.log(`Copied: ${srcPath} -> ${destPath}`);
@@ -37,14 +37,14 @@ function copyMarkdownFiles(srcDir: string, destDir: string): void {
 }
 
 // Copy markdown files to dist directory
-console.log("\nCopying markdown files to dist directory...");
+console.log('\nCopying markdown files to dist directory...');
 const srcDir = rootDir;
-const destDir = path.join(rootDir, ".vitepress/dist");
+const destDir = path.join(rootDir, '.vitepress/dist');
 
 // Skip copying files from these directories
-const skipDirs = [".git", ".vitepress", "node_modules", "scripts"];
+const skipDirs = ['.git', '.vitepress', 'node_modules', 'scripts'];
 
 // Start copying from the root directory
 copyMarkdownFiles(srcDir, destDir);
 
-console.log("\nFinished!");
+console.log('\nFinished!');

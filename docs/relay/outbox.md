@@ -22,6 +22,7 @@ This example will teach you how to track outbox events, and then query them from
 First, we'll create an SQLite database to track [NIP-65](https://github.com/nostr-protocol/nips/blob/master/65.md) events.
 
 ::: code-group
+
 ```ts [outbox.ts]
 import { Database } from '@db/sqlite';
 import { DenoSqlite3Dialect } from '@soapbox/kysely-deno-sqlite';
@@ -37,6 +38,7 @@ export const outbox = new NDatabase(
 
 await outbox.migrate();
 ```
+
 :::
 
 > [!TIP]
@@ -50,6 +52,7 @@ Your application will need some way to collect outbox events. There are various 
 One strategy is to process `nprofile` identifiers when they're pasted into your application. Here's an example.
 
 ::: code-group
+
 ```ts [profile.ts]
 import { NRelay1 } from '@nostrify/nostrify';
 import { nip19 } from 'nostr-tools';
@@ -61,7 +64,7 @@ export async function handleProfile(nprofile: string, signal?: AbortSignal) {
 
   if (result.type === 'nprofile') {
     const { pubkey, relays = [] } = result.data;
-    
+
     if (relays[0]) {
       const relay = new NRelay1(relays[0]);
 
@@ -80,6 +83,7 @@ export async function handleProfile(nprofile: string, signal?: AbortSignal) {
   }
 }
 ```
+
 :::
 
 ### Create a Pool
@@ -89,6 +93,7 @@ Let's create a [pool](/relay/pool) that uses our outbox database to decide which
 First we'll hardcode the relays, then we'll improve it below.
 
 ::: code-group
+
 ```ts [pool.ts]
 import { NPool, NRelay1 } from '@nostrify/nostrify';
 
@@ -112,6 +117,7 @@ export const pool = new NPool({
   },
 });
 ```
+
 :::
 
 #### Routing Requests
@@ -119,6 +125,7 @@ export const pool = new NPool({
 Now let's implement outbox for requests:
 
 ::: code-group
+
 ```ts{3,10-48} [pool.ts]
 import { NostrFilter, NPool, NRelay1 } from '@nostrify/nostrify';
 
@@ -178,9 +185,11 @@ export const pool = new NPool({
   },
 });
 ```
+
 :::
 
 > [!TIP]
+>
 > - This should be broken up into smaller functions.
 > - There are many ways to do this - this is just a starting point!
 > - You can also route based on kinds, tags, or anything else in filters.
@@ -192,6 +201,7 @@ export const pool = new NPool({
 Next we'll publish events with the user's own relay list. This is similar to the above, but a bit simpler.
 
 ::: code-group
+
 ```ts{15-41} [pool.ts]
 import { NPool, NRelay1 } from '@nostrify/nostrify';
 
@@ -236,9 +246,11 @@ export const pool = new NPool({
   },
 });
 ```
+
 :::
 
 > [!TIP]
+>
 > - This implementation publishes only to the current user's relays.
 > - A proposed ["Inbox Model"](https://github.com/nostr-protocol/nips/discussions/1134) suggests delivering events to the outbox of each of the author's followers. That would be a little more complex.
 

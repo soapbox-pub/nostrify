@@ -33,7 +33,7 @@ Results are returned as a tags array (`string[][]`) of [NIP-94] tags. The first 
   ['size', '171'],
   ['dim', '16x16'],
   ['blurhash', 'LCB20ssn0+NcbsfjRmaz12WW}osn'],
-]
+];
 ```
 
 - `url` public URL of the file.

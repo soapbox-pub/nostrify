@@ -53,5 +53,4 @@ export class MySigner implements NostrSigner {
     },
   };
 }
-
 ```

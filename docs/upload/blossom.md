@@ -37,7 +37,7 @@ Results are returned as a tags array (`string[][]`) of [NIP-94] tags. The first 
   ['ox', '7508bd9d8b0ed6e0891a3b973adf6011b1e49f6174910d6a1eb722a4a2e30539'],
   ['size', '172'],
   ['m', 'image/png'],
-]
+];
 ```
 
 - `url` public URL of the file.

@@ -13,21 +13,27 @@ For SQLite and other databases, see [SQL Databases](/store/sql).
 Install [`@nostrify/db`](https://jsr.io/@nostrify/db) from JSR.
 
 ::: code-group
+
 ```sh [npm]
 npx jsr add @nostrify/db
 ```
+
 ```sh [Deno]
 deno add @nostrify/db
 ```
+
 ```sh [yarn]
 yarn dlx jsr add @nostrify/db
 ```
+
 ```sh [pnpm]
 pnpm dlx jsr add @nostrify/db
 ```
+
 ```sh [Bun]
 bunx jsr add @nostrify/db
 ```
+
 :::
 
 ## Usage
@@ -213,7 +219,7 @@ const kysely = new Kysely<Database>({
   dialect: new PostgresJSDialect({
     postgres: postgres(databaseUrl),
   }),
-})
+});
 
 const db = new NPostgres(kysely);
 await db.migrate();
@@ -233,7 +239,7 @@ const kysely = new Kysely<Database>({
   dialect: new PgliteDialect({
     database: new PGlite('file://data/pgdata'),
   }),
-})
+});
 
 const db = new NPostgres(kysely);
 await db.migrate();

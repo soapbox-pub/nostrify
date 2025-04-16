@@ -5,21 +5,27 @@ Nostrify provides an adapter for [NDK](https://github.com/nostr-dev-kit/ndk) wit
 ## Installation
 
 ::: code-group
+
 ```sh [npm]
 npx jsr add @nostrify/ndk
 ```
+
 ```sh [Deno]
 deno add @nostrify/ndk
 ```
+
 ```sh [yarn]
 yarn dlx jsr add @nostrify/ndk
 ```
+
 ```sh [pnpm]
 pnpm dlx jsr add @nostrify/ndk
 ```
+
 ```sh [Bun]
 bunx jsr add @nostrify/ndk
 ```
+
 :::
 
 ## Usage

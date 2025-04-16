@@ -1,11 +1,12 @@
 import { defineConfig } from 'vitepress';
 
-const GitLabIcon = `<svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-gitlab"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M21 14l-9 7l-9 -7l3 -11l3 7h6l3 -7z" fill="none" /></svg>`;
+const GitLabIcon =
+  `<svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-gitlab"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M21 14l-9 7l-9 -7l3 -11l3 7h6l3 -7z" fill="none" /></svg>`;
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
-  title: "Nostrify",
-  description: "Bring your projects to life on Nostr. 🌱",
+  title: 'Nostrify',
+  description: 'Bring your projects to life on Nostr. 🌱',
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     logo: '/ufo.svg',
@@ -34,7 +35,7 @@ export default defineConfig({
           { text: 'HD Seed', link: '/sign/seed' },
           { text: 'Nostr Connect', link: '/sign/connect' },
           { text: 'Custodial Signer', link: '/sign/custodial' },
-        ]
+        ],
       },
       {
         text: 'Storages',
@@ -44,7 +45,7 @@ export default defineConfig({
           { text: 'Postgres', link: '/store/postgres' },
           { text: 'SQL Databases', link: '/store/sql' },
           { text: 'Deno KV', link: '/store/denokv' },
-        ]
+        ],
       },
       {
         text: 'Relays',
@@ -53,7 +54,7 @@ export default defineConfig({
           { text: 'Single Relay', link: '/relay/single' },
           { text: 'Relay Pool', link: '/relay/pool' },
           { text: 'Outbox Model', link: '/relay/outbox' },
-        ]
+        ],
       },
       {
         text: 'Moderation Policies',
@@ -62,7 +63,7 @@ export default defineConfig({
           { text: 'All Policies', link: '/policy/all' },
           { text: 'Policy Pipelines', link: '/policy/pipe' },
           { text: 'strfry Policies', link: '/policy/strfry' },
-        ]
+        ],
       },
       {
         text: 'Uploaders',
@@ -70,7 +71,7 @@ export default defineConfig({
         items: [
           { text: 'Blossom', link: '/upload/blossom' },
           { text: 'nostr.build', link: '/upload/nostr-build' },
-        ]
+        ],
       },
       {
         text: 'Integrations',
@@ -78,7 +79,7 @@ export default defineConfig({
         items: [
           { text: 'NDK', link: '/integrations/ndk' },
           { text: 'Welshman', link: '/integrations/welshman' },
-        ]
+        ],
       },
       {
         text: 'API Reference',
@@ -105,4 +106,4 @@ export default defineConfig({
   sitemap: {
     hostname: 'https://nostrify.dev',
   },
-})
+});

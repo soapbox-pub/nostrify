@@ -29,6 +29,7 @@ for await (const msg of pool.req([{ kinds: [1] }])) {
 ```
 
 > [!INFO]
+>
 > - If a relay wasn't already connected, it will be opened automatically. Defining `open` will also let you use any relay implementation, such as `NRelay1`.
 > - `pool.req` may stream duplicate events, while `pool.query` will correctly process replaceable events and deletions within the event set before returning them.
 > - `pool.req` will only emit an `EOSE` when all relays in its set have emitted an `EOSE`, and likewise for `CLOSED`.

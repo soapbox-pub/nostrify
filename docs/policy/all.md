@@ -109,7 +109,7 @@ import { InvertPolicy } from '@nostrify/policies';
 // Reject events unless they contain 'moo'.
 const policy = new InvertPolicy(
   new KeywordPolicy(['moo']),
-  'blocked: event did not contain "moo"'
+  'blocked: event did not contain "moo"',
 );
 ```
 

@@ -97,7 +97,7 @@ export default defineConfig({
     },
   },
   head: [
-    ['link', { rel: 'icon', href: '/ufo.svg' }],
+    ['link', { rel: 'icon', href: '/ufo.png' }],
     ['meta', { property: 'og:image', content: 'https://nostrify.dev/banner.png' }],
     ['meta', { name: 'twitter:image', content: 'https://nostrify.dev/banner.png' }],
   ],

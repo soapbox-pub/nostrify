@@ -21,6 +21,35 @@ Nostrify is a comprehensive Nostr framework for web browsers and Deno, designed 
   - /docs/schema/ - Nostr event schemas
   - /docs/upload/ - File uploaders
   - /docs/integrations/ - Third-party integrations
+  - /docs/guide/ - Integration guides for frameworks and libraries
+
+### Documentation Formatting
+- Use the VitePress `code-group` component for package installation instructions:
+```md
+::: code-group
+
+```sh [npm]
+npx jsr add @nostrify/package-name
+```
+
+```sh [Deno]
+deno add @nostrify/package-name
+```
+
+```sh [yarn]
+yarn dlx jsr add @nostrify/package-name
+```
+
+```sh [pnpm]
+pnpm dlx jsr add @nostrify/package-name
+```
+
+```sh [Bun]
+bunx jsr add @nostrify/package-name
+```
+
+:::
+```
 
 ## Key Packages
 
@@ -49,6 +78,8 @@ Nostrify is a comprehensive Nostr framework for web browsers and Deno, designed 
 7. **@nostrify/strfry**: Integration with strfry relay
 
 8. **@nostrify/welshman**: Integration with Welshman
+
+9. **@nostrify/react**: React integration components and hooks
 
 ## Core Concepts
 

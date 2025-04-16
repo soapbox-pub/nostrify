@@ -24,6 +24,10 @@ export default defineConfig({
         link: '/start/',
       },
       {
+        text: 'MCP Integration',
+        link: '/mcp/',
+      },
+      {
         text: 'Nostr Schema',
         link: '/schema/',
       },
@@ -77,6 +81,7 @@ export default defineConfig({
         text: 'Integrations',
         link: '/integrations/',
         items: [
+          { text: 'MCP', link: '/mcp' },
           { text: 'NDK', link: '/integrations/ndk' },
           { text: 'Welshman', link: '/integrations/welshman' },
         ],

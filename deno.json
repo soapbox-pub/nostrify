@@ -14,7 +14,7 @@
   ],
   "tasks": {
     "test": "deno test -A --junit-path=./deno-test.xml",
-    "check": "deno check packages/*/mod.ts",
+    "check": "deno check packages/**/*.ts",
     "react:dev": "deno run -A --node-modules-dir npm:vite packages/react/example",
     "docs:dev": "deno task --cwd docs dev",
     "docs:build": "deno task --cwd docs build"

@@ -1,8 +1,9 @@
-import { type FC, type ReactNode } from 'react';
 import { jsx } from 'react/jsx-runtime';
 
 import { NostrLoginContext, NostrLoginContextType } from './NostrLoginContext.ts';
 import { useNostrLoginReducer } from './useNostrLoginReducer.ts';
+
+import type { FC, ReactNode } from 'react';
 
 /** Props for `NostrLoginProvider`. */
 interface NostrLoginProviderProps {
@@ -16,7 +17,7 @@ interface NostrLoginProviderProps {
  * NostrLoginProvider is a React component that provides a context for managing Nostr logins.
  * It uses a reducer to handle the state of logins and stores them in localStorage.
  */
-export const NostrLoginProvider: FC<NostrLoginProviderProps> = ({ children, storageKey }) => {
+export const NostrLoginProvider: FC<NostrLoginProviderProps> = ({ children, storageKey }: NostrLoginProviderProps) => {
   const [logins, dispatch] = useNostrLoginReducer(storageKey);
 
   const value: NostrLoginContextType = {

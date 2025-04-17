@@ -1,4 +1,5 @@
 import { type FC, type ReactNode } from 'react';
+import { jsx } from 'react/jsx-runtime';
 
 import { NostrLoginContext, NostrLoginContextType } from './NostrLoginContext.ts';
 import { useNostrLoginReducer } from './useNostrLoginReducer.ts';
@@ -26,9 +27,5 @@ export const NostrLoginProvider: FC<NostrLoginProviderProps> = ({ children, stor
     clearLogins: () => dispatch({ type: 'login.clear' }),
   };
 
-  return (
-    <NostrLoginContext.Provider value={value}>
-      {children}
-    </NostrLoginContext.Provider>
-  );
+  return jsx(NostrLoginContext.Provider, { value, children });
 };

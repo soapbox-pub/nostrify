@@ -74,6 +74,12 @@ export default defineConfig({
         ],
       },
       {
+        text: 'Guides',
+        items: [
+          { text: 'React', link: '/guide/react' },
+        ],
+      },
+      {
         text: 'Integrations',
         link: '/integrations/',
         items: [

@@ -33,12 +33,6 @@ bunx jsr add @nostrify/nostrify
 
 :::
 
-## Usage
-
-```ts
-import { Nostrify } from '@nostrify/nostrify';
-```
-
 ## What Next?
 
 You may want to connect to [relay](/relay/), add a [storage](/store/) or [sign events](/sign/)!

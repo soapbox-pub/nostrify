@@ -1,4 +1,4 @@
-## Installation
+# Installation
 
 Nostrify is available on [jsr](https://jsr.io/@nostrify/nostrify), a modern alternative to npm.
 

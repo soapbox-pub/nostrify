@@ -8,7 +8,7 @@ polyfillDOM();
 
 Deno.test('NostrProvider', () => {
   const screen = render(
-    <NostrProvider appName='MyApp' relays={['wss://ditto.pub/relay']}>
+    <NostrProvider relays={['wss://ditto.pub/relay']}>
       <p>Hello world!</p>
     </NostrProvider>,
   );

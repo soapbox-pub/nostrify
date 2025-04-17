@@ -1,4 +1,4 @@
-import { type NLoginType, NUser, useNostrLogin } from '@nostrify/react';
+import { type NLoginType, NUser, useNostrLogin } from '@nostrify/react/login';
 import { useMemo } from 'react';
 
 import { useAuthor } from './useAuthor.ts';

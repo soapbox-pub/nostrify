@@ -1,4 +1,5 @@
-import { NLogin, useNostr, useNostrLogin } from '@nostrify/react';
+import { useNostr } from '@nostrify/react';
+import { NLogin, useNostrLogin } from '@nostrify/react/login';
 
 export function useLoginActions() {
   const { nostr } = useNostr();

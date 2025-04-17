@@ -1,8 +1,8 @@
-import { polyfillDOM } from '@nostrify/react/test';
 import { assertEquals } from '@std/assert';
 import { render } from '@testing-library/react';
 
 import NostrProvider from './NostrProvider.tsx';
+import { polyfillDOM } from './test-helpers.ts';
 
 polyfillDOM();
 

@@ -3,7 +3,7 @@
   "version": "0.0.1-alpha.8",
   "exports": {
     ".": "./mod.ts",
-    "./test": "./test-helpers.ts"
+    "./login": "./login/mod.ts"
   },
   "compilerOptions": {
     "lib": ["deno.ns", "dom"]

@@ -21,7 +21,6 @@ Nostrify is a comprehensive Nostr framework for web browsers and Deno, designed 
   - /docs/schema/ - Nostr event schemas
   - /docs/upload/ - File uploaders
   - /docs/integrations/ - Third-party integrations
-  - /docs/guide/ - Integration guides for frameworks and libraries
 
 ### Documentation Formatting
 - Use the VitePress `code-group` component for package installation instructions:

@@ -1,6 +1,6 @@
 {
   "name": "@nostrify/react",
-  "version": "0.1.0",
+  "version": "0.2.0-alpha.1",
   "exports": {
     ".": "./mod.ts",
     "./login": "./login/mod.ts"
@@ -9,11 +9,11 @@
     "@deno/vite-plugin": "npm:@deno/vite-plugin@^1.0.4",
     "@tanstack/react-query": "npm:@tanstack/react-query@^5.69.0",
     "@testing-library/react": "npm:@testing-library/react@^16.2.0",
-    "@types/react": "npm:@types/react@^19.1.0",
+    "@types/react": "npm:@types/react",
     "@vitejs/plugin-react": "npm:@vitejs/plugin-react@^4.3.4",
     "happy-dom": "npm:happy-dom@^17.4.4",
-    "react": "npm:react@^19.1.0",
-    "react-dom": "npm:react-dom@^19.1.0",
+    "react": "npm:react",
+    "react-dom": "npm:react-dom",
     "vite": "npm:vite@^6.2.2"
   },
   "compilerOptions": {

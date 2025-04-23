@@ -3,7 +3,6 @@ import { getFilterLimit } from 'nostr-tools';
 
 import { CircularSet } from './utils/CircularSet.ts';
 import { Machina } from './utils/Machina.ts';
-import { NKinds } from './NKinds.ts';
 import { NSet } from './NSet.ts';
 
 export interface NPoolOpts<T extends NRelay> {
@@ -178,30 +177,18 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
     const limit = filters.reduce((result, filter) => result + getFilterLimit(filter), 0);
     if (limit === 0) return [];
 
-    let search = false;
-    let replaceable = false;
-
-    for (const filter of filters) {
-      search = search || typeof filter.search === 'string';
-      replaceable = replaceable ||
-        !!filter.kinds?.some((k) => NKinds.replaceable(k) || NKinds.addressable(k));
-    }
-
     try {
       for await (const msg of this.req(filters, opts)) {
         if (msg[0] === 'EOSE') break;
         if (msg[0] === 'EVENT') events.add(msg[2]);
-        if (msg[0] === 'CLOSED') throw new Error('Subscription closed');
-
-        if (!replaceable && (events.size >= limit)) {
-          break;
-        }
+        if (msg[0] === 'CLOSED') break;
       }
     } catch {
       // Skip errors, return partial results.
     }
 
-    if (search) {
+    // Don't sort results of search filters.
+    if (filters.some((filter) => typeof filter.search === 'string')) {
       return [...map.values()];
     } else {
       return [...events];

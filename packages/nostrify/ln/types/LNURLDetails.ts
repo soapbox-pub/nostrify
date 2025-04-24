@@ -4,6 +4,8 @@ export interface LNURLDetails {
   allowsNostr?: boolean;
   /** The URL from LN SERVICE which will accept the pay request parameters. */
   callback: string;
+  /** The number of characters accepted for the `comment` query parameter on subsequent callback. (Should be interpreted as 0 if not provided). */
+  commentAllowed?: number;
   /** Max millisatoshi amount LN SERVICE is willing to receive. */
   maxSendable: number;
   /** Min millisatoshi amount LN SERVICE is willing to receive, can not be less than 1 or more than `maxSendable`. */

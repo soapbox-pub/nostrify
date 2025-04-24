@@ -78,6 +78,7 @@ export default defineConfig({
         link: '/integrations/',
         items: [
           { text: 'React', link: '/react' },
+          { text: 'Zaps', link: '/zaps' },
           { text: 'MCP', link: '/mcp' },
           { text: 'NDK', link: '/integrations/ndk' },
           { text: 'Welshman', link: '/integrations/welshman' },

@@ -1,70 +1,87 @@
 import { assertEquals } from '@std/assert';
-import { returnsNext, stub } from '@std/testing/mock';
 
 import { LNURL } from './LNURL.ts';
 
-import lnurlDetails from '../../../fixtures/lnurlp.json' with { type: 'json' };
-import callback from '../../../fixtures/callback.json' with { type: 'json' };
+// deno-lint-ignore require-await
+const mockFetch: typeof globalThis.fetch = async (input, init) => {
+  const { url } = new Request(input, init);
+  switch (url) {
+    case 'https://getalby.com/.well-known/lnurlp/alexgleason':
+      return new Response(JSON.stringify({
+        status: 'OK',
+        tag: 'payRequest',
+        commentAllowed: 255,
+        callback: 'https://getalby.com/lnurlp/alexgleason/callback',
+        metadata: '[["text/identifier","alexgleason@getalby.com"],["text/plain","Sats for alexgleason"]]',
+        minSendable: 1000,
+        maxSendable: 100000000,
+        payerData: {
+          name: { mandatory: false },
+          email: { mandatory: false },
+          pubkey: { mandatory: false },
+        },
+        nostrPubkey: '79f00d3f5a19ec806189fcab03c1be4ff81d18ee4f653c88fac41fe03570f432',
+        allowsNostr: true,
+      }));
+    case 'https://getalby.com/lnurlp/alexgleason/callback?amount=1000&lnurl=lnurl1dp68gurn8ghj7em9w3skccne9e3k7mf09emk2mrv944kummhdchkcmn4wfk8qtmpd3jhsemvv4shxmmw5uhvxu':
+      return new Response(JSON.stringify({
+        status: 'OK',
+        successAction: { tag: 'message', message: 'Thanks, sats received!' },
+        verify: 'https://getalby.com/lnurlp/alexgleason/verify/sMgdHth68xnS5H1tJtL4kh3T',
+        routes: [],
+        pr:
+          'lnbc10n1pj6a3pmpp54wsjl3nscygnfsf6uy08cnlf94t64a7cr0pt3t6nmdzm4kq8x6yshp5nf3ugrnz5d5fc5avnrzu8m9ae3e7p4v82cyhtf425dmtv8fn755qcqzzsxqyz5vqsp5m9d6yrj9mu5wwk3kxfdn4hwwmztdjqvdc3z5402gwdc6janx4ltq9qyyssq36wz68vj35pr39e8hkq0ldfauglqfsfyw9u0u4v4dmy7hvg20244jm69ja4g0cmwzxxgmzrqqsgeenxzmsqwhpfrzk7dvezd60u0qcqpd6nhs7',
+      }));
+    default:
+      throw new Error(`Unexpected URL: ${url}`);
+  }
+};
 
-Deno.test('LNURL.lookup', async () => {
-  const fetch = stub(
-    globalThis,
-    'fetch',
-    returnsNext([
-      Promise.resolve(new Response(JSON.stringify(lnurlDetails))),
-    ]),
-  );
+Deno.test('LNURL', async (t) => {
+  await t.step('fromString', () => {
+    const lnurl = LNURL.fromString(
+      'lnurl1dp68gurn8ghj7em9w3skccne9e3k7mf09emk2mrv944kummhdchkcmn4wfk8qtmpd3jhsemvv4shxmmw5uhvxu',
+    );
+    assertEquals(lnurl.url.toString(), 'https://getalby.com/.well-known/lnurlp/alexgleason');
+  });
 
-  const result = await LNURL.lookup(
-    'lnurl1dp68gurn8ghj7em9w3skccne9e3k7mf09emk2mrv944kummhdchkcmn4wfk8qtmpd3jhsemvv4shxmmw5uhvxu',
-    { fetch },
-  );
+  await t.step('fromLightningAddress', () => {
+    const lnurl = LNURL.fromLightningAddress('alexgleason@getalby.com');
+    assertEquals(lnurl.url.toString(), 'https://getalby.com/.well-known/lnurlp/alexgleason');
+  });
 
-  const expected = {
-    allowsNostr: true,
-    callback: 'https://getalby.com/lnurlp/alexgleason/callback',
-    commentAllowed: 255,
-    maxSendable: 100000000,
-    minSendable: 1000,
-    metadata: '[["text/identifier","alexgleason@getalby.com"],["text/plain","Sats for alexgleason"]]',
-    nostrPubkey: '79f00d3f5a19ec806189fcab03c1be4ff81d18ee4f653c88fac41fe03570f432',
-    tag: 'payRequest' as const,
-  };
+  await t.step('toString', () => {
+    const lnurl = new LNURL(new URL('https://getalby.com/.well-known/lnurlp/alexgleason'));
+    assertEquals(
+      lnurl.toString(),
+      'lnurl1dp68gurn8ghj7em9w3skccne9e3k7mf09emk2mrv944kummhdchkcmn4wfk8qtmpd3jhsemvv4shxmmw5uhvxu',
+    );
+  });
 
-  assertEquals(result, expected);
-  fetch.restore();
-});
+  await t.step('getDetails', async () => {
+    const lnurl = new LNURL(new URL('https://getalby.com/.well-known/lnurlp/alexgleason'), { fetch: mockFetch });
+    const details = await lnurl.getDetails();
 
-Deno.test('LNURL.decode', () => {
-  const result = LNURL.decode(
-    'lnurl1dp68gurn8ghj7em9w3skccne9e3k7mf09emk2mrv944kummhdchkcmn4wfk8qtmpd3jhsemvv4shxmmw5uhvxu',
-  );
-  assertEquals(result, new URL('https://getalby.com/.well-known/lnurlp/alexgleason'));
-});
+    assertEquals(details, {
+      tag: 'payRequest',
+      commentAllowed: 255,
+      callback: 'https://getalby.com/lnurlp/alexgleason/callback',
+      metadata: '[["text/identifier","alexgleason@getalby.com"],["text/plain","Sats for alexgleason"]]',
+      minSendable: 1000,
+      maxSendable: 100000000,
+      nostrPubkey: '79f00d3f5a19ec806189fcab03c1be4ff81d18ee4f653c88fac41fe03570f432',
+      allowsNostr: true,
+    });
+  });
 
-Deno.test('LNURL.encode', () => {
-  const result = LNURL.encode('https://getalby.com/.well-known/lnurlp/alexgleason');
-  assertEquals(result, 'lnurl1dp68gurn8ghj7em9w3skccne9e3k7mf09emk2mrv944kummhdchkcmn4wfk8qtmpd3jhsemvv4shxmmw5uhvxu');
-});
+  await t.step('getInvoice', async () => {
+    const lnurl = new LNURL(new URL('https://getalby.com/.well-known/lnurlp/alexgleason'), { fetch: mockFetch });
+    const invoice = await lnurl.getInvoice({ amount: 1000 });
 
-Deno.test('LNURL.callback', async () => {
-  const fetch = stub(
-    globalThis,
-    'fetch',
-    returnsNext([
-      Promise.resolve(new Response(JSON.stringify(callback))),
-    ]),
-  );
-
-  const url = 'https://getalby.com/lnurlp/alexgleason/callback';
-  const result = await LNURL.callback(url, { amount: 1000 }, { fetch });
-
-  const expected = {
-    pr:
-      'lnbc10n1pj6a3pmpp54wsjl3nscygnfsf6uy08cnlf94t64a7cr0pt3t6nmdzm4kq8x6yshp5nf3ugrnz5d5fc5avnrzu8m9ae3e7p4v82cyhtf425dmtv8fn755qcqzzsxqyz5vqsp5m9d6yrj9mu5wwk3kxfdn4hwwmztdjqvdc3z5402gwdc6janx4ltq9qyyssq36wz68vj35pr39e8hkq0ldfauglqfsfyw9u0u4v4dmy7hvg20244jm69ja4g0cmwzxxgmzrqqsgeenxzmsqwhpfrzk7dvezd60u0qcqpd6nhs7',
-    routes: [],
-  };
-
-  assertEquals(result, expected);
-  fetch.restore();
+    assertEquals(invoice, {
+      pr:
+        'lnbc10n1pj6a3pmpp54wsjl3nscygnfsf6uy08cnlf94t64a7cr0pt3t6nmdzm4kq8x6yshp5nf3ugrnz5d5fc5avnrzu8m9ae3e7p4v82cyhtf425dmtv8fn755qcqzzsxqyz5vqsp5m9d6yrj9mu5wwk3kxfdn4hwwmztdjqvdc3z5402gwdc6janx4ltq9qyyssq36wz68vj35pr39e8hkq0ldfauglqfsfyw9u0u4v4dmy7hvg20244jm69ja4g0cmwzxxgmzrqqsgeenxzmsqwhpfrzk7dvezd60u0qcqpd6nhs7',
+      routes: [],
+    });
+  });
 });

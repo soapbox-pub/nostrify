@@ -3,7 +3,6 @@ import { assert, assertEquals } from '@std/assert';
 import { NSchema as n } from './NSchema.ts';
 
 import nostrEvent from '../../fixtures/event-1.json' with { type: 'json' };
-import lnurlCallback from '../../fixtures/callback.json' with { type: 'json' };
 
 Deno.test('n.id', () => {
   assert(n.id().safeParse(nostrEvent.id).success);
@@ -15,10 +14,17 @@ Deno.test('n.id', () => {
 
 Deno.test('n.bech32', () => {
   assert(n.bech32('npub').safeParse('npub108pv4cg5ag52nq082kd5leu9ffrn2gdg6g4xdwatn73y36uzplmq9uyev6').success);
-  assert(n.bech32().safeParse(lnurlCallback.pr).success);
+  assert(
+    n.bech32().safeParse('lnurl1dp68gurn8ghj7em9w3skccne9e3k7mf09emk2mrv944kummhdchkcmn4wfk8qtmpd3jhsemvv4shxmmw5uhvxu')
+      .success,
+  );
 
   assert(!n.bech32().safeParse('abc').success);
-  assert(!n.bech32().safeParse(lnurlCallback.pr + '_').success);
+  assert(
+    !n.bech32().safeParse(
+      'lnurl1dp68gurn8ghj7em9w3skccne9e3k7mf09emk2mrv944kummhdchkcmn4wfk8qtmpd3jhsemvv4shxmmw5uhvxu' + '_',
+    ).success,
+  );
 });
 
 Deno.test('n.filter', () => {

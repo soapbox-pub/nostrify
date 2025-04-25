@@ -1,3 +1,4 @@
+import { groupIconMdPlugin, groupIconVitePlugin } from 'vitepress-plugin-group-icons';
 import { defineConfig } from 'vitepress';
 
 const GitLabIcon =
@@ -108,5 +109,15 @@ export default defineConfig({
   lastUpdated: true,
   sitemap: {
     hostname: 'https://nostrify.dev',
+  },
+  markdown: {
+    config(md) {
+      md.use(groupIconMdPlugin);
+    },
+  },
+  vite: {
+    plugins: [
+      groupIconVitePlugin(),
+    ],
   },
 });

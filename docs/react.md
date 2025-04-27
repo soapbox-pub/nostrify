@@ -13,15 +13,15 @@ npx jsr add @nostrify/react
 ```
 
 ```sh [Deno]
-deno add @nostrify/react
+deno add jsr:@nostrify/react
 ```
 
 ```sh [yarn]
-yarn dlx jsr add @nostrify/react
+yarn add jsr:@nostrify/react
 ```
 
 ```sh [pnpm]
-pnpm dlx jsr add @nostrify/react
+pnpm add jsr:@nostrify/react
 ```
 
 ```sh [Bun]

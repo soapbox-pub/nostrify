@@ -32,15 +32,15 @@ npx jsr add @nostrify/package-name
 ```
 
 ```sh [Deno]
-deno add @nostrify/package-name
+deno add jsr:@nostrify/package-name
 ```
 
 ```sh [yarn]
-yarn dlx jsr add @nostrify/package-name
+yarn add jsr:@nostrify/package-name
 ```
 
 ```sh [pnpm]
-pnpm dlx jsr add @nostrify/package-name
+pnpm add jsr:@nostrify/package-name
 ```
 
 ```sh [Bun]

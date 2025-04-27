@@ -19,15 +19,15 @@ npx jsr add @nostrify/db
 ```
 
 ```sh [Deno]
-deno add @nostrify/db
+deno add jsr:@nostrify/db
 ```
 
 ```sh [yarn]
-yarn dlx jsr add @nostrify/db
+yarn add jsr:@nostrify/db
 ```
 
 ```sh [pnpm]
-pnpm dlx jsr add @nostrify/db
+pnpm add jsr:@nostrify/db
 ```
 
 ```sh [Bun]

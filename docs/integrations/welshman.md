@@ -18,15 +18,15 @@ npx jsr add @nostrify/welshman
 ```
 
 ```sh [Deno]
-deno add @nostrify/welshman
+deno add jsr:@nostrify/welshman
 ```
 
 ```sh [yarn]
-yarn dlx jsr add @nostrify/welshman
+yarn add jsr:@nostrify/welshman
 ```
 
 ```sh [pnpm]
-pnpm dlx jsr add @nostrify/welshman
+pnpm add jsr:@nostrify/welshman
 ```
 
 ```sh [Bun]

@@ -11,15 +11,15 @@ npx jsr add @nostrify/ndk
 ```
 
 ```sh [Deno]
-deno add @nostrify/ndk
+deno add jsr:@nostrify/ndk
 ```
 
 ```sh [yarn]
-yarn dlx jsr add @nostrify/ndk
+yarn add jsr:@nostrify/ndk
 ```
 
 ```sh [pnpm]
-pnpm dlx jsr add @nostrify/ndk
+pnpm add jsr:@nostrify/ndk
 ```
 
 ```sh [Bun]

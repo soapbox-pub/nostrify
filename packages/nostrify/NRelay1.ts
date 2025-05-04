@@ -204,13 +204,23 @@ export class NRelay1 implements NRelay {
     filters: NostrFilter[],
     opts?: { signal?: AbortSignal },
   ): AsyncIterable<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
+    // Check if filters can be batched.
+    // If all filters are either ids-only or replaceable, we can batch them.
     if (filters.every((filter) => this.isIdsOnlyFilter(filter) || this.isReplaceableFilter(filter))) {
       for (const msg of await this.reqBatched(filters, opts)) {
-        yield msg;
+        if (msg[0] === 'EVENT') {
+          yield msg;
+          // Each batch will send only one message: `EVENT`, `EOSE`, or `CLOSED`.
+          // We need to send an `EOSE` manually to indicate the end of the batch.
+          yield ['EOSE', msg[1]];
+        } else {
+          yield msg;
+        }
       }
       return;
     }
 
+    // Otherwise, we need to send them as separate subscriptions.
     for await (const msg of this.raw(filters, opts)) {
       yield msg;
     }

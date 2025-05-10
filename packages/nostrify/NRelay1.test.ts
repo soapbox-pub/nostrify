@@ -1,5 +1,5 @@
-import { NostrClientREQ, NostrEvent } from '@nostrify/types';
-import { assert, assertEquals, assertObjectMatch, assertRejects } from '@std/assert';
+import { NostrEvent } from '@nostrify/types';
+import { assert, assertEquals, assertRejects } from '@std/assert';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 import { WebsocketEvent } from 'websocket-ts';
 
@@ -171,61 +171,4 @@ Deno.test('NRelay1 closes when it receives a binary message', async () => {
   await using relay = new NRelay1(server.url);
 
   await assertRejects(() => relay.query([{ kinds: [1] }]));
-});
-
-Deno.test('NRelay1 batches ids-only filters', async () => {
-  const reqs: Array<NostrClientREQ> = [];
-
-  await using server = new TestRelayServer({
-    handleMessage(socket, msg) {
-      if (msg[0] === 'REQ') {
-        reqs.push(msg);
-        const [, subId] = msg;
-        server.send(socket, ['EOSE', subId]);
-      }
-    },
-  });
-
-  await using relay = new NRelay1(server.url);
-
-  const [eventA, eventB] = [genEvent(), genEvent()];
-
-  await Promise.all([
-    relay.query([{ ids: [eventA.id] }]),
-    relay.query([{ ids: [eventB.id], limit: 1 }]),
-  ]);
-
-  assertEquals(reqs.length, 1, 'Requests were not properly batched');
-  assertObjectMatch(reqs[0][2], { ids: [eventA.id, eventB.id] });
-});
-
-Deno.test('NRelay1 batches replaceable event filters', async () => {
-  const reqs: Array<NostrClientREQ> = [];
-
-  await using server = new TestRelayServer({
-    handleMessage(socket, msg) {
-      if (msg[0] === 'REQ') {
-        reqs.push(msg);
-        const [, subId] = msg;
-        server.send(socket, ['EOSE', subId]);
-      }
-    },
-  });
-
-  await using relay = new NRelay1(server.url);
-
-  const [eventA, eventB, eventC] = [genEvent({ kind: 0 }), genEvent({ kind: 0 }), genEvent({ kind: 0 })];
-  const [eventD, eventE] = [genEvent({ kind: 3 }), genEvent({ kind: 3 })];
-
-  await Promise.all([
-    relay.query([{ kinds: [0], authors: [eventA.pubkey] }]),
-    relay.query([{ kinds: [0], authors: [eventB.pubkey] }]),
-    relay.query([{ kinds: [0], authors: [eventB.pubkey, eventC.pubkey] }]),
-    relay.query([{ kinds: [3], authors: [eventD.pubkey, eventE.pubkey] }]),
-    relay.query([{ kinds: [3], authors: [eventD.pubkey] }]),
-  ]);
-
-  assertEquals(reqs.length, 2, 'Requests were not properly batched');
-  assertObjectMatch(reqs[0][2], { kinds: [0], authors: [eventA.pubkey, eventB.pubkey, eventC.pubkey] });
-  assertObjectMatch(reqs[1][2], { kinds: [3], authors: [eventD.pubkey, eventE.pubkey] });
 });

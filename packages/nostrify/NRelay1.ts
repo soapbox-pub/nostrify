@@ -18,15 +18,12 @@ import { ArrayQueue, Backoff, ExponentialBackoff, Websocket, WebsocketBuilder, W
 import { Machina } from './utils/Machina.ts';
 import { NSchema as n } from './NSchema.ts';
 import { NSet } from './NSet.ts';
-import { NKinds } from './NKinds.ts';
 
 /** Map of EventEmitter events. */
 type EventMap = {
   [k: `ok:${string}`]: NostrRelayOK;
   [k: `sub:${string}`]: NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED;
   [k: `count:${string}`]: NostrRelayCOUNT | NostrRelayCLOSED;
-  [k: `id:${string}`]: NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED;
-  [k: `addr:${string}`]: NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED;
   notice: NostrRelayNOTICE;
 };
 
@@ -58,10 +55,6 @@ export class NRelay1 implements NRelay {
   private closedByUser = false;
   private idleTimer?: number;
   private controller = new AbortController();
-
-  private ids = new Set<string>();
-  private addrs = new Set<string>();
-  private scheduled = false;
 
   private ee = new EventTarget();
 
@@ -202,38 +195,8 @@ export class NRelay1 implements NRelay {
 
   async *req(
     filters: NostrFilter[],
-    opts?: { signal?: AbortSignal },
-  ): AsyncIterable<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
-    // Check if filters can be batched.
-    // If all filters are either ids-only or replaceable, we can batch them.
-    if (filters.every((filter) => this.isIdsOnlyFilter(filter) || this.isReplaceableFilter(filter))) {
-      let subId: string | undefined;
-
-      for (const msg of await this.reqBatched(filters, opts)) {
-        if (msg[0] === 'EOSE' || msg[0] === 'CLOSED') {
-          yield msg;
-          return;
-        } else {
-          subId = msg[1];
-          yield msg;
-        }
-      }
-      // If we didn't receive an `EOSE` or `CLOSED`, we need to send one manually.
-      yield ['EOSE', subId ?? crypto.randomUUID()];
-      return;
-    }
-
-    // Otherwise, we need to send them as separate subscriptions.
-    for await (const msg of this.raw(filters, opts)) {
-      yield msg;
-    }
-  }
-
-  /** Underlying, true REQ method. */
-  private async *raw(
-    filters: NostrFilter[],
     opts: { signal?: AbortSignal } = {},
-  ): AsyncIterable<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
+  ): AsyncGenerator<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
     const { signal } = opts;
     const subscriptionId = crypto.randomUUID();
 
@@ -367,7 +330,6 @@ export class NRelay1 implements NRelay {
     if (this.closedByUser) return;
 
     this.log({ level: 'debug', ns: 'relay.idletimer', state: 'running', timeout: idleTimeout });
-
     this.idleTimer = setTimeout(() => {
       this.log({ level: 'debug', ns: 'relay.idletimer', state: 'aborted', timeout: idleTimeout });
       this.socket.close();
@@ -414,162 +376,6 @@ export class NRelay1 implements NRelay {
 
   async [Symbol.asyncDispose](): Promise<void> {
     await this.close();
-  }
-
-  /** Checks if the filter is only trying to get events by id. */
-  private isIdsOnlyFilter(filter: NostrFilter): filter is { ids: string[]; limit?: number } {
-    const keys = ['ids', 'limit'];
-
-    // First check that we only have allowed keys.
-    if (!Object.keys(filter).every((key) => keys.includes(key))) {
-      return false;
-    }
-
-    // Then check the specific requirements for each key.
-    return keys.every((key) => {
-      if (key === 'ids') {
-        return Array.isArray(filter.ids);
-      }
-      if (key === 'limit') {
-        return filter.limit === undefined || filter.limit === filter.ids?.length;
-      }
-    });
-  }
-
-  /** Checks if the filter is only trying to get replaceable events by author. */
-  private isReplaceableFilter(filter: NostrFilter): filter is { kinds: [number]; authors: string[]; limit?: number } {
-    const keys = ['kinds', 'authors', 'limit'];
-
-    // First check that we only have allowed keys.
-    if (!Object.keys(filter).every((key) => keys.includes(key))) {
-      return false;
-    }
-
-    // Then check the specific requirements for each key.
-    return keys.every((key) => {
-      if (key === 'kinds') {
-        return filter.kinds?.length === 1 && NKinds.replaceable(filter.kinds[0]);
-      }
-      if (key === 'authors') {
-        return Array.isArray(filter.authors);
-      }
-      if (key === 'limit') {
-        return filter.limit === undefined || filter.limit === filter.authors?.length;
-      }
-    });
-  }
-
-  /** Schedule batch processing for the end of the current tick. */
-  private scheduleBatch(): void {
-    if (!this.scheduled) {
-      this.scheduled = true;
-      Promise.resolve().then(() => this.processBatch());
-    }
-  }
-
-  /** Request batched filters. */
-  private reqBatched(
-    filters: NostrFilter[],
-    opts?: { signal?: AbortSignal },
-  ): Promise<Array<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>> {
-    const promises: Promise<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>[] = [];
-
-    for (const filter of filters) {
-      if (this.isIdsOnlyFilter(filter)) {
-        for (const id of filter.ids) {
-          promises.push(this.once(`id:${id}`, opts?.signal));
-          this.ids.add(id);
-        }
-      }
-
-      if (this.isReplaceableFilter(filter)) {
-        for (const author of filter.authors) {
-          const addr = `${filter.kinds[0]}:${author}:`;
-          promises.push(this.once(`addr:${addr}`, opts?.signal));
-          this.addrs.add(addr);
-        }
-      }
-    }
-
-    this.scheduleBatch();
-
-    return Promise.all(promises);
-  }
-
-  /** Process the batched requests and send the actual subscriptions. */
-  private async processBatch(): Promise<void> {
-    const signal = this.controller.signal;
-    const promises: Promise<void>[] = [];
-
-    if (this.ids.size) {
-      promises.push((async () => {
-        for await (const msg of this.raw([{ ids: [...this.ids] }], { signal })) {
-          if (msg[0] === 'EVENT') {
-            const [, , event] = msg;
-            this.ids.delete(event.id);
-            this.ee.dispatchEvent(new CustomEvent(`id:${event.id}`, { detail: msg }));
-          } else {
-            for (const id of this.ids) {
-              this.ee.dispatchEvent(new CustomEvent(`id:${id}`, { detail: msg }));
-            }
-            break;
-          }
-          if (this.ids.size === 0) {
-            break;
-          }
-        }
-      })());
-    }
-
-    if (this.addrs.size) {
-      const kinds = new Set<number>();
-
-      for (const addr of this.addrs) {
-        const [kind] = addr.split(':');
-        kinds.add(Number(kind));
-      }
-
-      for (const kind of kinds) {
-        const authors = new Set<string>();
-
-        for (const addr of this.addrs) {
-          const [k, author] = addr.split(':');
-          if (Number(k) === kind) {
-            authors.add(author);
-          }
-        }
-
-        promises.push((async () => {
-          for await (const msg of this.raw([{ kinds: [kind], authors: [...authors] }], { signal })) {
-            if (msg[0] === 'EVENT') {
-              const [, , event] = msg;
-              const addr = `${kind}:${event.pubkey}:`;
-              this.addrs.delete(addr);
-              this.ee.dispatchEvent(new CustomEvent(`addr:${addr}`, { detail: msg }));
-            } else {
-              for (const addr of this.addrs) {
-                const [k] = addr.split(':');
-                if (Number(k) === kind) {
-                  this.addrs.delete(addr);
-                  this.ee.dispatchEvent(new CustomEvent(`addr:${addr}`, { detail: msg }));
-                }
-              }
-              break;
-            }
-            if (this.addrs.size === 0) {
-              break;
-            }
-          }
-        })());
-      }
-    }
-
-    await Promise.all(promises);
-
-    // Clear the batches as they've been processed.
-    this.ids.clear();
-    this.addrs.clear();
-    this.scheduled = false;
   }
 }
 

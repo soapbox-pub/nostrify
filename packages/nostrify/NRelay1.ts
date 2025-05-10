@@ -207,16 +207,19 @@ export class NRelay1 implements NRelay {
     // Check if filters can be batched.
     // If all filters are either ids-only or replaceable, we can batch them.
     if (filters.every((filter) => this.isIdsOnlyFilter(filter) || this.isReplaceableFilter(filter))) {
+      let subId: string | undefined;
+
       for (const msg of await this.reqBatched(filters, opts)) {
-        if (msg[0] === 'EVENT') {
+        if (msg[0] === 'EOSE' || msg[0] === 'CLOSED') {
           yield msg;
-          // Each batch will send only one message: `EVENT`, `EOSE`, or `CLOSED`.
-          // We need to send an `EOSE` manually to indicate the end of the batch.
-          yield ['EOSE', msg[1]];
+          return;
         } else {
+          subId = msg[1];
           yield msg;
         }
       }
+      // If we didn't receive an `EOSE` or `CLOSED`, we need to send one manually.
+      yield ['EOSE', subId ?? crypto.randomUUID()];
       return;
     }
 

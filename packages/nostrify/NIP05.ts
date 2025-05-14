@@ -23,7 +23,7 @@ export class NIP05 {
 
   /** Resolve NIP-05 name to a profile pointer. */
   static async lookup(nip05: string, opts?: LookupOpts): Promise<NProfilePointer> {
-    const { fetch = globalThis.fetch, signal } = opts ?? {};
+    const { fetch = globalThis.fetch.bind(globalThis), signal } = opts ?? {};
 
     const match = nip05.match(NIP05.regex());
     if (!match) throw new Error(`NIP-05: invalid name ${nip05}`);

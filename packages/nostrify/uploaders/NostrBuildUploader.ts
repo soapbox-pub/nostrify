@@ -24,7 +24,7 @@ export class NostrBuildUploader implements NUploader {
   constructor(opts?: NostrBuildUploaderOpts) {
     this.endpoint = opts?.endpoint ?? 'https://nostr.build/api/v2/upload/files';
     this.signer = opts?.signer;
-    this.fetch = opts?.fetch ?? globalThis.fetch;
+    this.fetch = opts?.fetch ?? globalThis.fetch.bind(globalThis);
   }
 
   async upload(file: File, opts?: { signal?: AbortSignal }): Promise<[['url', string], ...string[][]]> {

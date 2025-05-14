@@ -25,7 +25,7 @@ export class LNURL {
     },
   ) {
     this.url = url;
-    this.fetch = opts?.fetch ?? globalThis.fetch;
+    this.fetch = opts?.fetch ?? globalThis.fetch.bind(globalThis);
   }
 
   /**

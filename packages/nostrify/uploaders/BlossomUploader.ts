@@ -1,5 +1,4 @@
 import { NostrSigner, NUploader } from '@nostrify/types';
-import { crypto } from '@std/crypto';
 import { encodeHex } from '@std/encoding/hex';
 import { z } from 'zod';
 
@@ -27,12 +26,12 @@ export class BlossomUploader implements NUploader {
   constructor(opts: BlossomUploaderOpts) {
     this.servers = opts.servers;
     this.signer = opts.signer;
-    this.fetch = opts.fetch ?? globalThis.fetch;
+    this.fetch = opts.fetch ?? globalThis.fetch.bind(globalThis);
     this.expiresIn = opts.expiresIn ?? 60_000;
   }
 
   async upload(file: File, opts?: { signal?: AbortSignal }): Promise<[['url', string], ...string[][]]> {
-    const x = encodeHex(await crypto.subtle.digest('SHA-256', file.stream()));
+    const x = encodeHex(await crypto.subtle.digest('SHA-256', await file.arrayBuffer()));
 
     const now = Date.now();
     const expiration = now + this.expiresIn;

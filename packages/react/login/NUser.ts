@@ -1,7 +1,5 @@
-import { NConnectSigner, type NostrSigner, type NPool, NSecSigner } from '@nostrify/nostrify';
+import { BrowserSigner, NConnectSigner, type NostrSigner, type NPool, NSecSigner } from '@nostrify/nostrify';
 import { nip19 } from 'nostr-tools';
-
-import { BrowserSigner } from './BrowserSigner.ts';
 
 import type { NLoginBunker, NLoginExtension, NLoginNsec } from './NLogin.ts';
 
@@ -43,13 +41,10 @@ export class NUser {
   }
 
   static fromExtensionLogin(login: NLoginExtension): NUser {
-    // If the browser extension is not already available, wrap it in a proxy compat class.
-    const windowSigner = (globalThis as { nostr?: NostrSigner }).nostr ?? new BrowserSigner();
-
     return new NUser(
       login.type,
       login.pubkey,
-      windowSigner,
+      new BrowserSigner(),
     );
   }
 }

@@ -41,7 +41,8 @@ export class NUser {
   }
 
   static fromExtensionLogin(login: NLoginExtension): NUser {
-    const windowSigner = new BrowserSigner();
+    // If the browser extension is not already available, wrap it in a proxy compat class.
+    const windowSigner = (globalThis as { nostr?: NostrSigner }).nostr ?? new BrowserSigner();
 
     return new NUser(
       login.type,

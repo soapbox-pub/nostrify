@@ -43,7 +43,7 @@
     "@std/testing": "jsr:@std/testing@^0.222.1",
     "lru-cache": "npm:lru-cache@^10.2.0",
     "mock-socket": "npm:mock-socket@9.3.1",
-    "nostr-tools": "npm:nostr-tools@^2.10.4",
+    "nostr-tools": "npm:nostr-tools@^2.13.0",
     "websocket-ts": "npm:websocket-ts@^2.2.1",
     "zod": "npm:zod@^3.23.8"
   }

@@ -1,5 +1,5 @@
-export { BrowserSigner } from './BrowserSigner.ts';
 export { BunkerURI } from './BunkerURI.ts';
+export { NBrowserSigner } from './NBrowserSigner.ts';
 export { NCache } from './NCache.ts';
 export { NConnectSigner, type NConnectSignerOpts } from './NConnectSigner.ts';
 export { NIP05 } from './NIP05.ts';

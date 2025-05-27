@@ -9,12 +9,12 @@ import type { NostrEvent, NostrSigner } from '@nostrify/types';
  * Usage:
  *
  * ```ts
- * const signer = new BrowserSigner();
+ * const signer = new NBrowserSigner();
  * const pubkey = await signer.getPublicKey();
  * const event = await signer.signEvent({ kind: 1, content: 'Hello, world!', tags: [], created_at: 0 });
  * ```
  */
-export class BrowserSigner implements NostrSigner {
+export class NBrowserSigner implements NostrSigner {
   private get nostr(): NostrSigner {
     const nostr = (globalThis as { nostr?: NostrSigner }).nostr;
     if (!nostr) {

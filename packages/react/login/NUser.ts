@@ -1,4 +1,4 @@
-import { BrowserSigner, NConnectSigner, type NostrSigner, type NPool, NSecSigner } from '@nostrify/nostrify';
+import { NBrowserSigner, NConnectSigner, type NostrSigner, type NPool, NSecSigner } from '@nostrify/nostrify';
 import { nip19 } from 'nostr-tools';
 
 import type { NLoginBunker, NLoginExtension, NLoginNsec } from './NLogin.ts';
@@ -44,7 +44,7 @@ export class NUser {
     return new NUser(
       login.type,
       login.pubkey,
-      new BrowserSigner(),
+      new NBrowserSigner(),
     );
   }
 }

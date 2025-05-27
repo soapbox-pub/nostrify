@@ -2,15 +2,15 @@ import { NSecSigner } from '@nostrify/nostrify';
 import { assertEquals, assertRejects } from '@std/assert';
 import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools';
 
-import { BrowserSigner } from './BrowserSigner.ts';
+import { NBrowserSigner } from './NBrowserSigner.ts';
 
 import type { NostrEvent, NostrSigner } from '@nostrify/types';
 
-Deno.test('BrowserSigner - without extension', async () => {
+Deno.test('NBrowserSigner - without extension', async () => {
   // Ensure no extension is available
   (globalThis as { nostr?: NostrSigner }).nostr = undefined;
 
-  const signer = new BrowserSigner();
+  const signer = new NBrowserSigner();
 
   await assertRejects(
     () => signer.getPublicKey(),
@@ -25,14 +25,14 @@ Deno.test('BrowserSigner - without extension', async () => {
   );
 });
 
-Deno.test('BrowserSigner - with extension polyfill', async () => {
+Deno.test('NBrowserSigner - with extension polyfill', async () => {
   const secretKey = generateSecretKey();
   const mockExtension = new NSecSigner(secretKey);
 
   // Set up the polyfill
   (globalThis as { nostr?: NostrSigner }).nostr = mockExtension;
 
-  const signer = new BrowserSigner();
+  const signer = new NBrowserSigner();
 
   // Test getPublicKey
   assertEquals(await signer.getPublicKey(), getPublicKey(secretKey));
@@ -45,14 +45,14 @@ Deno.test('BrowserSigner - with extension polyfill', async () => {
   (globalThis as { nostr?: NostrSigner }).nostr = undefined;
 });
 
-Deno.test('BrowserSigner.nip44 - with extension polyfill', async () => {
+Deno.test('NBrowserSigner.nip44 - with extension polyfill', async () => {
   const secretKey = generateSecretKey();
   const mockExtension = new NSecSigner(secretKey);
 
   // Set up the polyfill
   (globalThis as { nostr?: NostrSigner }).nostr = mockExtension;
 
-  const signer = new BrowserSigner();
+  const signer = new NBrowserSigner();
 
   const pubkey = await signer.getPublicKey();
   const plaintext = 'Hello, world!';
@@ -64,14 +64,14 @@ Deno.test('BrowserSigner.nip44 - with extension polyfill', async () => {
   (globalThis as { nostr?: NostrSigner }).nostr = undefined;
 });
 
-Deno.test('BrowserSigner.nip04 - with extension polyfill', async () => {
+Deno.test('NBrowserSigner.nip04 - with extension polyfill', async () => {
   const secretKey = generateSecretKey();
   const mockExtension = new NSecSigner(secretKey);
 
   // Set up the polyfill
   (globalThis as { nostr?: NostrSigner }).nostr = mockExtension;
 
-  const signer = new BrowserSigner();
+  const signer = new NBrowserSigner();
 
   const pubkey = await signer.getPublicKey();
   const plaintext = 'Hello, world!';
@@ -83,14 +83,14 @@ Deno.test('BrowserSigner.nip04 - with extension polyfill', async () => {
   (globalThis as { nostr?: NostrSigner }).nostr = undefined;
 });
 
-Deno.test('BrowserSigner.getRelays - with extension polyfill', async () => {
+Deno.test('NBrowserSigner.getRelays - with extension polyfill', async () => {
   const secretKey = generateSecretKey();
   const mockExtension = new NSecSigner(secretKey);
 
   // Set up the polyfill
   (globalThis as { nostr?: NostrSigner }).nostr = mockExtension;
 
-  const signer = new BrowserSigner();
+  const signer = new NBrowserSigner();
 
   // Since NSecSigner doesn't implement getRelays, this should return empty object
   const relays = await signer.getRelays();
@@ -100,7 +100,7 @@ Deno.test('BrowserSigner.getRelays - with extension polyfill', async () => {
   (globalThis as { nostr?: NostrSigner }).nostr = undefined;
 });
 
-Deno.test('BrowserSigner - missing nip44 support', () => {
+Deno.test('NBrowserSigner - missing nip44 support', () => {
   // Create a mock extension without nip44 support
   const mockExtension = {
     // deno-lint-ignore require-await
@@ -112,7 +112,7 @@ Deno.test('BrowserSigner - missing nip44 support', () => {
 
   (globalThis as { nostr?: NostrSigner }).nostr = mockExtension;
 
-  const signer = new BrowserSigner();
+  const signer = new NBrowserSigner();
 
   // Should return undefined when nip44 is not supported
   assertEquals(signer.nip44, undefined);
@@ -121,7 +121,7 @@ Deno.test('BrowserSigner - missing nip44 support', () => {
   (globalThis as { nostr?: NostrSigner }).nostr = undefined;
 });
 
-Deno.test('BrowserSigner - missing nip04 support', () => {
+Deno.test('NBrowserSigner - missing nip04 support', () => {
   // Create a mock extension without nip04 support
   const mockExtension = {
     // deno-lint-ignore require-await
@@ -133,7 +133,7 @@ Deno.test('BrowserSigner - missing nip04 support', () => {
 
   (globalThis as { nostr?: NostrSigner }).nostr = mockExtension;
 
-  const signer = new BrowserSigner();
+  const signer = new NBrowserSigner();
 
   // Should return undefined when nip04 is not supported
   assertEquals(signer.nip04, undefined);
@@ -142,14 +142,14 @@ Deno.test('BrowserSigner - missing nip04 support', () => {
   (globalThis as { nostr?: NostrSigner }).nostr = undefined;
 });
 
-Deno.test('BrowserSigner - feature detection', () => {
+Deno.test('NBrowserSigner - feature detection', () => {
   const secretKey = generateSecretKey();
   const mockExtension = new NSecSigner(secretKey);
 
   // Set up the polyfill
   (globalThis as { nostr?: NostrSigner }).nostr = mockExtension;
 
-  const signer = new BrowserSigner();
+  const signer = new NBrowserSigner();
 
   // Should be able to detect nip44 support
   if (signer.nip44) {

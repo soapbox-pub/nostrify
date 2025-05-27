@@ -34,7 +34,7 @@ export class BrowserSigner implements NostrSigner {
 
   async getRelays(): Promise<Record<string, { read: boolean; write: boolean }>> {
     if (!this.nostr.getRelays) {
-      throw new Error('getRelays method not available in browser extension');
+      return {};
     }
     return this.nostr.getRelays();
   }
@@ -42,7 +42,7 @@ export class BrowserSigner implements NostrSigner {
   get nip04() {
     const nostr = this.nostr;
     if (!nostr.nip04) {
-      throw new Error('NIP-04 methods not available in browser extension');
+      return undefined;
     }
     return {
       encrypt: async (pubkey: string, plaintext: string): Promise<string> => {
@@ -57,7 +57,7 @@ export class BrowserSigner implements NostrSigner {
   get nip44() {
     const nostr = this.nostr;
     if (!nostr.nip44) {
-      throw new Error('NIP-44 methods not available in browser extension');
+      return undefined;
     }
     return {
       encrypt: async (pubkey: string, plaintext: string): Promise<string> => {

@@ -1,4 +1,4 @@
-import { assertEquals, assertRejects, assertThrows } from '@std/assert';
+import { assertEquals, assertRejects } from '@std/assert';
 import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools';
 
 import { BrowserSigner } from './BrowserSigner.ts';
@@ -57,8 +57,8 @@ Deno.test('BrowserSigner.nip44 - with extension polyfill', async () => {
   const pubkey = await signer.getPublicKey();
   const plaintext = 'Hello, world!';
 
-  const ciphertext = await signer.nip44.encrypt(pubkey, plaintext);
-  assertEquals(await signer.nip44.decrypt(pubkey, ciphertext), plaintext);
+  const ciphertext = await signer.nip44!.encrypt(pubkey, plaintext);
+  assertEquals(await signer.nip44!.decrypt(pubkey, ciphertext), plaintext);
 
   // Clean up
   (globalThis as { nostr?: NostrSigner }).nostr = undefined;
@@ -76,8 +76,8 @@ Deno.test('BrowserSigner.nip04 - with extension polyfill', async () => {
   const pubkey = await signer.getPublicKey();
   const plaintext = 'Hello, world!';
 
-  const ciphertext = await signer.nip04.encrypt(pubkey, plaintext);
-  assertEquals(await signer.nip04.decrypt(pubkey, ciphertext), plaintext);
+  const ciphertext = await signer.nip04!.encrypt(pubkey, plaintext);
+  assertEquals(await signer.nip04!.decrypt(pubkey, ciphertext), plaintext);
 
   // Clean up
   (globalThis as { nostr?: NostrSigner }).nostr = undefined;
@@ -92,12 +92,9 @@ Deno.test('BrowserSigner.getRelays - with extension polyfill', async () => {
 
   const signer = new BrowserSigner();
 
-  // Since NSecSigner doesn't implement getRelays, this should throw
-  await assertRejects(
-    () => signer.getRelays(),
-    Error,
-    'getRelays method not available in browser extension',
-  );
+  // Since NSecSigner doesn't implement getRelays, this should return empty object
+  const relays = await signer.getRelays();
+  assertEquals(relays, {});
 
   // Clean up
   (globalThis as { nostr?: NostrSigner }).nostr = undefined;
@@ -117,11 +114,8 @@ Deno.test('BrowserSigner - missing nip44 support', () => {
 
   const signer = new BrowserSigner();
 
-  assertThrows(
-    () => signer.nip44,
-    Error,
-    'NIP-44 methods not available in browser extension',
-  );
+  // Should return undefined when nip44 is not supported
+  assertEquals(signer.nip44, undefined);
 
   // Clean up
   (globalThis as { nostr?: NostrSigner }).nostr = undefined;
@@ -141,11 +135,35 @@ Deno.test('BrowserSigner - missing nip04 support', () => {
 
   const signer = new BrowserSigner();
 
-  assertThrows(
-    () => signer.nip04,
-    Error,
-    'NIP-04 methods not available in browser extension',
-  );
+  // Should return undefined when nip04 is not supported
+  assertEquals(signer.nip04, undefined);
+
+  // Clean up
+  (globalThis as { nostr?: NostrSigner }).nostr = undefined;
+});
+
+Deno.test('BrowserSigner - feature detection', () => {
+  const secretKey = generateSecretKey();
+  const mockExtension = new NSecSigner(secretKey);
+
+  // Set up the polyfill
+  (globalThis as { nostr?: NostrSigner }).nostr = mockExtension;
+
+  const signer = new BrowserSigner();
+
+  // Should be able to detect nip44 support
+  if (signer.nip44) {
+    // This should work since NSecSigner supports nip44
+    assertEquals(typeof signer.nip44.encrypt, 'function');
+    assertEquals(typeof signer.nip44.decrypt, 'function');
+  }
+
+  // Should be able to detect nip04 support
+  if (signer.nip04) {
+    // This should work since NSecSigner supports nip04
+    assertEquals(typeof signer.nip04.encrypt, 'function');
+    assertEquals(typeof signer.nip04.decrypt, 'function');
+  }
 
   // Clean up
   (globalThis as { nostr?: NostrSigner }).nostr = undefined;

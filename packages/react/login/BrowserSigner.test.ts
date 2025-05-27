@@ -1,8 +1,8 @@
+import { NSecSigner } from '@nostrify/nostrify';
 import { assertEquals, assertRejects } from '@std/assert';
 import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools';
 
 import { BrowserSigner } from './BrowserSigner.ts';
-import { NSecSigner } from './NSecSigner.ts';
 
 import type { NostrEvent, NostrSigner } from '@nostrify/types';
 

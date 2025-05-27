@@ -1,5 +1,5 @@
 // deno-lint-ignore-file require-await
-import { NostrEvent, NostrSigner } from '@nostrify/types';
+import type { NostrEvent, NostrSigner } from '@nostrify/types';
 
 /**
  * NIP-07-compatible signer that proxies to browser extension.

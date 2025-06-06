@@ -52,7 +52,7 @@ export class NBrowserSigner implements NostrSigner {
     return this.nostr.getRelays();
   }
 
-  get nip04() {
+  get nip04(): NostrSigner['nip04'] {
     const nostr = this.nostr;
     if (!nostr.nip04) {
       return undefined;
@@ -75,7 +75,7 @@ export class NBrowserSigner implements NostrSigner {
     };
   }
 
-  get nip44() {
+  get nip44(): NostrSigner['nip44'] {
     const nostr = this.nostr;
     if (!nostr.nip44) {
       return undefined;

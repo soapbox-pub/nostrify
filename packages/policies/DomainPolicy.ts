@@ -38,7 +38,7 @@ export class DomainPolicy extends AuthorPolicy implements NPolicy {
           return ['OK', event.id, false, 'blocked: invalid nip05'];
         }
 
-        if (blacklist.includes(domain)) {
+        if (DomainPolicy.isDomainBlacklisted(domain, blacklist)) {
           return ['OK', event.id, false, 'blocked: blacklisted nip05 domain'];
         }
 
@@ -59,6 +59,23 @@ export class DomainPolicy extends AuthorPolicy implements NPolicy {
         }
       },
     });
+  }
+
+  /** Check if a domain is blacklisted, including subdomains of blacklisted domains. */
+  private static isDomainBlacklisted(domain: string, blacklist: string[]): boolean {
+    // Check for exact match
+    if (blacklist.includes(domain)) {
+      return true;
+    }
+
+    // Check if domain is a subdomain of any blacklisted domain
+    for (const blacklistedDomain of blacklist) {
+      if (domain.endsWith('.' + blacklistedDomain)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /** Default NIP-05 lookup method if one isn't provided by the caller. */

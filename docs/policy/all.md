@@ -52,9 +52,11 @@ const policy = new DomainPolicy(store, {
 });
 ```
 
+When a domain is blacklisted, all subdomains are also blocked. For example, blacklisting `replyguy.dev` will also block `spam.replyguy.dev` and `bot.spam.replyguy.dev`.
+
 ### Options
 
-- `blacklist`: An array of domains to reject.
+- `blacklist`: An array of domains to reject (including all subdomains).
 - `whitelist`: If provided, only events from these domains are accepted.
 - `lookup`: Custom NIP-05 lookup function.
 

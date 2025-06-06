@@ -166,3 +166,81 @@ Deno.test('DomainPolicy allows events from authors who are on a whitelisted doma
 
   assertEquals(result, ['OK', event.id, true, '']);
 });
+
+Deno.test('DomainPolicy rejects events from authors with a subdomain of a blacklisted domain', async () => {
+  const sk = generateSecretKey();
+  const pubkey = getPublicKey(sk);
+
+  const store = new MockRelay();
+  const policy = new DomainPolicy(store, {
+    // deno-lint-ignore require-await
+    async lookup(nip05: string) {
+      if (nip05 === 'bot@spam.replyguy.dev') {
+        return { pubkey };
+      } else {
+        throw new Error('not found');
+      }
+    },
+    blacklist: ['replyguy.dev'],
+  });
+
+  const metadata: NostrMetadata = { nip05: 'bot@spam.replyguy.dev' };
+  await store.event(genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk));
+  const event = genEvent({ kind: 1, content: 'hello world' }, sk);
+
+  const result = await policy.call(event);
+
+  assertEquals(result, ['OK', event.id, false, 'blocked: blacklisted nip05 domain']);
+});
+
+Deno.test('DomainPolicy rejects events from authors with a deeply nested subdomain of a blacklisted domain', async () => {
+  const sk = generateSecretKey();
+  const pubkey = getPublicKey(sk);
+
+  const store = new MockRelay();
+  const policy = new DomainPolicy(store, {
+    // deno-lint-ignore require-await
+    async lookup(nip05: string) {
+      if (nip05 === 'user@deep.nested.spam.replyguy.dev') {
+        return { pubkey };
+      } else {
+        throw new Error('not found');
+      }
+    },
+    blacklist: ['replyguy.dev'],
+  });
+
+  const metadata: NostrMetadata = { nip05: 'user@deep.nested.spam.replyguy.dev' };
+  await store.event(genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk));
+  const event = genEvent({ kind: 1, content: 'hello world' }, sk);
+
+  const result = await policy.call(event);
+
+  assertEquals(result, ['OK', event.id, false, 'blocked: blacklisted nip05 domain']);
+});
+
+Deno.test('DomainPolicy allows events from authors with similar but not subdomain of blacklisted domain', async () => {
+  const sk = generateSecretKey();
+  const pubkey = getPublicKey(sk);
+
+  const store = new MockRelay();
+  const policy = new DomainPolicy(store, {
+    // deno-lint-ignore require-await
+    async lookup(nip05: string) {
+      if (nip05 === 'user@notreplyguy.dev') {
+        return { pubkey };
+      } else {
+        throw new Error('not found');
+      }
+    },
+    blacklist: ['replyguy.dev'],
+  });
+
+  const metadata: NostrMetadata = { nip05: 'user@notreplyguy.dev' };
+  await store.event(genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk));
+  const event = genEvent({ kind: 1, content: 'hello world' }, sk);
+
+  const result = await policy.call(event);
+
+  assertEquals(result, ['OK', event.id, true, '']);
+});

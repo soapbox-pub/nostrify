@@ -36,7 +36,7 @@ It is essentially the same thing, it just converts the mnemonic phrase into a se
 ### Usage
 
 ```ts
-import { NPhraseSigner } from '@nostrify/nostrify';
+import { NPhraseSigner } from '@nostrify/seed';
 
 const signer = new NPhraseSigner('abandon baby cabbage dad ...', {
   account: 0, // Optional account number. Default is 0.
@@ -44,5 +44,10 @@ const signer = new NPhraseSigner('abandon baby cabbage dad ...', {
 });
 
 const pubkey = await signer.getPublicKey();
-const event = await signer.signEvent({ content: 'Hello, world!', kind: 1, ... });
+const event = await signer.signEvent({
+  content: 'Hello, world!',
+  kind: 1,
+  tags: [],
+  created_at: 0
+});
 ```

@@ -48,6 +48,6 @@ const event = await signer.signEvent({
   content: 'Hello, world!',
   kind: 1,
   tags: [],
-  created_at: 0
+  created_at: 0,
 });
 ```

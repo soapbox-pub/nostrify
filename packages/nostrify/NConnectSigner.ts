@@ -124,21 +124,30 @@ export class NConnectSigner implements NostrSigner {
       { signal },
     );
 
-    await this.relay.event(event, { signal });
-
-    for await (const msg of req) {
-      if (msg[0] === 'CLOSED') throw new Error('Subscription closed');
-      if (msg[0] === 'EVENT') {
-        const event = msg[2];
-        const decrypted = await this.decrypt(this.pubkey, event.content);
-        const response = n.json().pipe(n.connectResponse()).parse(decrypted);
-        if (response.id === request.id) {
-          return response;
+    // Ensure the REQ is opened before sending the EVENT
+    const promise = new Promise<NostrConnectResponse>((resolve, reject) => {
+      (async () => {
+        try {
+          for await (const msg of req) {
+            if (msg[0] === 'CLOSED') throw new Error('Subscription closed');
+            if (msg[0] === 'EVENT') {
+              const event = msg[2];
+              const decrypted = await this.decrypt(this.pubkey, event.content);
+              const response = n.json().pipe(n.connectResponse()).parse(decrypted);
+              if (response.id === request.id) {
+                resolve(response);
+                return;
+              }
+            }
+          }
+        } catch (error) {
+          reject(error);
         }
-      }
-    }
+      })();
+    });
 
-    throw new Error('Unreachable');
+    await this.relay.event(event, { signal });
+    return promise;
   }
 
   /** Local encrypt depending on settings. */

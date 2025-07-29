@@ -1,0 +1,13 @@
+{
+  "name": "@nostrify/ndk",
+  "version": "0.35.0",
+  "exports": "./mod.ts",
+  "dependencies": {
+    "@nostr-dev-kit/ndk": "^2.7.1"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  }
+}

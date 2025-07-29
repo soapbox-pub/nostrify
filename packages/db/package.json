@@ -1,0 +1,17 @@
+{
+  "name": "@nostrify/db",
+  "version": "0.39.4",
+  "exports": {
+    ".": "./mod.ts"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "kysely": "^0.27.3",
+    "kysely-postgres-js": "^2.0.0",
+    "postgres": "^3.4.4"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "@nostrify/react",
+  "version": "0.2.8",
+  "exports": {
+    ".": "./mod.ts",
+    "./login": "./login/mod.ts"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@deno/vite-plugin": "^1.0.4",
+    "@tanstack/react-query": "^5.69.0",
+    "@types/react": "^18.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "happy-dom": "^17.4.4",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "vite": "^6.2.2"
+  }
+}

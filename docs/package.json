@@ -1,0 +1,12 @@
+{
+  "tasks": {
+    "dev": "npx vitepress dev",
+    "build": "npx vitepress build && node scripts/llmstxt.ts",
+    "preview": "npx vitepress preview"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.3",
+    "vitepress-plugin-group-icons": "^1.5.2",
+    "vue": "^3.5.13"
+  }
+}

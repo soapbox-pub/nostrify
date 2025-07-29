@@ -53,7 +53,7 @@ export class NRelay1 implements NRelay {
 
   private subs = new Map<string, NostrClientREQ>();
   private closedByUser = false;
-  private idleTimer?: number;
+  private idleTimer?: ReturnType<typeof setTimeout>;
   private controller = new AbortController();
 
   private ee = new EventTarget();

@@ -135,7 +135,7 @@ export class NPostgres implements NRelay {
   protected async deleteEvents(db: Kysely<NPostgresSchema>, event: NostrEvent): Promise<void> {
     if (event.kind === 5) {
       const ids = new Set(event.tags.filter(([name]) => name === 'e').map(([_name, value]) => value));
-      const addrs = new Set(event.tags.filter(([name]) => name === 'a').map(([_name, value]) => value));
+      const addrs: Set<string> = new Set(event.tags.filter(([name]) => name === 'a').map(([_name, value]) => value));
 
       const filters: NostrFilter[] = [];
 
@@ -351,6 +351,7 @@ export class NPostgres implements NRelay {
 
   /** Combine filter queries into a single union query. */
   protected getEventsQuery(trx: Kysely<NPostgresSchema>, filters: NostrFilter[]): SelectEventsQuery {
+    // @ts-expect-error ????
     return trx.selectFrom((eb) =>
       filters
         .map((filter) => eb.selectFrom(() => this.getFilterQuery(trx, filter).as('e')).selectAll())

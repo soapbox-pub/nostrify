@@ -6,8 +6,9 @@ packages:
   - ./packages/seed
   - ./packages/strfry
   - ./packages/types
-  - ./packages/welshman
   - ./packages/db
+  # TODO
+  # - ./packages/welshman
 onlyBuiltDependencies:
   - esbuild
   - nx

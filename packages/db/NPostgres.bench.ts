@@ -3,7 +3,7 @@ import { PostgresJSDialect } from 'kysely-postgres-js';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 import postgres from 'postgres';
 
-import { NPostgres, NPostgresSchema } from './NPostgres';
+import { NPostgres, NPostgresSchema } from './NPostgres.ts';
 
 import events from '../../fixtures/events.json' with { type: 'json' };
 

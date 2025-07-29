@@ -1,12 +1,13 @@
 import { NostrEvent } from '@nostrify/types';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
+import { readFile } from 'fs/promises';
 
 export { ErrorRelay } from './ErrorRelay';
 export { MockRelay } from './MockRelay';
 
 /** Import a JSONL fixture by name in tests. */
 export async function jsonlEvents(path: string): Promise<NostrEvent[]> {
-  const data = await Deno.readTextFile(path);
+  const data = await readFile(path, { encoding: 'utf8' });
   return data.split('\n').map((line) => JSON.parse(line));
 }
 

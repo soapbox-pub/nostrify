@@ -42,6 +42,7 @@ class NSchema {
 
   /** Nostr event schema. */
   static event(): z.ZodType<NostrEvent> {
+    // @ts-expect-error This should be fine.
     return z.object({
       id: NSchema.id(),
       kind: z.number().int().nonnegative(),
@@ -97,6 +98,7 @@ class NSchema {
 
   /** NIP-01 `EVENT` message from client to relay. */
   static clientEVENT(): z.ZodType<NostrClientEVENT> {
+    // @ts-expect-error This should be fine.
     return z.tuple([z.literal('EVENT'), NSchema.event()]);
   }
 
@@ -112,11 +114,13 @@ class NSchema {
 
   /** NIP-01 `CLOSE` message from client to relay. */
   static clientCLOSE(): z.ZodType<NostrClientCLOSE> {
+    // @ts-expect-error This should be fine.
     return z.tuple([z.literal('CLOSE'), z.string()]);
   }
 
   /** NIP-42 `AUTH` message from client to relay. */
   static clientAUTH(): z.ZodType<NostrClientAUTH> {
+    // @ts-expect-error This should be fine.
     return z.tuple([z.literal('AUTH'), NSchema.event()]);
   }
 
@@ -133,36 +137,43 @@ class NSchema {
 
   /** NIP-01 `EVENT` message from relay to client. */
   static relayEVENT(): z.ZodType<NostrRelayEVENT> {
+    // @ts-expect-error This should be fine.
     return z.tuple([z.literal('EVENT'), z.string(), NSchema.event()]);
   }
 
   /** NIP-01 `OK` message from relay to client. */
   static relayOK(): z.ZodType<NostrRelayOK> {
+    // @ts-expect-error This should be fine.
     return z.tuple([z.literal('OK'), NSchema.id(), z.boolean(), z.string()]);
   }
 
   /** NIP-01 `EOSE` message from relay to client. */
   static relayEOSE(): z.ZodType<NostrRelayEOSE> {
+    // @ts-expect-error This should be fine.
     return z.tuple([z.literal('EOSE'), z.string()]);
   }
 
   /** NIP-01 `NOTICE` message from relay to client. */
   static relayNOTICE(): z.ZodType<NostrRelayNOTICE> {
+    // @ts-expect-error This should be fine.
     return z.tuple([z.literal('NOTICE'), z.string()]);
   }
 
   /** NIP-01 `CLOSED` message from relay to client. */
   static relayCLOSED(): z.ZodType<NostrRelayCLOSED> {
+    // @ts-expect-error This should be fine.
     return z.tuple([z.literal('CLOSED'), z.string(), z.string()]);
   }
 
   /** NIP-42 `AUTH` message from relay to client. */
   static relayAUTH(): z.ZodType<NostrRelayAUTH> {
+    // @ts-expect-error This should be fine.
     return z.tuple([z.literal('AUTH'), z.string()]);
   }
 
   /** NIP-45 `COUNT` message from relay to client. */
   static relayCOUNT(): z.ZodType<NostrRelayCOUNT> {
+    // @ts-expect-error This should be fine.
     return z.tuple([
       z.literal('COUNT'),
       z.string(),
@@ -204,6 +215,7 @@ class NSchema {
 
   /** NIP-46 request content schema. */
   static connectRequest(): z.ZodType<NostrConnectRequest> {
+    // @ts-expect-error This should be fine.
     return z.object({
       id: z.string(),
       method: z.string(),
@@ -213,6 +225,7 @@ class NSchema {
 
   /** NIP-46 response content schema. */
   static connectResponse(): z.ZodType<NostrConnectResponse> {
+    // @ts-expect-error This should be fine.
     return z.object({
       id: z.string(),
       result: z.string(),

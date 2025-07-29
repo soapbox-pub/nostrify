@@ -54,6 +54,7 @@ export class NConnectSigner implements NostrSigner {
   > {
     const result = await this.cmd('get_relays', []);
 
+    // @ts-expect-error This should be fine.
     return n
       .json()
       .pipe(

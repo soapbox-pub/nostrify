@@ -1,9 +1,10 @@
 import { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
+import { Kv, KvKey } from '@deno/kv';
 
 /** Policy options for `AntiDuplicationPolicy`. */
 interface AntiDuplicationPolicyOpts {
   /** Deno.Kv implementation to use. */
-  kv: Pick<Deno.Kv, 'get' | 'set'>;
+  kv: Pick<Kv, 'get' | 'set'>;
   /** Time in ms until a message with this content may be posted again. Default: `60000` (1 minute). */
   expireIn?: number;
   /** Note text under this limit will be skipped by the policy. Default: `50`. */
@@ -40,13 +41,18 @@ export class AntiDuplicationPolicy implements NPolicy {
 
     if (kind === 1 && content.length >= minLength) {
       const hash = AntiDuplicationPolicy.hashCode(content);
-      const key: Deno.KvKey = ['nostrify', 'policies', 'antiduplication', hash];
+      const key: KvKey = ['nostrify', 'policies', 'antiduplication', hash];
 
       const { value } = await kv.get(key);
 
       if (value) {
         await kv.set(key, true, { expireIn });
-        return ['OK', id, false, 'blocked: the same message has been repeated too many times'];
+        return [
+          'OK',
+          id,
+          false,
+          'blocked: the same message has been repeated too many times',
+        ];
       }
 
       await kv.set(key, true, { expireIn });

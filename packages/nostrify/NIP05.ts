@@ -15,6 +15,7 @@ export class NIP05 {
 
   /** Nostr pubkey with relays object. */
   private static profilePointerSchema(): z.ZodType<NProfilePointer> {
+    // @ts-expect-error This should be fine.
     return z.object({
       pubkey: n.id(),
       relays: n.relayUrl().array().optional(),

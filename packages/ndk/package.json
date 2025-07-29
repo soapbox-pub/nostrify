@@ -3,7 +3,9 @@
   "version": "0.35.0",
   "exports": "./mod.ts",
   "dependencies": {
-    "@nostr-dev-kit/ndk": "^2.7.1"
+    "@nostr-dev-kit/ndk": "^2.7.1",
+    "@nostrify/types": "workspace:*",
+    "@nostrify/nostrify": "workspace:*"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -3,10 +3,10 @@
   "compilerOptions": {
     "jsx": "react-jsx",
     "jsxImportSource": "react",
-    "jsxImportSourceTypes": "@types/react",
     "lib": [
       "dom"
-    ]
+    ],
+    "outDir": "./dist"
   },
   "include": [
     "./**/*.ts"

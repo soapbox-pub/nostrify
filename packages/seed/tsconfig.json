@@ -2,5 +2,13 @@
   "extends": "../../tsconfig.base.json",
   "include": [
     "./**/*.ts"
-  ]
+  ],
+  "exclude": [
+    "./dist",
+    "./**/*.bench.ts",
+    "./**/*.test.ts"
+  ],
+  "compilerOptions": {
+    "outDir": "./dist"
+  }
 }

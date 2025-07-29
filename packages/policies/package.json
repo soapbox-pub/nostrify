@@ -8,5 +8,10 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@deno/kv": "^0.10.0",
+    "@nostrify/types": "workspace:*",
+    "@nostrify/nostrify": "workspace:*"
   }
 }

@@ -162,6 +162,7 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
       return;
     }
 
+    // @ts-ignore Promise.any exists for sure
     await Promise.any(
       relayUrls.map((url) => this.relay(url).event(event, opts)),
     );

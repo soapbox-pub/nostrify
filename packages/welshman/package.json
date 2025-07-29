@@ -3,9 +3,10 @@
   "version": "0.35.0",
   "exports": "./mod.ts",
   "dependencies": {
-    "@welshman/lib": "^0.0.2",
-    "@welshman/net": "^0.0.2",
-    "@welshman/util": "^0.0.2"
+    "@welshman/lib": "^0.3.10",
+    "@welshman/net": "^0.3.10",
+    "@welshman/util": "^0.3.10",
+    "@nostrify/nostrify": "workspace:*"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

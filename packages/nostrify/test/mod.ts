@@ -1,6 +1,6 @@
 import { NostrEvent } from '@nostrify/types';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
-import { readFile } from 'fs/promises';
+import { readFile } from 'node:fs/promises';
 
 export { ErrorRelay } from './ErrorRelay';
 export { MockRelay } from './MockRelay';

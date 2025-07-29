@@ -1,11 +1,6 @@
 {
     "extends": "../../tsconfig.base.json",
     "compilerOptions": {
-        "outDir": "dist",
-        "declaration": true,
-        "declarationMap": true,
-        "sourceMap": true,
-        "composite": true,
         "jsx": "react-jsx",
         "jsxImportSource": "react",
         "jsxImportSourceTypes": "@types/react",
@@ -14,7 +9,7 @@
         ]
     },
     "include": [
-        "src"
+        "./**/*.ts"
     ],
     "exclude": [
         "**/*.test.ts",

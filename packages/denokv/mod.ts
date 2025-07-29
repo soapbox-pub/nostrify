@@ -1,1 +1,1 @@
-export { NDenoKv } from './NDenoKv.ts';
+export { NDenoKv } from './NDenoKv';

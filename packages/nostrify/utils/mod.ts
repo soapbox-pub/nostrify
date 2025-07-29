@@ -1,2 +1,2 @@
-export { Machina } from './Machina.ts';
-export { N64 } from './N64.ts';
+export { Machina } from './Machina';
+export { N64 } from './N64';

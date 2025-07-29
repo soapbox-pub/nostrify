@@ -2,7 +2,7 @@ import { NPolicy } from '@nostrify/types';
 import { JsonParseStream } from '@std/json';
 import { TextLineStream } from '@std/streams';
 
-import type { StrfryInputMessage, StrfryOutputMessage } from './types.ts';
+import type { StrfryInputMessage, StrfryOutputMessage } from './types';
 
 /**
  * Reads strfry messages from stdin, processes them using the provided policy, and writes the results to stdout.
@@ -16,7 +16,10 @@ import type { StrfryInputMessage, StrfryOutputMessage } from './types.ts';
  * await strfry(policy);
  * ```
  */
-export async function strfry(policy: NPolicy, optsFn?: () => { signal?: AbortSignal }): Promise<void> {
+export async function strfry(
+  policy: NPolicy,
+  optsFn?: () => { signal?: AbortSignal },
+): Promise<void> {
   const readable = Deno.stdin.readable
     .pipeThrough(new TextDecoderStream())
     .pipeThrough(new TextLineStream())

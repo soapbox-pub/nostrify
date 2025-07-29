@@ -1,4 +1,4 @@
-export { LNURL } from './LNURL.ts';
+export { LNURL } from './LNURL';
 
-export type { LNURLCallback } from './types/LNURLCallback.ts';
-export type { LNURLDetails } from './types/LNURLDetails.ts';
+export type { LNURLCallback } from './types/LNURLCallback';
+export type { LNURLDetails } from './types/LNURLDetails';

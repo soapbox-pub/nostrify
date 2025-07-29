@@ -1,7 +1,7 @@
 import { NIP05, NSchema as n } from '@nostrify/nostrify';
 import { NPolicy, NProfilePointer, NStore } from '@nostrify/types';
 
-import { AuthorPolicy } from './AuthorPolicy.ts';
+import { AuthorPolicy } from './AuthorPolicy';
 
 /** Options for `DomainPolicy`. */
 interface DomainPolicyOpts {
@@ -50,7 +50,12 @@ export class DomainPolicy extends AuthorPolicy implements NPolicy {
           }
 
           if (whitelist && !whitelist.includes(domain)) {
-            return ['OK', event.id, false, 'blocked: nip05 domain not in whitelist'];
+            return [
+              'OK',
+              event.id,
+              false,
+              'blocked: nip05 domain not in whitelist',
+            ];
           }
 
           return ['OK', event.id, true, ''];
@@ -62,7 +67,10 @@ export class DomainPolicy extends AuthorPolicy implements NPolicy {
   }
 
   /** Check if a domain is blacklisted, including subdomains of blacklisted domains. */
-  private static isDomainBlacklisted(domain: string, blacklist: string[]): boolean {
+  private static isDomainBlacklisted(
+    domain: string,
+    blacklist: string[],
+  ): boolean {
     // Check for exact match
     if (blacklist.includes(domain)) {
       return true;
@@ -79,7 +87,10 @@ export class DomainPolicy extends AuthorPolicy implements NPolicy {
   }
 
   /** Default NIP-05 lookup method if one isn't provided by the caller. */
-  private static lookup(nip05: string, signal?: AbortSignal): Promise<NProfilePointer> {
+  private static lookup(
+    nip05: string,
+    signal?: AbortSignal,
+  ): Promise<NProfilePointer> {
     return NIP05.lookup(nip05, { signal });
   }
 }

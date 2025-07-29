@@ -1,6 +1,6 @@
 import { useSuspenseQuery, type UseSuspenseQueryResult } from '@tanstack/react-query';
 
-import { useNostr } from '../useNostr.ts';
+import { useNostr } from '../useNostr';
 
 import type { NostrEvent } from '@nostrify/nostrify';
 

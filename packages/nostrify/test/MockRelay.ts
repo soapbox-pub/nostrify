@@ -11,12 +11,15 @@ import {
 } from '@nostrify/types';
 import { matchFilters } from 'nostr-tools';
 
-import { Machina } from '../utils/Machina.ts';
-import { NSet } from '../NSet.ts';
+import { Machina } from '../utils/Machina';
+import { NSet } from '../NSet';
 
 /** Mock relay for testing. */
 export class MockRelay extends NSet implements NRelay {
-  readonly subs: Map<string, { filters: NostrFilter[]; machina: Machina<NostrEvent> }> = new Map();
+  readonly subs: Map<
+    string,
+    { filters: NostrFilter[]; machina: Machina<NostrEvent> }
+  > = new Map();
 
   async *req(
     filters: NostrFilter[],

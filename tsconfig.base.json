@@ -1,13 +1,19 @@
 {
-    "compilerOptions": {
-        "outDir": "dist",
-        "declaration": true,
-        "declarationMap": true,
-        "sourceMap": true,
-        "composite": true,
-        "lib": [
-            "es2020",
-            "dom"
-        ]
-    }
+  "compilerOptions": {
+    "outDir": "dist",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "composite": true,
+    "lib": [
+      "es2020",
+      "dom"
+    ],
+    "moduleResolution": "nodenext",
+    "module": "nodenext"
+  },
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.bench.ts"
+  ]
 }

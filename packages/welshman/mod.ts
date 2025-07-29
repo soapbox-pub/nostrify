@@ -1,1 +1,1 @@
-export { NWelshman } from './NWelshman.ts';
+export { NWelshman } from './NWelshman';

@@ -1,6 +1,6 @@
 import { useContext } from 'react';
 
-import { NostrContext, type NostrContextType } from './NostrContext.ts';
+import { NostrContext, type NostrContextType } from './NostrContext';
 
 export function useNostr(): NostrContextType {
   const context = useContext(NostrContext);

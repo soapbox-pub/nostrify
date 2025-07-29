@@ -1,8 +1,8 @@
 {
-    "tasks": {
-        "build": {
-            "dependsOn": ["^build"],
-            "outputs": ["dist/**"]
-        }
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
     }
+  }
 }

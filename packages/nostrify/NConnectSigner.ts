@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 import { NostrConnectRequest, NostrConnectResponse, NostrEvent, NostrSigner, NRelay } from '@nostrify/types';
 
-import { NSchema as n } from './NSchema.ts';
+import { NSchema as n } from './NSchema';
 
 /** Options for `NConnectSigner`. */
 export interface NConnectSignerOpts {
@@ -28,7 +28,9 @@ export class NConnectSigner implements NostrSigner {
   private timeout?: number;
   private encryption: 'nip04' | 'nip44';
 
-  constructor({ relay, pubkey, signer, timeout, encryption = 'nip44' }: NConnectSignerOpts) {
+  constructor(
+    { relay, pubkey, signer, timeout, encryption = 'nip44' }: NConnectSignerOpts,
+  ) {
     this.relay = relay;
     this.pubkey = pubkey;
     this.signer = signer;
@@ -40,17 +42,26 @@ export class NConnectSigner implements NostrSigner {
     return this.cmd('get_public_key', []);
   }
 
-  async signEvent(event: Omit<NostrEvent, 'id' | 'pubkey' | 'sig'>): Promise<NostrEvent> {
+  async signEvent(
+    event: Omit<NostrEvent, 'id' | 'pubkey' | 'sig'>,
+  ): Promise<NostrEvent> {
     const result = await this.cmd('sign_event', [JSON.stringify(event)]);
     return n.json().pipe(n.event()).parse(result);
   }
 
-  async getRelays(): Promise<Record<string, { read: boolean; write: boolean }>> {
+  async getRelays(): Promise<
+    Record<string, { read: boolean; write: boolean }>
+  > {
     const result = await this.cmd('get_relays', []);
 
     return n
       .json()
-      .pipe(z.record(z.string(), z.object({ read: z.boolean(), write: z.boolean() })))
+      .pipe(
+        z.record(
+          z.string(),
+          z.object({ read: z.boolean(), write: z.boolean() }),
+        ),
+      )
       .parse(result);
   }
 
@@ -107,7 +118,10 @@ export class NConnectSigner implements NostrSigner {
   }
 
   /** Low-level send method. Deals directly with connect request/response. */
-  private async send(request: NostrConnectRequest, opts: { signal?: AbortSignal } = {}): Promise<NostrConnectResponse> {
+  private async send(
+    request: NostrConnectRequest,
+    opts: { signal?: AbortSignal } = {},
+  ): Promise<NostrConnectResponse> {
     const { signal } = opts;
 
     const event = await this.signer.signEvent({
@@ -133,7 +147,9 @@ export class NConnectSigner implements NostrSigner {
             if (msg[0] === 'EVENT') {
               const event = msg[2];
               const decrypted = await this.decrypt(this.pubkey, event.content);
-              const response = n.json().pipe(n.connectResponse()).parse(decrypted);
+              const response = n.json().pipe(n.connectResponse()).parse(
+                decrypted,
+              );
               if (response.id === request.id) {
                 resolve(response);
                 return;

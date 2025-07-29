@@ -1,10 +1,10 @@
 import { NostrEvent } from '@nostrify/types';
 import { bech32 } from '@scure/base';
 
-import { LNURLCallback } from './types/LNURLCallback.ts';
-import { LNURLDetails } from './types/LNURLDetails.ts';
+import { LNURLCallback } from './types/LNURLCallback';
+import { LNURLDetails } from './types/LNURLDetails';
 
-import { NSchema as n, z } from '../NSchema.ts';
+import { NSchema as n, z } from '../NSchema';
 
 /**
  * Represents an LNURL, with methods to fetch details and generate invoices.
@@ -32,12 +32,18 @@ export class LNURL {
    * Create an LNURL object from a bech32 `lnurl1...` string.
    * Throws if the value is not a valid lnurl.
    */
-  static fromString(value: string, opts?: { fetch: typeof globalThis.fetch }): LNURL {
+  static fromString(
+    value: string,
+    opts?: { fetch: typeof globalThis.fetch },
+  ): LNURL {
     if (!n.bech32().safeParse(value).success) {
       throw new Error('Expected a bech32 string starting with "lnurl1"');
     }
 
-    const { prefix, words } = bech32.decode(value as `${string}1${string}`, 20000);
+    const { prefix, words } = bech32.decode(
+      value as `${string}1${string}`,
+      20000,
+    );
 
     if (prefix !== 'lnurl') {
       throw new Error('Expected a bech32 string starting with "lnurl1"');
@@ -53,9 +59,14 @@ export class LNURL {
    * Create an LNURL object from a lightning address (email-like format).
    * Throws if the value is not a valid lightning address.
    */
-  static fromLightningAddress(ln: string, opts?: { fetch: typeof globalThis.fetch }): LNURL {
+  static fromLightningAddress(
+    ln: string,
+    opts?: { fetch: typeof globalThis.fetch },
+  ): LNURL {
     if (!z.string().email().safeParse(ln).success) {
-      throw new Error('Expected a lightning address in email-like format (eg "example@getalby.com")');
+      throw new Error(
+        'Expected a lightning address in email-like format (eg "example@getalby.com")',
+      );
     }
 
     const [name, host] = ln.split('@');

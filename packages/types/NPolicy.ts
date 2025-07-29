@@ -1,6 +1,6 @@
-import { NostrEvent } from './NostrEvent.ts';
-import { NostrRelayInfo } from './NostrRelayInfo.ts';
-import { NostrRelayOK } from './NostrRelayMsg.ts';
+import { NostrEvent } from './NostrEvent';
+import { NostrRelayInfo } from './NostrRelayInfo';
+import { NostrRelayOK } from './NostrRelayMsg';
 
 /**
  * Nostr moderation policy.

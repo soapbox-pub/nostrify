@@ -1,15 +1,19 @@
 import { NostrEvent, NostrFilter, NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT, NRelay } from '@nostrify/types';
 import { getFilterLimit } from 'nostr-tools';
 
-import { CircularSet } from './utils/CircularSet.ts';
-import { Machina } from './utils/Machina.ts';
-import { NSet } from './NSet.ts';
+import { CircularSet } from './utils/CircularSet';
+import { Machina } from './utils/Machina';
+import { NSet } from './NSet';
 
 export interface NPoolOpts<T extends NRelay> {
   /** Creates an `NRelay` instance for the given URL. */
   open(url: string): T;
   /** Determines the relays to use for making `REQ`s to the given filters. To support the Outbox model, it should analyze the `authors` field of the filters. */
-  reqRouter(filters: NostrFilter[]): ReadonlyMap<string, NostrFilter[]> | Promise<ReadonlyMap<string, NostrFilter[]>>;
+  reqRouter(
+    filters: NostrFilter[],
+  ):
+    | ReadonlyMap<string, NostrFilter[]>
+    | Promise<ReadonlyMap<string, NostrFilter[]>>;
   /** Determines the relays to use for publishing the given event. To support the Outbox model, it should analyze the `pubkey` field of the event. */
   eventRouter(event: NostrEvent): string[] | Promise<string[]>;
 }
@@ -99,7 +103,9 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
       return;
     }
 
-    const machina = new Machina<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED>(signal);
+    const machina = new Machina<
+      NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED
+    >(signal);
 
     const eoses = new Set<string>();
     const closes = new Set<string>();
@@ -146,7 +152,10 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
    * Returns a fulfilled promise if ANY relay accepted the event,
    * or a rejected promise if ALL relays rejected or failed to publish the event.
    */
-  async event(event: NostrEvent, opts?: { signal?: AbortSignal; relays?: string[] }): Promise<void> {
+  async event(
+    event: NostrEvent,
+    opts?: { signal?: AbortSignal; relays?: string[] },
+  ): Promise<void> {
     const relayUrls = opts?.relays ?? await this.opts.eventRouter(event);
 
     if (!relayUrls.length) {
@@ -170,11 +179,17 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
    *
    * To implement a custom strategy, call `.req` directly.
    */
-  async query(filters: NostrFilter[], opts?: { signal?: AbortSignal; relays?: string[] }): Promise<NostrEvent[]> {
+  async query(
+    filters: NostrFilter[],
+    opts?: { signal?: AbortSignal; relays?: string[] },
+  ): Promise<NostrEvent[]> {
     const map = new Map<string, NostrEvent>();
     const events = new NSet(map);
 
-    const limit = filters.reduce((result, filter) => result + getFilterLimit(filter), 0);
+    const limit = filters.reduce(
+      (result, filter) => result + getFilterLimit(filter),
+      0,
+    );
     if (limit === 0) return [];
 
     try {

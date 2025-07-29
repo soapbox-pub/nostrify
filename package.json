@@ -6,28 +6,6 @@
     "docs:dev": "deno task --cwd docs dev",
     "docs:build": "deno task --cwd docs build"
   },
-  "lint": {
-    "rules": {
-      "tags": [
-        "recommended"
-      ],
-      "exclude": [
-        "no-explicit-any"
-      ]
-    }
-  },
-  "fmt": {
-    "useTabs": false,
-    "lineWidth": 120,
-    "indentWidth": 2,
-    "semiColons": true,
-    "singleQuote": true,
-    "proseWrap": "preserve"
-  },
-  "unstable": [
-    "ffi",
-    "kv"
-  ],
   "private": true,
   "dependencies": {
     "@scure/base": "jsr:^1.2.4",

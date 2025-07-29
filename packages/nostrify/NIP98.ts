@@ -2,7 +2,7 @@ import { NostrEvent } from '@nostrify/types';
 import { encodeHex } from '@std/encoding/hex';
 import { verifyEvent as _verifyEvent } from 'nostr-tools';
 
-import { N64 } from './utils/N64.ts';
+import { N64 } from './utils/N64';
 
 /** [NIP-98](https://github.com/nostr-protocol/nips/blob/master/98.md) HTTP auth. */
 export class NIP98 {
@@ -11,7 +11,9 @@ export class NIP98 {
     request: Request,
     opts?: { validatePayload?: boolean },
   ): Promise<Omit<NostrEvent, 'id' | 'pubkey' | 'sig'>> {
-    const { validatePayload = ['POST', 'PUT', 'PATCH'].includes(request.method) } = opts ?? {};
+    const {
+      validatePayload = ['POST', 'PUT', 'PATCH'].includes(request.method),
+    } = opts ?? {};
     const { method, url } = request;
 
     const tags = [

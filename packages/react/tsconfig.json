@@ -1,18 +1,14 @@
 {
-    "extends": "../../tsconfig.base.json",
-    "compilerOptions": {
-        "jsx": "react-jsx",
-        "jsxImportSource": "react",
-        "jsxImportSourceTypes": "@types/react",
-        "lib": [
-            "dom"
-        ]
-    },
-    "include": [
-        "./**/*.ts"
-    ],
-    "exclude": [
-        "**/*.test.ts",
-        "**/*.bench.ts",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "jsxImportSourceTypes": "@types/react",
+    "lib": [
+      "dom"
     ]
+  },
+  "include": [
+    "./**/*.ts"
+  ]
 }

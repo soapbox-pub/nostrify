@@ -1,1 +1,1 @@
-export { NDKStore } from './NDKStore.ts';
+export { NDKStore } from './NDKStore';

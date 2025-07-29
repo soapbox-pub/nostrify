@@ -2,7 +2,7 @@ import { NostrSigner, NUploader } from '@nostrify/types';
 import { encodeHex } from '@std/encoding/hex';
 import { z } from 'zod';
 
-import { N64 } from '../utils/N64.ts';
+import { N64 } from '../utils/N64';
 
 /** BlossomUploader options. */
 export interface BlossomUploaderOpts {
@@ -30,8 +30,13 @@ export class BlossomUploader implements NUploader {
     this.expiresIn = opts.expiresIn ?? 60_000;
   }
 
-  async upload(file: File, opts?: { signal?: AbortSignal }): Promise<[['url', string], ...string[][]]> {
-    const x = encodeHex(await crypto.subtle.digest('SHA-256', await file.arrayBuffer()));
+  async upload(
+    file: File,
+    opts?: { signal?: AbortSignal },
+  ): Promise<[['url', string], ...string[][]]> {
+    const x = encodeHex(
+      await crypto.subtle.digest('SHA-256', await file.arrayBuffer()),
+    );
 
     const now = Date.now();
     const expiration = now + this.expiresIn;

@@ -3,11 +3,12 @@ import { PostgresJSDialect } from 'kysely-postgres-js';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 import postgres from 'postgres';
 
-import { NPostgres, NPostgresSchema } from './NPostgres.ts';
+import { NPostgres, NPostgresSchema } from './NPostgres';
 
 import events from '../../fixtures/events.json' with { type: 'json' };
 
-const databaseUrl = Deno.env.get('DATABASE_URL') ?? 'postgres://localhost:5432/nostrify_pg_bench';
+const databaseUrl = Deno.env.get('DATABASE_URL') ??
+  'postgres://localhost:5432/nostrify_pg_bench';
 
 const kysely = new Kysely<NPostgresSchema>({
   dialect: new PostgresJSDialect({
@@ -53,7 +54,12 @@ Deno.bench('NPostgres.event with many tags', async (b) => {
 
   const tags: string[][] = new Array(300)
     .fill('')
-    .map(() => ['p', '570a9c85c7dd56eca0d8c7f258d7fc178f1b2bb3aab4136ba674dc4879eee88a']);
+    .map(
+      () => [
+        'p',
+        '570a9c85c7dd56eca0d8c7f258d7fc178f1b2bb3aab4136ba674dc4879eee88a',
+      ],
+    );
 
   const event = finalizeEvent({
     kind: 1,
@@ -68,7 +74,10 @@ Deno.bench('NPostgres.event with many tags', async (b) => {
 });
 
 Deno.bench('NPostgres.query by id', async () => {
-  await db.query([{ ids: ['119abcfcebf253a6b1af1a03e2ff1c05798c2f46cadfa2efc98eaef686095292'], limit: 1 }]);
+  await db.query([{
+    ids: ['119abcfcebf253a6b1af1a03e2ff1c05798c2f46cadfa2efc98eaef686095292'],
+    limit: 1,
+  }]);
 });
 
 Deno.bench('NPostgres.query by multiple ids', async () => {
@@ -90,7 +99,12 @@ Deno.bench('NPostgres.query by multiple kinds', async () => {
 });
 
 Deno.bench('NPostgres.query by author', async () => {
-  await db.query([{ authors: ['753d025936c8c3238b1b2b2f748be6df92743c2201e5198946e9d6a29156793f'], limit: 20 }]);
+  await db.query([{
+    authors: [
+      '753d025936c8c3238b1b2b2f748be6df92743c2201e5198946e9d6a29156793f',
+    ],
+    limit: 20,
+  }]);
 });
 
 Deno.bench('NPostgres.query by multiple authors', async () => {
@@ -106,19 +120,26 @@ Deno.bench('NPostgres.query by multiple authors', async () => {
 Deno.bench('NPostgres.query replaceable event by author', async () => {
   await db.query([{
     kinds: [0],
-    authors: ['9887797d06372fa7aa79950328e0754277ee748efa2222204c713ac03f1a5a81'],
+    authors: [
+      '9887797d06372fa7aa79950328e0754277ee748efa2222204c713ac03f1a5a81',
+    ],
     limit: 1,
   }]);
 });
 
-Deno.bench('NPostgres.query parameterized replaceable event by author', async () => {
-  await db.query([{
-    kinds: [30078],
-    authors: ['bac7a8b8b0bb6b4194969254a5223a1f13b8d01c5bd18f65d5cefc41525ae54f'],
-    '#d': ['snort'],
-    limit: 1,
-  }]);
-});
+Deno.bench(
+  'NPostgres.query parameterized replaceable event by author',
+  async () => {
+    await db.query([{
+      kinds: [30078],
+      authors: [
+        'bac7a8b8b0bb6b4194969254a5223a1f13b8d01c5bd18f65d5cefc41525ae54f',
+      ],
+      '#d': ['snort'],
+      limit: 1,
+    }]);
+  },
+);
 
 Deno.bench('NPostgres.query by single tag', async () => {
   await db.query([{
@@ -145,7 +166,9 @@ Deno.bench('NPostgres.query many events by tag', async () => {
 Deno.bench('NPostgres.query by kind and pubkey', async () => {
   await db.query([{
     kinds: [3],
-    authors: ['235f0103f48a7c04524d0ab40de8d8549c5563545b9ab21da2949c013c48bffd'],
+    authors: [
+      '235f0103f48a7c04524d0ab40de8d8549c5563545b9ab21da2949c013c48bffd',
+    ],
     limit: 20,
   }]);
 });
@@ -153,7 +176,9 @@ Deno.bench('NPostgres.query by kind and pubkey', async () => {
 Deno.bench('NPostgres.query by multiple kinds and pubkey', async () => {
   await db.query([{
     kinds: [3, 5, 6],
-    authors: ['235f0103f48a7c04524d0ab40de8d8549c5563545b9ab21da2949c013c48bffd'],
+    authors: [
+      '235f0103f48a7c04524d0ab40de8d8549c5563545b9ab21da2949c013c48bffd',
+    ],
     limit: 20,
   }]);
 });
@@ -170,14 +195,17 @@ Deno.bench('NPostgres.query by kind and multiple pubkeys', async () => {
   }]);
 });
 
-Deno.bench('NPostgres.query by multiple kinds and multiple pubkeys', async () => {
-  await db.query([{
-    kinds: [3, 5, 6],
-    authors: [
-      '235f0103f48a7c04524d0ab40de8d8549c5563545b9ab21da2949c013c48bffd',
-      'd7ac5eb387d842d79f2421a7f7de3349f02fb2fecac8b8714b4f570d58b4baaf',
-      'dace63b00c42e6e017d00dd190a9328386002ff597b841eb5ef91de4f1ce8491',
-    ],
-    limit: 20,
-  }]);
-});
+Deno.bench(
+  'NPostgres.query by multiple kinds and multiple pubkeys',
+  async () => {
+    await db.query([{
+      kinds: [3, 5, 6],
+      authors: [
+        '235f0103f48a7c04524d0ab40de8d8549c5563545b9ab21da2949c013c48bffd',
+        'd7ac5eb387d842d79f2421a7f7de3349f02fb2fecac8b8714b4f570d58b4baaf',
+        'dace63b00c42e6e017d00dd190a9328386002ff597b841eb5ef91de4f1ce8491',
+      ],
+      limit: 20,
+    }]);
+  },
+);

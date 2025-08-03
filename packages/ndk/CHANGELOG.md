@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.35.2
+
+### Patch Changes
+
+- Fix typescript config so it outputs ESM not CJS built files
+- Updated dependencies
+  - @nostrify/nostrify@0.46.6
+  - @nostrify/types@0.36.2
+
 ## 0.35.1
 
 ### Patch Changes

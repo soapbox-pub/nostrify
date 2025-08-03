@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.36.2
+
+### Patch Changes
+
+- Fix typescript config so it outputs ESM not CJS built files
+
 ## 0.36.1
 
 ### Patch Changes

@@ -6,6 +6,7 @@
   },
   "main": "dist/mod.js",
   "types": "dist/mod.d.ts",
+  "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json"
   },

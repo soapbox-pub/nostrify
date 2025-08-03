@@ -1,4 +1,4 @@
-import { NostrEvent } from './NostrEvent';
+import { NostrEvent } from './NostrEvent.js';
 
 /** NIP-07 Nostr signer. */
 export interface NostrSigner {

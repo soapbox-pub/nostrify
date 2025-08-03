@@ -1,6 +1,6 @@
-import { NostrFilter } from './NostrFilter';
-import { NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT } from './NostrRelayMsg';
-import { NStore } from './NStore';
+import { NostrFilter } from './NostrFilter.js';
+import { NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT } from './NostrRelayMsg.js';
+import { NStore } from './NStore.js';
 
 /** Nostr event store with support for relay subscriptions. */
 export interface NRelay extends NStore {

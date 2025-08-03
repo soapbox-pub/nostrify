@@ -2,8 +2,8 @@ import { NostrEvent } from '@nostrify/types';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 import { readFile } from 'node:fs/promises';
 
-export { ErrorRelay } from './ErrorRelay';
-export { MockRelay } from './MockRelay';
+export { ErrorRelay } from './ErrorRelay.js';
+export { MockRelay } from './MockRelay.js';
 
 /** Import a JSONL fixture by name in tests. */
 export async function jsonlEvents(path: string): Promise<NostrEvent[]> {

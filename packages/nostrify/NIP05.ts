@@ -1,6 +1,6 @@
 import { NProfilePointer } from '@nostrify/types';
 
-import { NSchema as n, z } from './NSchema';
+import { NSchema as n, z } from './NSchema.js';
 
 interface LookupOpts {
   fetch?: typeof fetch;
@@ -15,7 +15,7 @@ export class NIP05 {
 
   /** Nostr pubkey with relays object. */
   private static profilePointerSchema(): z.ZodType<NProfilePointer> {
-    // @ts-expect-error This should be fine.
+    // @ts-expect-error this is fine
     return z.object({
       pubkey: n.id(),
       relays: n.relayUrl().array().optional(),

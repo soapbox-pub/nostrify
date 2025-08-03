@@ -1,6 +1,6 @@
-import { MockRelay } from './mod';
+import { MockRelay } from './mod.js';
 import { NostrClientMsg, NostrEvent, NostrRelayMsg } from '@nostrify/types';
-import { NSchema as n } from '../NSchema';
+import { NSchema as n } from '../NSchema.js';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createServer, Server } from 'http';
 import { AddressInfo } from 'net';

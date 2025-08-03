@@ -1,7 +1,7 @@
 import { type NostrEvent, type NostrMetadata, NSchema as n } from '@nostrify/nostrify';
 import { useSuspenseQuery } from '@tanstack/react-query';
 
-import { useNostr } from '../useNostr';
+import { useNostr } from '../useNostr.js';
 
 export function useAuthor(
   pubkey: string | undefined,

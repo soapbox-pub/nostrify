@@ -1,2 +1,2 @@
-export { BlossomUploader } from './BlossomUploader';
-export { NostrBuildUploader } from './NostrBuildUploader';
+export { BlossomUploader } from './BlossomUploader.js';
+export { NostrBuildUploader } from './NostrBuildUploader.js';

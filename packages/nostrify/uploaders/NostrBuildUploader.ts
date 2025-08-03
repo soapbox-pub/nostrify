@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { N64 } from '../utils/N64';
-import { NIP98 } from '../NIP98';
+import { N64 } from '../utils/N64.js';
+import { NIP98 } from '../NIP98.js';
 import { NostrSigner } from '@nostrify/types';
 import { NUploader } from '@nostrify/types';
 

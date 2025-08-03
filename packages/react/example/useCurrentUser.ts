@@ -1,8 +1,8 @@
 import { type NLoginType, NUser, useNostrLogin } from '@nostrify/react/login';
 import { useMemo } from 'react';
 
-import { useAuthor } from './useAuthor';
-import { useNostr } from '../useNostr';
+import { useAuthor } from './useAuthor.js';
+import { useNostr } from '../useNostr.js';
 
 export function useCurrentUser() {
   const { nostr } = useNostr();

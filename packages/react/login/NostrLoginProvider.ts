@@ -1,7 +1,7 @@
 import { jsx } from 'react/jsx-runtime';
 
-import { NostrLoginContext, NostrLoginContextType } from './NostrLoginContext';
-import { useNostrLoginReducer } from './useNostrLoginReducer';
+import { NostrLoginContext, NostrLoginContextType } from './NostrLoginContext.js';
+import { useNostrLoginReducer } from './useNostrLoginReducer.js';
 
 import type { FC, ReactNode } from 'react';
 

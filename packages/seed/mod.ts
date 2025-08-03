@@ -1,3 +1,3 @@
-export { NCustodial } from './NCustodial';
-export { NPhraseSigner, type NPhraseSignerOpts } from './NPhraseSigner';
-export { NSeedSigner } from './NSeedSigner';
+export { NCustodial } from './NCustodial.js';
+export { NPhraseSigner, type NPhraseSignerOpts } from './NPhraseSigner.js';
+export { NSeedSigner } from './NSeedSigner.js';

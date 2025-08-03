@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 import { NostrConnectRequest, NostrConnectResponse, NostrEvent, NostrSigner, NRelay } from '@nostrify/types';
 
-import { NSchema as n } from './NSchema';
+import { NSchema as n } from './NSchema.js';
 
 /** Options for `NConnectSigner`. */
 export interface NConnectSignerOpts {

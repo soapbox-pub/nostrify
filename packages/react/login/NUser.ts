@@ -1,7 +1,7 @@
 import { NBrowserSigner, NConnectSigner, type NostrSigner, type NPool, NSecSigner } from '@nostrify/nostrify';
 import { nip19 } from 'nostr-tools';
 
-import type { NLoginBunker, NLoginExtension, NLoginNsec } from './NLogin';
+import type { NLoginBunker, NLoginExtension, NLoginNsec } from './NLogin.js';
 
 /** Represents a Nostr user with authentication credentials. */
 export class NUser {

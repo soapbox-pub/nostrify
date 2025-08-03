@@ -1,7 +1,7 @@
 import { NPolicy } from '@nostrify/types';
 import * as readline from 'node:readline';
 
-import type { StrfryInputMessage, StrfryOutputMessage } from './types';
+import type { StrfryInputMessage, StrfryOutputMessage } from './types.js';
 import process from 'node:process';
 
 /**

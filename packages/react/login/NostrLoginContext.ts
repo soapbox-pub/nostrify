@@ -1,6 +1,6 @@
 import { type Context, createContext } from 'react';
 
-import type { NLoginType } from './NLogin';
+import type { NLoginType } from './NLogin.js';
 
 /**
  * NostrLoginContextType defines the shape of the context that will be provided

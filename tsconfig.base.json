@@ -10,6 +10,7 @@
         ],
         "moduleResolution": "nodenext",
         "module": "nodenext",
-        "skipLibCheck": true
+        "skipLibCheck": true,
+        "target": "esnext"
     }
 }

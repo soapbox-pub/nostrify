@@ -4,7 +4,7 @@ import { NostrEvent, NostrFilter, NostrRelayCOUNT, NStore } from '@nostrify/type
 import { LRUCache } from 'lru-cache';
 import { matchFilters } from 'nostr-tools';
 
-import { NSet } from './NSet';
+import { NSet } from './NSet.js';
 
 /**
  * Nostr LRU cache based on [`npm:lru-cache`](https://www.npmjs.com/package/lru-cache).

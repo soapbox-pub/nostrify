@@ -1,6 +1,6 @@
 import { mnemonicToSeedSync } from '@scure/bip39';
 
-import { NSeedSigner } from './NSeedSigner';
+import { NSeedSigner } from './NSeedSigner.js';
 
 export interface NPhraseSignerOpts {
   account?: number;

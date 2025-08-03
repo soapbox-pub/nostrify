@@ -1,4 +1,4 @@
-import { NSeedSigner } from './NSeedSigner';
+import { NSeedSigner } from './NSeedSigner.js';
 
 /**
  * Signer manager for multiple users.

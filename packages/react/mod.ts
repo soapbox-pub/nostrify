@@ -1,2 +1,2 @@
-export { NostrContext, type NostrContextType } from './NostrContext';
-export { useNostr } from './useNostr';
+export { NostrContext, type NostrContextType } from './NostrContext.js';
+export { useNostr } from './useNostr.js';

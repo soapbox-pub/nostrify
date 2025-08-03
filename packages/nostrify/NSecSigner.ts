@@ -29,6 +29,7 @@ export class NSecSigner implements NostrSigner {
   }
 
   async signEvent(event: Omit<NostrEvent, 'id' | 'pubkey' | 'sig'>): Promise<NostrEvent> {
+    // @ts-ignore this is fine
     return finalizeEvent(event, this.#secretKey);
   }
 

@@ -1,2 +1,2 @@
-export { strfry } from './strfry';
-export type { StrfryInputMessage, StrfryOutputMessage } from './types';
+export { strfry } from './strfry.js';
+export type { StrfryInputMessage, StrfryOutputMessage } from './types.js';

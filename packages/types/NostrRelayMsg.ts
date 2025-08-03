@@ -1,4 +1,4 @@
-import { NostrEvent } from './NostrEvent';
+import { NostrEvent } from './NostrEvent.js';
 
 /** Used to send events requested by clients. */
 export type NostrRelayEVENT = ['EVENT', subscriptionId: string, NostrEvent];

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.36.3
+
+### Patch Changes
+
+- fix package.json setup
+- Updated dependencies
+  - @nostrify/nostrify@0.46.5
+  - @nostrify/types@0.36.1
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),

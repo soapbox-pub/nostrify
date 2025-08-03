@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.39.5
+
+### Patch Changes
+
+- fix package.json setup
+- Updated dependencies
+  - @nostrify/nostrify@0.46.5
+  - @nostrify/types@0.36.1
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
@@ -93,7 +102,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 0.32.2 - 2024-09-15
 
-- NPostgres: select from nostr_events.*
+- NPostgres: select from nostr_events.\*
 
 ## 0.32.1 - 2024-09-15
 

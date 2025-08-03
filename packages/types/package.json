@@ -1,9 +1,9 @@
 {
   "name": "@nostrify/types",
   "version": "0.36.0",
-  "exports": "./mod.ts",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "exports": "./dist/mod.js",
+  "main": "dist/mod.js",
+  "types": "dist/mod.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json"
   },

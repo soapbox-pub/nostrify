@@ -5,9 +5,8 @@
         "sourceMap": true,
         "composite": true,
         "lib": [
-            "es2023",
             "dom",
-            "ES2021.Promise"
+            "ESNext"
         ],
         "moduleResolution": "nodenext",
         "module": "nodenext",

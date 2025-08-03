@@ -20,5 +20,8 @@
     "react-dom": "^18.0.0",
     "vite": "^6.2.2",
     "@nostrify/nostrify": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

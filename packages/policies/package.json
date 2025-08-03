@@ -13,5 +13,8 @@
     "@deno/kv": "^0.10.0",
     "@nostrify/types": "workspace:*",
     "@nostrify/nostrify": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

@@ -16,5 +16,8 @@
   "dependencies": {
     "@nostrify/types": "workspace:*",
     "ws": "^8.18.3"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

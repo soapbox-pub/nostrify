@@ -11,5 +11,8 @@
   },
   "dependencies": {
     "@nostrify/types": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

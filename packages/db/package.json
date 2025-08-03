@@ -15,5 +15,8 @@
     "postgres": "^3.4.4",
     "@nostrify/nostrify": "workspace:*",
     "@nostrify/types": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

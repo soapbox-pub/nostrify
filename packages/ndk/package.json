@@ -4,8 +4,8 @@
   "exports": "./dist/mod.js",
   "dependencies": {
     "@nostr-dev-kit/ndk": "^2.7.1",
-    "@nostrify/types": "workspace:*",
-    "@nostrify/nostrify": "workspace:*"
+    "@nostrify/nostrify": "workspace:*",
+    "@nostrify/types": "workspace:*"
   },
   "main": "dist/mod.js",
   "types": "dist/mod.d.ts",

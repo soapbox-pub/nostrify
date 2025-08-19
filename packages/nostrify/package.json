@@ -16,7 +16,9 @@
   },
   "dependencies": {
     "@nostrify/types": "workspace:*",
-    "ws": "^8.18.3"
+    "ws": "^8.18.3",
+    "@scure/base": "jsr:^1.2.4",
+    "lru-cache": "^10.2.0"
   },
   "publishConfig": {
     "access": "public"

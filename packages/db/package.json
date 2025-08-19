@@ -11,11 +11,11 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@nostrify/nostrify": "workspace:*",
+    "@nostrify/types": "workspace:*",
     "kysely": "^0.27.3",
     "kysely-postgres-js": "^2.0.0",
-    "postgres": "^3.4.4",
-    "@nostrify/nostrify": "workspace:*",
-    "@nostrify/types": "workspace:*"
+    "postgres": "^3.4.4"
   },
   "publishConfig": {
     "access": "public"

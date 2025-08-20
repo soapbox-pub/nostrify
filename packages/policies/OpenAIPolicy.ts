@@ -1,4 +1,4 @@
-import { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
+import type { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
 
 /**
  * OpenAI moderation result.
@@ -75,7 +75,10 @@ interface OpenAIPolicyOpts {
  * ```
  */
 export class OpenAIPolicy implements NPolicy {
-  constructor(private opts: OpenAIPolicyOpts) {}
+  private opts: OpenAIPolicyOpts;
+  constructor(opts: OpenAIPolicyOpts) {
+    this.opts = opts;
+  }
 
   async call(event: NostrEvent, signal?: AbortSignal): Promise<NostrRelayOK> {
     const {

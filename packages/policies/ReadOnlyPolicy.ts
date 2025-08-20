@@ -1,4 +1,4 @@
-import { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
+import type { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
 
 /** This policy rejects all messages. */
 export class ReadOnlyPolicy implements NPolicy {

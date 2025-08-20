@@ -1,10 +1,11 @@
-import { assertEquals } from '@std/assert';
+import { test } from 'node:test';
+import { deepStrictEqual } from 'node:assert';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
 import { InvertPolicy } from './InvertPolicy.ts';
 import { NoOpPolicy } from './NoOpPolicy.ts';
 
-Deno.test('InvertPolicy', async () => {
+test('InvertPolicy', async () => {
   const policy = new InvertPolicy(new NoOpPolicy(), 'blocked: inverted');
 
   const event = finalizeEvent(
@@ -14,6 +15,6 @@ Deno.test('InvertPolicy', async () => {
 
   const [_, _eventId, ok, reason] = await policy.call(event);
 
-  assertEquals(ok, false);
-  assertEquals(reason, 'blocked: inverted');
+  deepStrictEqual(ok, false);
+  deepStrictEqual(reason, 'blocked: inverted');
 });

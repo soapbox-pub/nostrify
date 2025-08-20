@@ -2,9 +2,9 @@
   "name": "@nostrify/strfry",
   "version": "0.2.4",
   "exports": {
-    ".": "./dist/mod.js"
+    ".": "./dist/mod.ts"
   },
-  "main": "dist/mod.js",
+  "main": "./mod.ts",
   "types": "dist/mod.d.ts",
   "type": "module",
   "scripts": {

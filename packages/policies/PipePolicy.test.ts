@@ -1,11 +1,12 @@
-import { assertEquals } from '@std/assert';
+import { test } from 'node:test';
+import { deepStrictEqual } from 'node:assert';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
 import { NoOpPolicy } from './NoOpPolicy.ts';
 import { PipePolicy } from './PipePolicy.ts';
 import { ReadOnlyPolicy } from './ReadOnlyPolicy.ts';
 
-Deno.test('passes events through multiple policies', async () => {
+test('passes events through multiple policies', async () => {
   const policy = new PipePolicy([
     new NoOpPolicy(),
     new ReadOnlyPolicy(),
@@ -18,11 +19,11 @@ Deno.test('passes events through multiple policies', async () => {
 
   const [_, _eventId, ok, reason] = await policy.call(event);
 
-  assertEquals(ok, false);
-  assertEquals(reason, 'blocked: the relay is read-only');
+  deepStrictEqual(ok, false);
+  deepStrictEqual(reason, 'blocked: the relay is read-only');
 });
 
-Deno.test('short-circuits on the first reject', async () => {
+test('short-circuits on the first reject', async () => {
   const policy = new PipePolicy([
     new ReadOnlyPolicy(),
     new NoOpPolicy(),
@@ -35,11 +36,11 @@ Deno.test('short-circuits on the first reject', async () => {
 
   const [_, _eventId, ok, reason] = await policy.call(event);
 
-  assertEquals(ok, false);
-  assertEquals(reason, 'blocked: the relay is read-only');
+  deepStrictEqual(ok, false);
+  deepStrictEqual(reason, 'blocked: the relay is read-only');
 });
 
-Deno.test('accepts when all policies accept', async () => {
+test('accepts when all policies accept', async () => {
   const policy = new PipePolicy([
     new NoOpPolicy(),
     new NoOpPolicy(),
@@ -53,6 +54,6 @@ Deno.test('accepts when all policies accept', async () => {
 
   const [_, _eventId, ok, reason] = await policy.call(event);
 
-  assertEquals(ok, true);
-  assertEquals(reason, '');
+  deepStrictEqual(ok, true);
+  deepStrictEqual(reason, '');
 });

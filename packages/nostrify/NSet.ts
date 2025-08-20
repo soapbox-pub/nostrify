@@ -1,4 +1,4 @@
-import { NostrEvent } from '@nostrify/types';
+import type { NostrEvent } from "@nostrify/types";
 
 /**
  * Nostr event implementation of the `Set` interface.
@@ -57,7 +57,7 @@ class NSet {
   #processDeletions(event: NostrEvent): void {
     if (event.kind === 5) {
       for (const tag of event.tags) {
-        if (tag[0] === 'e') {
+        if (tag[0] === "e") {
           const e = this.cache.get(tag[1]);
           if (e && e.pubkey === event.pubkey) {
             this.delete(e);
@@ -75,8 +75,14 @@ class NSet {
     return this.cache.delete(event.id);
   }
 
-  forEach(callbackfn: (event: NostrEvent, key: NostrEvent, set: typeof this) => void, thisArg?: any): void {
-    return this.cache.forEach((event, _id) => callbackfn(event, event, this), thisArg);
+  forEach(
+    callbackfn: (event: NostrEvent, key: NostrEvent, set: typeof this) => void,
+    thisArg?: any,
+  ): void {
+    return this.cache.forEach(
+      (event, _id) => callbackfn(event, event, this),
+      thisArg,
+    );
   }
 
   has(event: NostrEvent): boolean {
@@ -103,7 +109,7 @@ class NSet {
     return this.values();
   }
 
-  [Symbol.toStringTag]: string = 'NSet';
+  [Symbol.toStringTag]: string = "NSet";
 
   /** Event kind is **replaceable**, which means that, for each combination of `pubkey` and `kind`, only the latest event is expected to (SHOULD) be stored by relays, older versions are expected to be discarded. */
   protected static isReplaceable(kind: number): boolean {
@@ -124,12 +130,13 @@ class NSet {
     const { kind, pubkey } = event;
 
     if (NSet.isReplaceable(kind)) {
-      return kind === target.kind && pubkey === target.pubkey && NSet.sortEvents([event, target])[0] === event;
+      return kind === target.kind && pubkey === target.pubkey &&
+        NSet.sortEvents([event, target])[0] === event;
     }
 
     if (NSet.isAddressable(kind)) {
-      const d1 = event.tags.find(([name]) => name === 'd')?.[1] || '';
-      const d2 = target.tags.find(([name]) => name === 'd')?.[1] || '';
+      const d1 = event.tags.find(([name]) => name === "d")?.[1] || "";
+      const d2 = target.tags.find(([name]) => name === "d")?.[1] || "";
 
       return kind === target.kind &&
         pubkey === target.pubkey &&
@@ -149,7 +156,7 @@ class NSet {
     const { kind, pubkey, tags } = event;
     if (kind === 5 && pubkey === target.pubkey) {
       for (const [name, value] of tags) {
-        if (name === 'e' && value === target.id) {
+        if (name === "e" && value === target.id) {
           return true;
         }
       }
@@ -172,31 +179,31 @@ class NSet {
   }
 
   union<U>(_other: Set<U>): Set<NostrEvent | U> {
-    throw new Error('Method not implemented.');
+    throw new Error("Method not implemented.");
   }
 
   intersection<U>(_other: Set<U>): Set<NostrEvent & U> {
-    throw new Error('Method not implemented.');
+    throw new Error("Method not implemented.");
   }
 
   difference<U>(_other: Set<U>): Set<NostrEvent> {
-    throw new Error('Method not implemented.');
+    throw new Error("Method not implemented.");
   }
 
   symmetricDifference<U>(_other: Set<U>): Set<NostrEvent | U> {
-    throw new Error('Method not implemented.');
+    throw new Error("Method not implemented.");
   }
 
   isSubsetOf(_other: Set<unknown>): boolean {
-    throw new Error('Method not implemented.');
+    throw new Error("Method not implemented.");
   }
 
   isSupersetOf(_other: Set<unknown>): boolean {
-    throw new Error('Method not implemented.');
+    throw new Error("Method not implemented.");
   }
 
   isDisjointFrom(_other: Set<unknown>): boolean {
-    throw new Error('Method not implemented.');
+    throw new Error("Method not implemented.");
   }
 }
 

@@ -1,5 +1,7 @@
-import { NBrowserSigner, NConnectSigner, type NostrSigner, type NPool, NSecSigner } from '@nostrify/nostrify';
+import { NBrowserSigner, NConnectSigner, NSecSigner } from '@nostrify/nostrify';
 import { nip19 } from 'nostr-tools';
+import type { NPool } from '@nostrify/nostrify';
+import type { NostrSigner } from '@nostrify/types';
 
 import type { NLoginBunker, NLoginExtension, NLoginNsec } from './NLogin.ts';
 

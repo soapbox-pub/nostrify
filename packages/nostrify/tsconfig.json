@@ -1,7 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
   "include": [
-    "./**/*.ts"
+    "./**/*.ts",
+    "!./**/*.test.ts",
+    "!./**/*.bench.ts"
   ],
   "exclude": [
     "./dist",
@@ -9,6 +11,7 @@
     "./**/*.test.ts"
   ],
   "compilerOptions": {
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "target": "es2024"
   }
 }

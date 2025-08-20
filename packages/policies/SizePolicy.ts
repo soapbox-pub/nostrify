@@ -1,4 +1,4 @@
-import { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
+import type { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
 
 /** Policy options for `SizePolicy`. */
 interface SizePolicyOpts {
@@ -17,7 +17,11 @@ interface SizePolicyOpts {
  * ```
  */
 export class SizePolicy implements NPolicy {
-  constructor(private opts: SizePolicyOpts = {}) {}
+  private opts: SizePolicyOpts;
+
+  constructor(opts: SizePolicyOpts = {}) {
+    this.opts = opts;
+  }
 
   // deno-lint-ignore require-await
   async call(event: NostrEvent): Promise<NostrRelayOK> {

@@ -1,20 +1,21 @@
-import { NostrEvent } from '@nostrify/types';
-import { assert, assertEquals, assertRejects } from '@std/assert';
-import { finalizeEvent, generateSecretKey } from 'nostr-tools';
-import { WebsocketEvent } from 'websocket-ts';
+import { it, test } from "node:test";
+import type { NostrEvent } from "@nostrify/types";
+import { deepStrictEqual, ok, rejects } from "node:assert";
+import { finalizeEvent, generateSecretKey } from "nostr-tools";
+import { WebsocketEvent } from "websocket-ts";
 
-import { genEvent } from './test/mod.ts';
-import { TestRelayServer } from './test/TestRelayServer.ts';
-import { NRelay1 } from './NRelay1.ts';
+import { genEvent } from "./test/mod.ts";
+import { TestRelayServer } from "./test/TestRelayServer.ts";
+import { NRelay1 } from "./NRelay1.ts";
 
-import events from '../../fixtures/events.json' with { type: 'json' };
+import events from "../../fixtures/events.json" with { type: "json" };
 
 const event1s = events
   .filter((e) => e.kind === 1)
   .toSorted((_) => 0.5 - Math.random())
   .slice(0, 10);
 
-Deno.test('NRelay1.query', async () => {
+test("NRelay1.query", async () => {
   const controller = new AbortController();
   const tid = setTimeout(() => controller.abort(), 3000);
 
@@ -25,21 +26,23 @@ Deno.test('NRelay1.query', async () => {
   }
 
   await using relay = new NRelay1(server.url);
-  const events = await relay.query([{ kinds: [1], limit: 3 }], { signal: controller.signal });
+  const events = await relay.query([{ kinds: [1], limit: 3 }], {
+    signal: controller.signal,
+  });
 
-  assertEquals(events.length, 3);
-  assert(events[0].created_at >= events[1].created_at);
+  deepStrictEqual(events.length, 3);
+  ok(events[0].created_at >= events[1].created_at);
 
   clearTimeout(tid);
 });
 
-Deno.test('NRelay1.query mismatched filter', async () => {
+test("NRelay1.query mismatched filter", async () => {
   await using server = new TestRelayServer({
     handleMessage(socket, msg) {
-      if (msg[0] === 'REQ') {
+      if (msg[0] === "REQ") {
         const [, subId, ..._filters] = msg;
-        socket.send(JSON.stringify(['EVENT', subId, genEvent({ kind: 9001 })]));
-        socket.send(JSON.stringify(['EOSE', subId]));
+        socket.send(JSON.stringify(["EVENT", subId, genEvent({ kind: 9001 })]));
+        socket.send(JSON.stringify(["EOSE", subId]));
       }
     },
   });
@@ -47,10 +50,10 @@ Deno.test('NRelay1.query mismatched filter', async () => {
   await using relay = new NRelay1(server.url);
   const events = await relay.query([{ kinds: [1] }]);
 
-  assertEquals(events, []);
+  deepStrictEqual(events, []);
 });
 
-Deno.test('NRelay1.req', async () => {
+test("NRelay1.req", async () => {
   const controller = new AbortController();
   const tid = setTimeout(() => controller.abort(), 3000);
 
@@ -63,25 +66,30 @@ Deno.test('NRelay1.req', async () => {
   await using relay = new NRelay1(server.url);
   const events: NostrEvent[] = [];
 
-  for await (const msg of relay.req([{ kinds: [1], limit: 3 }], { signal: controller.signal })) {
-    if (msg[0] === 'EVENT') {
+  for await (
+    const msg of relay.req([{ kinds: [1], limit: 3 }], {
+      signal: controller.signal,
+    })
+  ) {
+    if (msg[0] === "EVENT") {
       events.push(msg[2]);
       break;
     }
   }
 
-  assertEquals(events.length, 1);
+  deepStrictEqual(events.length, 1);
 
   clearTimeout(tid);
 });
 
-Deno.test('NRelay1.event', async () => {
+test("NRelay1.event", async () => {
   await using server = new TestRelayServer();
   await using relay = new NRelay1(server.url);
 
   const event: NostrEvent = finalizeEvent({
     kind: 1,
-    content: 'This is an automated test from Nostrify: https://gitlab.com/soapbox-pub/nostrify',
+    content:
+      "This is an automated test from Nostrify: https://gitlab.com/soapbox-pub/nostrify",
     tags: [],
     created_at: Math.floor(Date.now() / 1000),
   }, generateSecretKey());
@@ -89,13 +97,17 @@ Deno.test('NRelay1.event', async () => {
   await relay.event(event);
 });
 
-Deno.test('NRelay1 backoff', async (t) => {
+test("NRelay1 backoff", async () => {
   await using server = new TestRelayServer();
   await using relay = new NRelay1(server.url);
 
-  await t.step('websocket opens', async () => {
-    await new Promise((resolve) => relay.socket.addEventListener(WebsocketEvent.open, resolve, { once: true }));
-    assertEquals(relay.socket.readyState, WebSocket.OPEN);
+  await it("websocket opens", async () => {
+    await new Promise((resolve) =>
+      relay.socket.addEventListener(WebsocketEvent.open, resolve, {
+        once: true,
+      })
+    );
+    deepStrictEqual(relay.socket.readyState, WebSocket.OPEN);
   });
 
   // Start a subscription so the relay will reconnect
@@ -109,59 +121,69 @@ Deno.test('NRelay1 backoff', async (t) => {
     }
   })();
 
-  await t.step('websocket closes when server closes', async () => {
+  await it("websocket closes when server closes", async () => {
     const waitForClose = new Promise((resolve) =>
-      relay.socket.addEventListener(WebsocketEvent.close, resolve, { once: true })
+      relay.socket.addEventListener(WebsocketEvent.close, resolve, {
+        once: true,
+      })
     );
     await server.close();
     await waitForClose;
-    assertEquals(relay.socket.readyState, WebSocket.CLOSED);
+    deepStrictEqual(relay.socket.readyState, WebSocket.CLOSED);
   });
 
-  await t.step('websocket reopens when server reopens', async () => {
+  await it("websocket reopens when server reopens", async () => {
     server.open();
-    await new Promise((resolve) => relay.socket.addEventListener(WebsocketEvent.open, resolve, { once: true }));
-    assertEquals(relay.socket.readyState, WebSocket.OPEN);
+    await new Promise((resolve) =>
+      relay.socket.addEventListener(WebsocketEvent.open, resolve, {
+        once: true,
+      })
+    );
+    deepStrictEqual(relay.socket.readyState, WebSocket.OPEN);
   });
 });
 
-Deno.test('NRelay1 idleTimeout', async (t) => {
+test("NRelay1 idleTimeout", async () => {
   await using server = new TestRelayServer();
   await using relay = new NRelay1(server.url, { idleTimeout: 100 });
 
-  await t.step('websocket opens', async () => {
+  await it("websocket opens", async () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
-    assertEquals(relay.socket.readyState, WebSocket.OPEN);
+    deepStrictEqual(relay.socket.readyState, WebSocket.OPEN);
   });
 
-  await t.step('websocket closes after idleTimeout', async () => {
+  await it("websocket closes after idleTimeout", async () => {
     await new Promise((resolve) => setTimeout(resolve, 150));
-    assertEquals(relay.socket.readyState, WebSocket.CLOSED);
-    assertEquals(relay.socket.closedByUser, true);
+    deepStrictEqual(relay.socket.readyState, WebSocket.CLOSED);
+    deepStrictEqual(relay.socket.closedByUser, true);
   });
 
-  await t.step('websocket wakes up during activity', async () => {
+  await it("websocket wakes up during activity", async () => {
     await relay.event(events[0]);
     await new Promise((resolve) => setTimeout(resolve, 10));
-    assertEquals(relay.socket.readyState, WebSocket.OPEN);
+    deepStrictEqual(relay.socket.readyState, WebSocket.OPEN);
   });
 });
 
-Deno.test('NRelay1.count rejects when the server sends CLOSED', async () => {
+test("NRelay1.count rejects when the server sends CLOSED", async () => {
   await using server = new TestRelayServer({
     handleMessage(socket, msg) {
-      if (msg[0] === 'COUNT') {
-        server.send(socket, ['CLOSED', msg[1], 'unsupported: COUNT is not supported']);
+      if (msg[0] === "COUNT") {
+        server.send(socket, [
+          "CLOSED",
+          msg[1],
+          "unsupported: COUNT is not supported",
+        ]);
       }
     },
   });
 
   await using relay = new NRelay1(server.url);
 
-  await assertRejects(() => relay.count([{ kinds: [1] }]));
+  await rejects(() => relay.count([{ kinds: [1] }]));
 });
 
-Deno.test('NRelay1 closes when it receives a binary message', async () => {
+test("NRelay1 closes when it receives a binary message", async () => {
   await using server = new TestRelayServer({
     handleMessage(socket) {
       socket.send(new Uint8Array([0x00, 0x01, 0x02, 0x03]));
@@ -170,5 +192,5 @@ Deno.test('NRelay1 closes when it receives a binary message', async () => {
 
   await using relay = new NRelay1(server.url);
 
-  await assertRejects(() => relay.query([{ kinds: [1] }]));
+  await rejects(() => relay.query([{ kinds: [1] }]));
 });

@@ -1,4 +1,4 @@
-import { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
+import type { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
 
 /** Basic policy to demonstrate how policies work. Accepts all events. */
 export class NoOpPolicy implements NPolicy {

@@ -1,9 +1,10 @@
-import { assertEquals } from '@std/assert';
+import { test } from 'node:test';
+import { deepStrictEqual } from 'node:assert';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
 import { SizePolicy } from './SizePolicy.ts';
 
-Deno.test('SizePolicy', async () => {
+test('SizePolicy', async () => {
   const policy = new SizePolicy();
 
   const event = finalizeEvent(
@@ -16,6 +17,6 @@ Deno.test('SizePolicy', async () => {
     generateSecretKey(),
   );
 
-  assertEquals((await policy.call(event))[2], true);
-  assertEquals((await policy.call(bigEvent))[2], false);
+  deepStrictEqual((await policy.call(event))[2], true);
+  deepStrictEqual((await policy.call(bigEvent))[2], false);
 });

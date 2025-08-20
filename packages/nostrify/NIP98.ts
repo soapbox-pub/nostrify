@@ -1,4 +1,4 @@
-import { NostrEvent } from '@nostrify/types';
+import type { NostrEvent } from '@nostrify/types';
 import { encodeHex } from '@std/encoding/hex';
 import { verifyEvent as _verifyEvent } from 'nostr-tools';
 

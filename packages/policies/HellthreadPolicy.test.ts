@@ -1,9 +1,10 @@
-import { assertEquals } from '@std/assert';
+import { test } from 'node:test';
+import { deepStrictEqual } from 'node:assert';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
 import { HellthreadPolicy } from './HellthreadPolicy.ts';
 
-Deno.test('HellthreadPolicy', async () => {
+test('HellthreadPolicy', async () => {
   const policy = new HellthreadPolicy({ limit: 1 });
 
   const okEvent = finalizeEvent(
@@ -18,6 +19,6 @@ Deno.test('HellthreadPolicy', async () => {
     created_at: 0,
   }, generateSecretKey());
 
-  assertEquals((await policy.call(okEvent))[2], true);
-  assertEquals((await policy.call(badEvent))[2], false);
+  deepStrictEqual((await policy.call(okEvent))[2], true);
+  deepStrictEqual((await policy.call(badEvent))[2], false);
 });

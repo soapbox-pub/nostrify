@@ -1,17 +1,18 @@
 {
   "name": "@nostrify/ndk",
   "version": "0.35.3",
-  "exports": "./dist/mod.js",
+  "exports": "./mod.ts",
   "dependencies": {
     "@nostr-dev-kit/ndk": "^2.7.1",
     "@nostrify/nostrify": "workspace:*",
     "@nostrify/types": "workspace:*"
   },
-  "main": "dist/mod.js",
+  "main": "./mod.ts",
   "types": "dist/mod.d.ts",
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test"
   },
   "publishConfig": {
     "access": "public"

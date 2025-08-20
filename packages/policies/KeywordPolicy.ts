@@ -1,4 +1,4 @@
-import { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
+import type { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
 
 /**
  * Reject events containing any of the strings in its content.
@@ -10,7 +10,10 @@ import { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
  * ```
  */
 export class KeywordPolicy implements NPolicy {
-  constructor(private words: Iterable<string>) {}
+  private words: Iterable<string>;
+  constructor(words: Iterable<string>) {
+    this.words = words;
+  }
 
   // deno-lint-ignore require-await
   async call({ id, content }: NostrEvent): Promise<NostrRelayOK> {

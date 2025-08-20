@@ -1,4 +1,4 @@
-import { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
+import type { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
 
 /**
  * Reject events containing any of the banned hashtags.
@@ -10,7 +10,10 @@ import { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
  * ```
  */
 export class HashtagPolicy implements NPolicy {
-  constructor(private hashtags: string[]) {}
+  private hashtags: string[];
+  constructor(hashtags: string[]) {
+    this.hashtags = hashtags;
+  }
 
   // deno-lint-ignore require-await
   async call({ id, tags }: NostrEvent): Promise<NostrRelayOK> {

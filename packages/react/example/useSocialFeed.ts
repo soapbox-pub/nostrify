@@ -2,7 +2,7 @@ import { useSuspenseQuery, type UseSuspenseQueryResult } from '@tanstack/react-q
 
 import { useNostr } from '../useNostr.ts';
 
-import type { NostrEvent } from '@nostrify/nostrify';
+import type { NostrEvent } from '@nostrify/types';
 
 export function useSocialFeed(): UseSuspenseQueryResult<NostrEvent[]> {
   const { nostr } = useNostr();

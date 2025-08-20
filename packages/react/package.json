@@ -2,10 +2,10 @@
   "name": "@nostrify/react",
   "version": "0.2.11",
   "exports": {
-    ".": "./dist/mod.js",
-    "./login": "./dist/login/mod.js"
+    ".": "./dist/mod.ts",
+    "./login": "./dist/login/mod.ts"
   },
-  "main": "dist/mod.js",
+  "main": "./mod.ts",
   "types": "dist/mod.d.ts",
   "type": "module",
   "scripts": {

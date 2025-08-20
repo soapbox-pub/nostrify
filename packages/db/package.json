@@ -2,13 +2,14 @@
   "name": "@nostrify/db",
   "version": "0.39.7",
   "exports": {
-    ".": "./dist/mod.js"
+    ".": "./dist/mod.ts"
   },
-  "main": "dist/mod.js",
+  "main": "./mod.ts",
   "types": "dist/mod.d.ts",
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test"
   },
   "dependencies": {
     "@nostrify/nostrify": "workspace:*",

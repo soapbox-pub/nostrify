@@ -10,11 +10,12 @@
     "@scure/bip39": "jsr:^1.5.4",
     "@types/node": "^24.1.0"
   },
-  "main": "dist/mod.js",
+  "main": "./mod.ts",
   "types": "dist/mod.d.ts",
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test"
   },
   "publishConfig": {
     "access": "public"

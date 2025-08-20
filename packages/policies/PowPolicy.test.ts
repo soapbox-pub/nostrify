@@ -1,18 +1,19 @@
-import { assertEquals } from '@std/assert';
+import { test } from 'node:test';
+import { deepStrictEqual } from 'node:assert';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
 import { PowPolicy } from './PowPolicy.ts';
 
-Deno.test('blocks events without a nonce', async () => {
+test('blocks events without a nonce', async () => {
   const event = finalizeEvent(
     { kind: 1, content: '', tags: [], created_at: 0 },
     generateSecretKey(),
   );
 
-  assertEquals((await new PowPolicy().call(event))[2], false);
+  deepStrictEqual((await new PowPolicy().call(event))[2], false);
 });
 
-Deno.test('accepts event with sufficient POW', async () => {
+test('accepts event with sufficient POW', async () => {
   const event = {
     id: '000006d8c378af1779d2feebc7603a125d99eca0ccf1085959b307f64e5dd358',
     tags: [['nonce', '776797', '20']],
@@ -23,5 +24,5 @@ Deno.test('accepts event with sufficient POW', async () => {
     sig: '',
   };
 
-  assertEquals((await new PowPolicy().call(event))[2], true);
+  deepStrictEqual((await new PowPolicy().call(event))[2], true);
 });

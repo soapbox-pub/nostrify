@@ -1,31 +1,32 @@
+import { test } from 'node:test';
 import { NSecSigner } from '@nostrify/nostrify';
-import { assertEquals, assertRejects } from '@std/assert';
+import { deepStrictEqual, rejects } from 'node:assert';
 import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools';
 
 import { NBrowserSigner } from './NBrowserSigner.ts';
 
 import type { NostrEvent, NostrSigner } from '@nostrify/types';
 
-Deno.test('NBrowserSigner - without extension', async () => {
+test('NBrowserSigner - without extension', async () => {
   // Ensure no extension is available
   (globalThis as { nostr?: NostrSigner }).nostr = undefined;
 
   const signer = new NBrowserSigner();
 
-  await assertRejects(
+  await rejects(
     () => signer.getPublicKey(),
     Error,
     'Browser extension not available',
   );
 
-  await assertRejects(
+  await rejects(
     () => signer.signEvent({ kind: 1, content: 'Hello, world!', tags: [], created_at: 0 }),
     Error,
     'Browser extension not available',
   );
 });
 
-Deno.test('NBrowserSigner - with extension polyfill', async () => {
+test('NBrowserSigner - with extension polyfill', async () => {
   const secretKey = generateSecretKey();
   const mockExtension = new NSecSigner(secretKey);
 
@@ -35,17 +36,17 @@ Deno.test('NBrowserSigner - with extension polyfill', async () => {
   const signer = new NBrowserSigner();
 
   // Test getPublicKey
-  assertEquals(await signer.getPublicKey(), getPublicKey(secretKey));
+  deepStrictEqual(await signer.getPublicKey(), getPublicKey(secretKey));
 
   // Test signEvent
   const template = { kind: 1, content: 'Hello, world!', tags: [], created_at: 0 };
-  assertEquals(await signer.signEvent(template), finalizeEvent(template, secretKey));
+  deepStrictEqual(await signer.signEvent(template), finalizeEvent(template, secretKey));
 
   // Clean up
   (globalThis as { nostr?: NostrSigner }).nostr = undefined;
 });
 
-Deno.test('NBrowserSigner.nip44 - with extension polyfill', async () => {
+test('NBrowserSigner.nip44 - with extension polyfill', async () => {
   const secretKey = generateSecretKey();
   const mockExtension = new NSecSigner(secretKey);
 
@@ -58,13 +59,13 @@ Deno.test('NBrowserSigner.nip44 - with extension polyfill', async () => {
   const plaintext = 'Hello, world!';
 
   const ciphertext = await signer.nip44!.encrypt(pubkey, plaintext);
-  assertEquals(await signer.nip44!.decrypt(pubkey, ciphertext), plaintext);
+  deepStrictEqual(await signer.nip44!.decrypt(pubkey, ciphertext), plaintext);
 
   // Clean up
   (globalThis as { nostr?: NostrSigner }).nostr = undefined;
 });
 
-Deno.test('NBrowserSigner.nip04 - with extension polyfill', async () => {
+test('NBrowserSigner.nip04 - with extension polyfill', async () => {
   const secretKey = generateSecretKey();
   const mockExtension = new NSecSigner(secretKey);
 
@@ -77,13 +78,13 @@ Deno.test('NBrowserSigner.nip04 - with extension polyfill', async () => {
   const plaintext = 'Hello, world!';
 
   const ciphertext = await signer.nip04!.encrypt(pubkey, plaintext);
-  assertEquals(await signer.nip04!.decrypt(pubkey, ciphertext), plaintext);
+  deepStrictEqual(await signer.nip04!.decrypt(pubkey, ciphertext), plaintext);
 
   // Clean up
   (globalThis as { nostr?: NostrSigner }).nostr = undefined;
 });
 
-Deno.test('NBrowserSigner.getRelays - with extension polyfill', async () => {
+test('NBrowserSigner.getRelays - with extension polyfill', async () => {
   const secretKey = generateSecretKey();
   const mockExtension = new NSecSigner(secretKey);
 
@@ -94,13 +95,13 @@ Deno.test('NBrowserSigner.getRelays - with extension polyfill', async () => {
 
   // Since NSecSigner doesn't implement getRelays, this should return empty object
   const relays = await signer.getRelays();
-  assertEquals(relays, {});
+  deepStrictEqual(relays, {});
 
   // Clean up
   (globalThis as { nostr?: NostrSigner }).nostr = undefined;
 });
 
-Deno.test('NBrowserSigner - missing nip44 support', () => {
+test('NBrowserSigner - missing nip44 support', () => {
   // Create a mock extension without nip44 support
   const mockExtension = {
     // deno-lint-ignore require-await
@@ -115,13 +116,13 @@ Deno.test('NBrowserSigner - missing nip44 support', () => {
   const signer = new NBrowserSigner();
 
   // Should return undefined when nip44 is not supported
-  assertEquals(signer.nip44, undefined);
+  deepStrictEqual(signer.nip44, undefined);
 
   // Clean up
   (globalThis as { nostr?: NostrSigner }).nostr = undefined;
 });
 
-Deno.test('NBrowserSigner - missing nip04 support', () => {
+test('NBrowserSigner - missing nip04 support', () => {
   // Create a mock extension without nip04 support
   const mockExtension = {
     // deno-lint-ignore require-await
@@ -136,13 +137,13 @@ Deno.test('NBrowserSigner - missing nip04 support', () => {
   const signer = new NBrowserSigner();
 
   // Should return undefined when nip04 is not supported
-  assertEquals(signer.nip04, undefined);
+  deepStrictEqual(signer.nip04, undefined);
 
   // Clean up
   (globalThis as { nostr?: NostrSigner }).nostr = undefined;
 });
 
-Deno.test('NBrowserSigner - feature detection', () => {
+test('NBrowserSigner - feature detection', () => {
   const secretKey = generateSecretKey();
   const mockExtension = new NSecSigner(secretKey);
 
@@ -154,15 +155,15 @@ Deno.test('NBrowserSigner - feature detection', () => {
   // Should be able to detect nip44 support
   if (signer.nip44) {
     // This should work since NSecSigner supports nip44
-    assertEquals(typeof signer.nip44.encrypt, 'function');
-    assertEquals(typeof signer.nip44.decrypt, 'function');
+    deepStrictEqual(typeof signer.nip44.encrypt, 'function');
+    deepStrictEqual(typeof signer.nip44.decrypt, 'function');
   }
 
   // Should be able to detect nip04 support
   if (signer.nip04) {
     // This should work since NSecSigner supports nip04
-    assertEquals(typeof signer.nip04.encrypt, 'function');
-    assertEquals(typeof signer.nip04.decrypt, 'function');
+    deepStrictEqual(typeof signer.nip04.encrypt, 'function');
+    deepStrictEqual(typeof signer.nip04.decrypt, 'function');
   }
 
   // Clean up

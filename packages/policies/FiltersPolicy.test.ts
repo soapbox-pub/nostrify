@@ -1,14 +1,15 @@
-import { assertEquals } from '@std/assert';
+import { test } from 'node:test';
+import { deepStrictEqual } from 'node:assert';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
 import { FiltersPolicy } from './FiltersPolicy.ts';
 
-Deno.test('FiltersPolicy', async () => {
+test('FiltersPolicy', async () => {
   const event = finalizeEvent(
     { kind: 1, content: '', tags: [], created_at: 0 },
     generateSecretKey(),
   );
 
-  assertEquals((await new FiltersPolicy([{ kinds: [1] }]).call(event))[2], true);
-  assertEquals((await new FiltersPolicy([{ kinds: [1], authors: [] }]).call(event))[2], false);
+  deepStrictEqual((await new FiltersPolicy([{ kinds: [1] }]).call(event))[2], true);
+  deepStrictEqual((await new FiltersPolicy([{ kinds: [1], authors: [] }]).call(event))[2], false);
 });

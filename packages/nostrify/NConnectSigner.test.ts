@@ -1,5 +1,6 @@
+import { test } from 'node:test';
 import { NostrConnectResponse } from '@nostrify/types';
-import { assert, assertEquals } from '@std/assert';
+import { ok, deepStrictEqual } from 'node:assert';
 import { generateSecretKey, verifyEvent } from 'nostr-tools';
 
 import { MockRelay } from './test/MockRelay.ts';
@@ -7,7 +8,7 @@ import { NConnectSigner } from './NConnectSigner.ts';
 import { NSchema as n } from './NSchema.ts';
 import { NSecSigner } from './NSecSigner.ts';
 
-Deno.test('NConnectSigner.signEvent with nip04 encryption', async () => {
+test('NConnectSigner.signEvent with nip04 encryption', async () => {
   const relay = new MockRelay();
   const remote = new NSecSigner(generateSecretKey());
   const pubkey = await remote.getPublicKey();
@@ -33,7 +34,7 @@ Deno.test('NConnectSigner.signEvent with nip04 encryption', async () => {
       const event = msg[2];
       const decrypted = await remote.nip04!.decrypt(event.pubkey, event.content);
       const request = n.json().pipe(n.connectRequest()).parse(decrypted);
-      assertEquals(request.method, 'sign_event');
+      deepStrictEqual(request.method, 'sign_event');
       const response: NostrConnectResponse = {
         id: request.id,
         result: JSON.stringify(await remote.signEvent(JSON.parse(request.params[0]))),
@@ -50,11 +51,11 @@ Deno.test('NConnectSigner.signEvent with nip04 encryption', async () => {
     }
   }
 
-  assert(verifyEvent(await promise));
-  assertEquals(relay.subs.size, 0); // cleanup
+  ok(verifyEvent(await promise));
+  deepStrictEqual(relay.subs.size, 0); // cleanup
 });
 
-Deno.test('NConnectSigner.signEvent with nip44 encryption', async () => {
+test('NConnectSigner.signEvent with nip44 encryption', async () => {
   const relay = new MockRelay();
   const remote = new NSecSigner(generateSecretKey());
   const pubkey = await remote.getPublicKey();
@@ -80,7 +81,7 @@ Deno.test('NConnectSigner.signEvent with nip44 encryption', async () => {
       const event = msg[2];
       const decrypted = await remote.nip44!.decrypt(event.pubkey, event.content);
       const request = n.json().pipe(n.connectRequest()).parse(decrypted);
-      assertEquals(request.method, 'sign_event');
+      deepStrictEqual(request.method, 'sign_event');
       const response: NostrConnectResponse = {
         id: request.id,
         result: JSON.stringify(await remote.signEvent(JSON.parse(request.params[0]))),
@@ -97,6 +98,6 @@ Deno.test('NConnectSigner.signEvent with nip44 encryption', async () => {
     }
   }
 
-  assert(verifyEvent(await promise));
-  assertEquals(relay.subs.size, 0); // cleanup
+  ok(verifyEvent(await promise));
+  deepStrictEqual(relay.subs.size, 0); // cleanup
 });

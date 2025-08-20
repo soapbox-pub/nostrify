@@ -1,5 +1,5 @@
 import { NIP05, NSchema as n } from '@nostrify/nostrify';
-import { NPolicy, NProfilePointer, NStore } from '@nostrify/types';
+import type { NostrEvent, NPolicy, NProfilePointer, NStore } from '@nostrify/types';
 
 import { AuthorPolicy } from './AuthorPolicy.ts';
 
@@ -17,7 +17,7 @@ interface DomainPolicyOpts {
 export class DomainPolicy extends AuthorPolicy implements NPolicy {
   constructor(store: NStore, opts: DomainPolicyOpts = {}) {
     super(store, {
-      async call(event, signal) {
+      async call(event: NostrEvent, signal: AbortSignal) {
         const { blacklist = [], whitelist, lookup = DomainPolicy.lookup } = opts;
 
         const metadata = n.json().pipe(n.metadata()).safeParse(event.content);

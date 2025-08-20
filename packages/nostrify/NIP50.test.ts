@@ -1,35 +1,36 @@
-import { assertEquals } from '@std/assert';
+import { test } from 'node:test';
+import { deepStrictEqual } from 'node:assert';
 
 import { NIP50 } from './NIP50.ts';
 
-Deno.test('NIP50.parseInput', () => {
-  assertEquals(NIP50.parseInput(''), []);
-  assertEquals(NIP50.parseInput(' '), []);
-  assertEquals(NIP50.parseInput('hello'), ['hello']);
-  assertEquals(NIP50.parseInput('hello world'), ['hello', 'world']);
-  assertEquals(NIP50.parseInput('hello  "world"'), ['hello', 'world']);
+test('NIP50.parseInput', () => {
+  deepStrictEqual(NIP50.parseInput(''), []);
+  deepStrictEqual(NIP50.parseInput(' '), []);
+  deepStrictEqual(NIP50.parseInput('hello'), ['hello']);
+  deepStrictEqual(NIP50.parseInput('hello world'), ['hello', 'world']);
+  deepStrictEqual(NIP50.parseInput('hello  "world"'), ['hello', 'world']);
 
-  assertEquals(
+  deepStrictEqual(
     NIP50.parseInput('hello "world" "hello world"'),
     ['hello', 'world', 'hello world'],
   );
 
-  assertEquals(
+  deepStrictEqual(
     NIP50.parseInput('domain:gleasonator.dev'),
     [{ key: 'domain', value: 'gleasonator.dev' }],
   );
 
-  assertEquals(
+  deepStrictEqual(
     NIP50.parseInput('domain: yolo'),
     ['domain:', 'yolo'],
   );
 
-  assertEquals(
+  deepStrictEqual(
     NIP50.parseInput('domain:localhost:8000'),
     [{ key: 'domain', value: 'localhost:8000' }],
   );
 
-  assertEquals(
+  deepStrictEqual(
     NIP50.parseInput('name:John "New York" age:30 hobbies:programming'),
     [
       { key: 'name', value: 'John' },
@@ -40,18 +41,18 @@ Deno.test('NIP50.parseInput', () => {
   );
 });
 
-Deno.test('NIP50.parseInput with negated token', () => {
-  assertEquals(
+test('NIP50.parseInput with negated token', () => {
+  deepStrictEqual(
     NIP50.parseInput('-reply:true'),
     [{ key: '-reply', value: 'true' }],
   );
 
-  assertEquals(
+  deepStrictEqual(
     NIP50.parseInput('hello -reply:true'),
     ['hello', { key: '-reply', value: 'true' }],
   );
 
-  assertEquals(
+  deepStrictEqual(
     NIP50.parseInput('-media:true -reply:true'),
     [{ key: '-media', value: 'true' }, { key: '-reply', value: 'true' }],
   );

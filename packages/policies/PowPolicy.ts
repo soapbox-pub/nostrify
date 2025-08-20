@@ -1,4 +1,4 @@
-import { NostrEvent, NostrRelayInfo, NostrRelayOK, NPolicy } from '@nostrify/types';
+import type { NostrEvent, NostrRelayInfo, NostrRelayOK, NPolicy } from '@nostrify/types';
 import { nip13 } from 'nostr-tools';
 
 /** Policy options for `PowPolicy`. */
@@ -15,14 +15,17 @@ interface PowPolicyOpts {
  * ```
  */
 export class PowPolicy implements NPolicy {
-  constructor(private opts: PowPolicyOpts = {}) {}
+  private opts: PowPolicyOpts;
+  constructor(opts: PowPolicyOpts = {}) {
+    this.opts = opts;
+  }
 
   // deno-lint-ignore require-await
   async call({ id, tags }: NostrEvent): Promise<NostrRelayOK> {
     const { difficulty = 1 } = this.opts;
 
     const pow = nip13.getPow(id);
-    const nonce = tags.find(([name]) => name === 'nonce');
+    const nonce = tags.find(([name]: string[]) => name === 'nonce');
 
     if (pow >= difficulty && nonce && Number(nonce[2]) >= difficulty) {
       return ['OK', id, true, ''];

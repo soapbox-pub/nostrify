@@ -1,4 +1,4 @@
-import { NostrEvent } from "@nostrify/types";
+import type { NostrEvent } from "@nostrify/types";
 import { bech32 } from "@scure/base";
 
 import { LNURLCallback } from "./types/LNURLCallback.ts";

@@ -1,5 +1,6 @@
+import { test } from 'node:test';
 import { NostrEvent } from '@nostrify/types';
-import { assert, assertEquals } from '@std/assert';
+import { ok, deepStrictEqual } from 'node:assert';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
 import { NPool } from './NPool.ts';
@@ -13,7 +14,7 @@ const event1s = events
   .toSorted((_) => 0.5 - Math.random())
   .slice(0, 10);
 
-Deno.test('NPool.query', async () => {
+test('NPool.query', async () => {
   const controller = new AbortController();
   const tid = setTimeout(() => controller.abort(), 5000);
 
@@ -37,13 +38,13 @@ Deno.test('NPool.query', async () => {
 
   const events = await pool.query([{ kinds: [1], limit: 15 }]);
 
-  assertEquals(events.length, 10);
-  assert(events[0].created_at >= events[1].created_at);
+  deepStrictEqual(events.length, 10);
+  ok(events[0].created_at >= events[1].created_at);
 
   clearTimeout(tid);
 });
 
-Deno.test('NPool.req', async () => {
+test('NPool.req', async () => {
   const controller = new AbortController();
   const tid = setTimeout(() => controller.abort(), 3000);
 
@@ -75,12 +76,12 @@ Deno.test('NPool.req', async () => {
     if (events.length === 3) break;
   }
 
-  assertEquals(events.length, 3);
+  deepStrictEqual(events.length, 3);
 
   clearTimeout(tid);
 });
 
-Deno.test('NPool.event', async () => {
+test('NPool.event', async () => {
   const controller = new AbortController();
   const tid = setTimeout(() => controller.abort(), 5000);
 
@@ -111,7 +112,7 @@ Deno.test('NPool.event', async () => {
 
   await pool.event(event, { signal: controller.signal });
 
-  assertEquals((await pool.query([{ kinds: [1], '#unique': ['uniqueTag'] }], { signal: controller.signal })).length, 1);
+  deepStrictEqual((await pool.query([{ kinds: [1], '#unique': ['uniqueTag'] }], { signal: controller.signal })).length, 1);
 
   clearTimeout(tid);
 });

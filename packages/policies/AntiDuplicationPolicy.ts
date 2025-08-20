@@ -1,5 +1,5 @@
-import { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
-import { Kv, KvKey } from '@deno/kv';
+import type { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
+import type { Kv, KvKey } from '@deno/kv';
 
 /** Policy options for `AntiDuplicationPolicy`. */
 interface AntiDuplicationPolicyOpts {
@@ -31,7 +31,11 @@ interface AntiDuplicationPolicyOpts {
  * ```
  */
 export class AntiDuplicationPolicy implements NPolicy {
-  constructor(private opts: AntiDuplicationPolicyOpts) {}
+  private opts: AntiDuplicationPolicyOpts;
+
+  constructor(opts: AntiDuplicationPolicyOpts) {
+    this.opts = opts;
+  }
 
   async call(event: NostrEvent): Promise<NostrRelayOK> {
     const { id, kind } = event;

@@ -1,4 +1,4 @@
-import { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
+import type { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
 
 /** Policy options for `HellthreadPolicy`. */
 interface HellthreadPolicyOpts {
@@ -8,14 +8,17 @@ interface HellthreadPolicyOpts {
 
 /** Basic policy to demonstrate how policies work. Accepts all events. */
 export class HellthreadPolicy implements NPolicy {
-  constructor(private opts: HellthreadPolicyOpts = {}) {}
+  private opts: HellthreadPolicyOpts;
+  constructor(opts: HellthreadPolicyOpts = {}) {
+    this.opts = opts;
+  }
 
   // deno-lint-ignore require-await
   async call({ id, kind, tags }: NostrEvent): Promise<NostrRelayOK> {
     const { limit = 100 } = this.opts;
 
     if (kind === 1) {
-      const p = tags.filter((tag) => tag[0] === 'p');
+      const p = tags.filter((tag: string[]) => tag[0] === 'p');
 
       if (p.length > limit) {
         return ['OK', id, false, `blocked: rejected due to ${p.length} "p" tags (${limit} is the limit).`];

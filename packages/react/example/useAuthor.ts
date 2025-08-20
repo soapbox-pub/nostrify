@@ -1,4 +1,5 @@
-import { type NostrEvent, type NostrMetadata, NSchema as n } from '@nostrify/nostrify';
+import { NSchema as n } from '@nostrify/nostrify';
+import type { NostrEvent, NostrMetadata } from '@nostrify/types';
 import { useSuspenseQuery } from '@tanstack/react-query';
 
 import { useNostr } from '../useNostr.ts';

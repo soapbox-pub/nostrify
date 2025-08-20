@@ -1,4 +1,4 @@
-import { NProfilePointer } from '@nostrify/types';
+import type { NProfilePointer } from '@nostrify/types';
 
 import { NSchema as n, z } from './NSchema.ts';
 

@@ -11,6 +11,9 @@
         "moduleResolution": "nodenext",
         "module": "nodenext",
         "skipLibCheck": true,
-        "target": "esnext"
+        "target": "esnext",
+        "allowImportingTsExtensions": true,
+        "emitDeclarationOnly": true,
+        "resolveJsonModule": true
     }
 }

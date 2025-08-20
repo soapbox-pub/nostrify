@@ -2,13 +2,14 @@
   "name": "@nostrify/policies",
   "version": "0.36.5",
   "exports": {
-    ".": "./dist/mod.js"
+    ".": "./dist/mod.ts"
   },
-  "main": "dist/mod.js",
+  "main": "./mod.ts",
   "types": "dist/mod.d.ts",
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test"
   },
   "dependencies": {
     "@deno/kv": "^0.10.0",

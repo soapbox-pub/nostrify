@@ -1,4 +1,5 @@
-import { assertEquals, assertRejects } from '@std/assert';
+import { test } from 'node:test';
+import { deepStrictEqual, rejects } from 'node:assert';
 import { generateSecretKey } from 'nostr-tools';
 import { ZodError } from 'zod';
 
@@ -6,33 +7,33 @@ import { NIP98 } from './NIP98.ts';
 import { NSecSigner } from './NSecSigner.ts';
 import { N64 } from './utils/mod.ts';
 
-Deno.test('NIP98.template', async () => {
+test('NIP98.template', async () => {
   const request = new Request('https://example.com');
   const event = await NIP98.template(request);
 
-  assertEquals(event.kind, 27235);
-  assertEquals(event.tags, [
+  deepStrictEqual(event.kind, 27235);
+  deepStrictEqual(event.tags, [
     ['method', 'GET'],
     ['u', 'https://example.com/'],
   ]);
 });
 
-Deno.test('NIP98.template with payload', async () => {
+test('NIP98.template with payload', async () => {
   const request = new Request('https://example.com', {
     method: 'POST',
     body: 'Hello, world!',
   });
   const event = await NIP98.template(request);
 
-  assertEquals(event.kind, 27235);
-  assertEquals(event.tags, [
+  deepStrictEqual(event.kind, 27235);
+  deepStrictEqual(event.tags, [
     ['method', 'POST'],
     ['u', 'https://example.com/'],
     ['payload', '315f5bdb76d078c43b8ac0064e4a0164612b1fce77c869345bfc94c75894edd3'],
   ]);
 });
 
-Deno.test('NIP98.verify', async () => {
+test('NIP98.verify', async () => {
   const signer = new NSecSigner(generateSecretKey());
   const request = new Request('https://example.com');
 
@@ -43,42 +44,42 @@ Deno.test('NIP98.verify', async () => {
 
   const proof = await NIP98.verify(request);
 
-  assertEquals(proof, event);
-  assertEquals(proof.pubkey, await signer.getPublicKey());
+  deepStrictEqual(proof, event);
+  deepStrictEqual(proof.pubkey, await signer.getPublicKey());
 });
 
-Deno.test('NIP98.verify fails with missing header', async () => {
+test('NIP98.verify fails with missing header', async () => {
   const request = new Request('https://example.com');
 
-  await assertRejects(
+  await rejects(
     () => NIP98.verify(request),
     Error,
     'Missing Nostr authorization header',
   );
 });
 
-Deno.test('NIP98.verify fails with missing token', async () => {
+test('NIP98.verify fails with missing token', async () => {
   const request = new Request('https://example.com');
   request.headers.set('authorization', 'Nostr');
 
-  await assertRejects(
+  await rejects(
     () => NIP98.verify(request),
     Error,
     'Missing Nostr authorization token',
   );
 });
 
-Deno.test('NIP98.verify fails with invalid token', async () => {
+test('NIP98.verify fails with invalid token', async () => {
   const request = new Request('https://example.com');
   request.headers.set('authorization', 'Nostr invalid');
 
-  await assertRejects(
+  await rejects(
     () => NIP98.verify(request),
     ZodError,
   );
 });
 
-Deno.test('NIP98.verify fails with invalid event', async () => {
+test('NIP98.verify fails with invalid event', async () => {
   const signer = new NSecSigner(generateSecretKey());
   const request = new Request('https://example.com');
 
@@ -89,14 +90,14 @@ Deno.test('NIP98.verify fails with invalid event', async () => {
 
   request.headers.set('authorization', `Nostr ${N64.encodeEvent(event)}`);
 
-  await assertRejects(
+  await rejects(
     () => NIP98.verify(request),
     Error,
     'Event signature is invalid',
   );
 });
 
-Deno.test('NIP98.verify fails with wrong event kind', async () => {
+test('NIP98.verify fails with wrong event kind', async () => {
   const signer = new NSecSigner(generateSecretKey());
   const request = new Request('https://example.com');
 
@@ -105,14 +106,14 @@ Deno.test('NIP98.verify fails with wrong event kind', async () => {
 
   request.headers.set('authorization', `Nostr ${N64.encodeEvent(event)}`);
 
-  await assertRejects(
+  await rejects(
     () => NIP98.verify(request),
     Error,
     'Event must be kind 27235',
   );
 });
 
-Deno.test('NIP98.verify fails with wrong request URL', async () => {
+test('NIP98.verify fails with wrong request URL', async () => {
   const signer = new NSecSigner(generateSecretKey());
   const request = new Request('https://example.com');
 
@@ -121,14 +122,14 @@ Deno.test('NIP98.verify fails with wrong request URL', async () => {
 
   request.headers.set('authorization', `Nostr ${N64.encodeEvent(event)}`);
 
-  await assertRejects(
+  await rejects(
     () => NIP98.verify(request),
     Error,
     'Event URL does not match request URL',
   );
 });
 
-Deno.test('NIP98.verify fails with wrong request method', async () => {
+test('NIP98.verify fails with wrong request method', async () => {
   const signer = new NSecSigner(generateSecretKey());
   const request = new Request('https://example.com');
 
@@ -137,14 +138,14 @@ Deno.test('NIP98.verify fails with wrong request method', async () => {
 
   request.headers.set('authorization', `Nostr ${N64.encodeEvent(event)}`);
 
-  await assertRejects(
+  await rejects(
     () => NIP98.verify(request),
     Error,
     'Event method does not match HTTP request method',
   );
 });
 
-Deno.test('NIP98.verify fails with expired event', async () => {
+test('NIP98.verify fails with expired event', async () => {
   const signer = new NSecSigner(generateSecretKey());
   const request = new Request('https://example.com');
 
@@ -153,14 +154,14 @@ Deno.test('NIP98.verify fails with expired event', async () => {
 
   request.headers.set('authorization', `Nostr ${N64.encodeEvent(event)}`);
 
-  await assertRejects(
+  await rejects(
     () => NIP98.verify(request),
     Error,
     'Event expired',
   );
 });
 
-Deno.test('NIP98.verify fails with invalid payload', async () => {
+test('NIP98.verify fails with invalid payload', async () => {
   const signer = new NSecSigner(generateSecretKey());
   const request = new Request('https://example.com', {
     method: 'POST',
@@ -173,7 +174,7 @@ Deno.test('NIP98.verify fails with invalid payload', async () => {
 
   request.headers.set('authorization', `Nostr ${N64.encodeEvent(event)}`);
 
-  await assertRejects(
+  await rejects(
     () => NIP98.verify(request),
     Error,
     'Event payload does not match request body',

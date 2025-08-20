@@ -1,10 +1,11 @@
-import { assertEquals } from '@std/assert';
+import { test } from 'node:test';
+import { deepStrictEqual } from 'node:assert';
 import { genEvent, MockRelay } from '@nostrify/nostrify/test';
 import { generateSecretKey, getPublicKey } from 'nostr-tools';
 
 import { ReplyBotPolicy } from './ReplyBotPolicy.ts';
 
-Deno.test('ReplyBotPolicy blocks replies within the same second', async () => {
+test('ReplyBotPolicy blocks replies within the same second', async () => {
   const store = new MockRelay();
   const policy = new ReplyBotPolicy({ store });
 
@@ -15,10 +16,10 @@ Deno.test('ReplyBotPolicy blocks replies within the same second', async () => {
 
   const [, , ok] = await policy.call(reply);
 
-  assertEquals(ok, false);
+  deepStrictEqual(ok, false);
 });
 
-Deno.test('ReplyBotPolicy allows replies after 1 second', async () => {
+test('ReplyBotPolicy allows replies after 1 second', async () => {
   const store = new MockRelay();
   const policy = new ReplyBotPolicy({ store });
 
@@ -29,10 +30,10 @@ Deno.test('ReplyBotPolicy allows replies after 1 second', async () => {
 
   const [, , ok] = await policy.call(reply);
 
-  assertEquals(ok, true);
+  deepStrictEqual(ok, true);
 });
 
-Deno.test('ReplyBotPolicy allows replies within the same second from users who are tagged', async () => {
+test('ReplyBotPolicy allows replies within the same second from users who are tagged', async () => {
   const store = new MockRelay();
   const policy = new ReplyBotPolicy({ store });
 
@@ -46,5 +47,5 @@ Deno.test('ReplyBotPolicy allows replies within the same second from users who a
 
   const [, , ok] = await policy.call(reply);
 
-  assertEquals(ok, true);
+  deepStrictEqual(ok, true);
 });

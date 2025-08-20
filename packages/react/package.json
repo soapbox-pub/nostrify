@@ -11,16 +11,21 @@
   "scripts": {
     "build": "tsc -p tsconfig.json"
   },
-  "dependencies": {
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "@types/node": "^24.1.0",
+    "@vitejs/plugin-react": "^4.3.4",
     "@deno/vite-plugin": "^1.0.4",
+    "vite": "^6.2.2"
+  },
+  "dependencies": {
+    "@nostrify/types": "workspace:*",
     "@nostrify/nostrify": "workspace:*",
     "@tanstack/react-query": "^5.69.0",
-    "@types/react": "^18.0.0",
-    "@vitejs/plugin-react": "^4.3.4",
     "happy-dom": "^17.4.4",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "vite": "^6.2.2"
+    "nostr-tools": "^2.13.0"
   },
   "publishConfig": {
     "access": "public"

@@ -13,7 +13,9 @@
   "dependencies": {
     "@deno/kv": "^0.10.0",
     "@nostrify/nostrify": "workspace:*",
-    "@nostrify/types": "workspace:*"
+    "@nostrify/types": "workspace:*",
+    "@types/node": "^24.1.0",
+    "nostr-tools": "^2.13.0"
   },
   "publishConfig": {
     "access": "public"

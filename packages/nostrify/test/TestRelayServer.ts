@@ -2,8 +2,8 @@ import { MockRelay } from './mod.js';
 import { NostrClientMsg, NostrEvent, NostrRelayMsg } from '@nostrify/types';
 import { NSchema as n } from '../NSchema.js';
 import { WebSocketServer, WebSocket } from 'ws';
-import { createServer, Server } from 'http';
-import { AddressInfo } from 'net';
+import { createServer, Server } from 'node:http';
+import { AddressInfo } from 'node:net';
 
 interface TestRelayServerOpts {
   handleMessage?(socket: WebSocket, msg: NostrClientMsg): Promise<void> | void;

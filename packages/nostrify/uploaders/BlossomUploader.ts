@@ -2,7 +2,7 @@ import { NostrSigner, NUploader } from '@nostrify/types';
 import { encodeHex } from '@std/encoding/hex';
 import { z } from 'zod';
 
-import { N64 } from '../utils/N64.js';
+import { N64 } from '../utils/N64.ts';
 
 /** BlossomUploader options. */
 export interface BlossomUploaderOpts {

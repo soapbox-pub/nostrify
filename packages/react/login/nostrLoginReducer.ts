@@ -1,4 +1,4 @@
-import type { NLoginType } from './NLogin.js';
+import type { NLoginType } from './NLogin.ts';
 
 export type NLoginAction =
   | { type: 'login.add'; login: NLoginType; set?: boolean }

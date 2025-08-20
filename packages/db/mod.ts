@@ -1,1 +1,1 @@
-export { NPostgres, type NPostgresOpts, type NPostgresSchema } from './NPostgres.js';
+export { NPostgres, type NPostgresOpts, type NPostgresSchema } from './NPostgres.ts';

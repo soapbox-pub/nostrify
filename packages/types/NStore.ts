@@ -1,6 +1,6 @@
-import { NostrEvent } from './NostrEvent.js';
-import { NostrFilter } from './NostrFilter.js';
-import { NostrRelayCOUNT } from './NostrRelayMsg.js';
+import { NostrEvent } from './NostrEvent.ts';
+import { NostrFilter } from './NostrFilter.ts';
+import { NostrRelayCOUNT } from './NostrRelayMsg.ts';
 
 /** Nostr event store. */
 export interface NStore {

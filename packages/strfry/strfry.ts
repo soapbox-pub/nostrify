@@ -1,7 +1,7 @@
 import { NPolicy } from '@nostrify/types';
 import * as readline from 'node:readline';
 
-import type { StrfryInputMessage, StrfryOutputMessage } from './types.js';
+import type { StrfryInputMessage, StrfryOutputMessage } from './types.ts';
 import process from 'node:process';
 
 /**
@@ -20,7 +20,7 @@ export async function strfry(
   policy: NPolicy,
   optsFn?: () => { signal?: AbortSignal },
 ): Promise<void> {
-  // Use Node.js's readline module to read from stdin line by line.
+  // Use Node.ts's readline module to read from stdin line by line.
   // This is the equivalent of Deno's TextLineStream.
   const rl = readline.createInterface({
     input: process.stdin,

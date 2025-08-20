@@ -1,5 +1,5 @@
-import { NostrEvent } from './NostrEvent.js';
-import { NostrFilter } from './NostrFilter.js';
+import { NostrEvent } from './NostrEvent.ts';
+import { NostrFilter } from './NostrFilter.ts';
 
 /** Used to publish events.. */
 export type NostrClientEVENT = ['EVENT', NostrEvent];

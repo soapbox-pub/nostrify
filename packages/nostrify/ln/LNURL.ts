@@ -1,10 +1,10 @@
 import { NostrEvent } from "@nostrify/types";
 import { bech32 } from "@scure/base";
 
-import { LNURLCallback } from "./types/LNURLCallback.js";
-import { LNURLDetails } from "./types/LNURLDetails.js";
+import { LNURLCallback } from "./types/LNURLCallback.ts";
+import { LNURLDetails } from "./types/LNURLDetails.ts";
 
-import { NSchema as n, z } from "../NSchema.js";
+import { NSchema as n, z } from "../NSchema.ts";
 
 /**
  * Represents an LNURL, with methods to fetch details and generate invoices.

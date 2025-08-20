@@ -15,9 +15,9 @@ import {
 import { getFilterLimit, matchFilters, verifyEvent as _verifyEvent } from 'nostr-tools';
 import { ArrayQueue, Backoff, ExponentialBackoff, Websocket, WebsocketBuilder, WebsocketEvent } from 'websocket-ts';
 
-import { Machina } from './utils/Machina.js';
-import { NSchema as n } from './NSchema.js';
-import { NSet } from './NSet.js';
+import { Machina } from './utils/Machina.ts';
+import { NSchema as n } from './NSchema.ts';
+import { NSet } from './NSet.ts';
 
 /** Map of EventEmitter events. */
 type EventMap = {

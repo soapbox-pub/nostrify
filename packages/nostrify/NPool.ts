@@ -1,9 +1,9 @@
 import { NostrEvent, NostrFilter, NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT, NRelay } from '@nostrify/types';
 import { getFilterLimit } from 'nostr-tools';
 
-import { CircularSet } from './utils/CircularSet.js';
-import { Machina } from './utils/Machina.js';
-import { NSet } from './NSet.js';
+import { CircularSet } from './utils/CircularSet.ts';
+import { Machina } from './utils/Machina.ts';
+import { NSet } from './NSet.ts';
 
 export interface NPoolOpts<T extends NRelay> {
   /** Creates an `NRelay` instance for the given URL. */

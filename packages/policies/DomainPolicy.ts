@@ -1,7 +1,7 @@
 import { NIP05, NSchema as n } from '@nostrify/nostrify';
 import { NPolicy, NProfilePointer, NStore } from '@nostrify/types';
 
-import { AuthorPolicy } from './AuthorPolicy.js';
+import { AuthorPolicy } from './AuthorPolicy.ts';
 
 /** Options for `DomainPolicy`. */
 interface DomainPolicyOpts {

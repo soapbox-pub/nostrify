@@ -1,8 +1,8 @@
 import { useEffect, useReducer } from 'react';
 
-import { type NLoginAction, nostrLoginReducer } from './nostrLoginReducer.js';
+import { type NLoginAction, nostrLoginReducer } from './nostrLoginReducer.ts';
 
-import type { NLoginType } from './NLogin.js';
+import type { NLoginType } from './NLogin.ts';
 
 export function useNostrLoginReducer(
   storageKey: string,

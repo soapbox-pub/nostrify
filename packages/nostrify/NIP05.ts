@@ -1,6 +1,6 @@
 import { NProfilePointer } from '@nostrify/types';
 
-import { NSchema as n, z } from './NSchema.js';
+import { NSchema as n, z } from './NSchema.ts';
 
 interface LookupOpts {
   fetch?: typeof fetch;

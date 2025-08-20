@@ -11,8 +11,8 @@ import {
 } from '@nostrify/types';
 import { matchFilters } from 'nostr-tools';
 
-import { Machina } from '../utils/Machina.js';
-import { NSet } from '../NSet.js';
+import { Machina } from '../utils/Machina.ts';
+import { NSet } from '../NSet.ts';
 
 /** Mock relay for testing. */
 export class MockRelay extends NSet implements NRelay {

@@ -1,6 +1,6 @@
 import { useContext } from 'react';
 
-import { NostrLoginContext, type NostrLoginContextType } from './NostrLoginContext.js';
+import { NostrLoginContext, type NostrLoginContextType } from './NostrLoginContext.ts';
 
 export function useNostrLogin(): NostrLoginContextType {
   const context = useContext(NostrLoginContext);

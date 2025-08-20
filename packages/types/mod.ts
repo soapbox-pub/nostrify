@@ -5,13 +5,13 @@ export type {
   NostrClientEVENT,
   NostrClientMsg,
   NostrClientREQ,
-} from './NostrClientMsg.js';
-export type { NostrConnectRequest, NostrConnectResponse } from './NostrConnect.js';
-export type { NostrEvent } from './NostrEvent.js';
-export type { NostrFilter } from './NostrFilter.js';
-export type { NostrJson } from './NostrJson.js';
-export type { NostrMetadata } from './NostrMetadata.js';
-export type { NostrRelayInfo } from './NostrRelayInfo.js';
+} from './NostrClientMsg.ts';
+export type { NostrConnectRequest, NostrConnectResponse } from './NostrConnect.ts';
+export type { NostrEvent } from './NostrEvent.ts';
+export type { NostrFilter } from './NostrFilter.ts';
+export type { NostrJson } from './NostrJson.ts';
+export type { NostrMetadata } from './NostrMetadata.ts';
+export type { NostrRelayInfo } from './NostrRelayInfo.ts';
 export type {
   NostrRelayAUTH,
   NostrRelayCLOSED,
@@ -21,10 +21,10 @@ export type {
   NostrRelayMsg,
   NostrRelayNOTICE,
   NostrRelayOK,
-} from './NostrRelayMsg.js';
-export type { NostrSigner } from './NostrSigner.js';
-export type { NPolicy } from './NPolicy.js';
-export type { NProfilePointer } from './NProfilePointer.js';
-export type { NRelay } from './NRelay.js';
-export type { NStore } from './NStore.js';
-export type { NUploader } from './NUploader.js';
+} from './NostrRelayMsg.ts';
+export type { NostrSigner } from './NostrSigner.ts';
+export type { NPolicy } from './NPolicy.ts';
+export type { NProfilePointer } from './NProfilePointer.ts';
+export type { NRelay } from './NRelay.ts';
+export type { NStore } from './NStore.ts';
+export type { NUploader } from './NUploader.ts';

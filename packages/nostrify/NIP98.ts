@@ -2,7 +2,7 @@ import { NostrEvent } from '@nostrify/types';
 import { encodeHex } from '@std/encoding/hex';
 import { verifyEvent as _verifyEvent } from 'nostr-tools';
 
-import { N64 } from './utils/N64.js';
+import { N64 } from './utils/N64.ts';
 
 /** [NIP-98](https://github.com/nostr-protocol/nips/blob/master/98.md) HTTP auth. */
 export class NIP98 {

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.39.7
+
+### Patch Changes
+
+- fix imports in workspace packages
+- Updated dependencies
+  - @nostrify/nostrify@0.46.7
+  - @nostrify/types@0.36.3
+
 ## 0.39.6
 
 ### Patch Changes

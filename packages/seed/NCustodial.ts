@@ -27,6 +27,7 @@ export class NCustodial {
 
   /** Get a signer for the given user. */
   async get(user: string, account = 0): Promise<NSeedSigner> {
+    // @ts-expect-error SharedArrayBuffer and ArrayBuffer are close enough for our purposes
     const cryptoKey = await crypto.subtle.importKey(
       'raw',
       this.#seed,

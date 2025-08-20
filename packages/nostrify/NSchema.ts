@@ -42,7 +42,6 @@ class NSchema {
 
   /** Nostr event schema. */
   static event(): z.ZodType<NostrEvent> {
-    // @ts-expect-error This should be fine.
     return z.object({
       id: NSchema.id(),
       kind: z.number().int().nonnegative(),
@@ -104,11 +103,13 @@ class NSchema {
 
   /** NIP-01 `REQ` message from client to relay. */
   static clientREQ(): z.ZodType<NostrClientREQ> {
+    // @ts-expect-error this is fine
     return z.tuple([z.literal('REQ'), z.string()]).rest(NSchema.filter());
   }
 
   /** NIP-45 `COUNT` message from client to relay. */
   static clientCOUNT(): z.ZodType<NostrClientCOUNT> {
+    // @ts-expect-error this is fine
     return z.tuple([z.literal('COUNT'), z.string()]).rest(NSchema.filter());
   }
 
@@ -215,7 +216,6 @@ class NSchema {
 
   /** NIP-46 request content schema. */
   static connectRequest(): z.ZodType<NostrConnectRequest> {
-    // @ts-expect-error This should be fine.
     return z.object({
       id: z.string(),
       method: z.string(),
@@ -225,7 +225,6 @@ class NSchema {
 
   /** NIP-46 response content schema. */
   static connectResponse(): z.ZodType<NostrConnectResponse> {
-    // @ts-expect-error This should be fine.
     return z.object({
       id: z.string(),
       result: z.string(),

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.36.3
+
+### Patch Changes
+
+- fix imports in workspace packages
+
 ## 0.36.2
 
 ### Patch Changes

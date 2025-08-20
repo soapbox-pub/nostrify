@@ -1,5 +1,13 @@
 # @nostrify/seed
 
+## 0.42.3
+
+### Patch Changes
+
+- fix imports in workspace packages
+- Updated dependencies
+  - @nostrify/nostrify@0.46.7
+
 ## 0.42.2
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@nostrify/strfry",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "exports": {
     ".": "./dist/mod.js"
   },

@@ -15,6 +15,9 @@ test:
   stage: test
   timeout: 2 minutes
   script:
+    # - deno lint
+    # - deno fmt
+    - pnpm i
     - pnpm test
   services:
     - postgres:16

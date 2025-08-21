@@ -12,7 +12,8 @@
   "types": "dist/mod.d.ts",
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test \"**/*.test.ts\""
   },
   "dependencies": {
     "@nostrify/types": "workspace:*",

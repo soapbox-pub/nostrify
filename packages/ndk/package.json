@@ -12,7 +12,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "node --test"
+    "test": "node --test \"**/*.test.ts\""
   },
   "publishConfig": {
     "access": "public"

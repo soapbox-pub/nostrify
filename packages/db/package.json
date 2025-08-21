@@ -9,7 +9,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "node --test"
+    "test": "node --test \"**/*.test.ts\""
   },
   "dependencies": {
     "@nostrify/nostrify": "workspace:*",

@@ -121,31 +121,38 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
     const closes = new Set<string>();
     const events = new CircularSet<string>(1000);
 
+    const relayPromises: Promise<void>[] = [];
+
     for (const [url, filters] of routes.entries()) {
       const relay = this.relay(url);
-      (async () => {
-        for await (const msg of relay.req(filters, { signal })) {
-          if (msg[0] === 'EOSE') {
-            eoses.add(url);
-            if (eoses.size === routes.size) {
-              machina.push(msg);
+      const relayPromise = (async () => {
+        try {
+          for await (const msg of relay.req(filters, { signal })) {
+            if (msg[0] === 'EOSE') {
+              eoses.add(url);
+              if (eoses.size === routes.size) {
+                machina.push(msg);
+              }
+            }
+            if (msg[0] === 'CLOSED') {
+              closes.add(url);
+              if (closes.size === routes.size) {
+                machina.push(msg);
+              }
+            }
+            if (msg[0] === 'EVENT') {
+              const [, , event] = msg;
+              if (!events.has(event.id)) {
+                events.add(event.id);
+                machina.push(msg);
+              }
             }
           }
-          if (msg[0] === 'CLOSED') {
-            closes.add(url);
-            if (closes.size === routes.size) {
-              machina.push(msg);
-            }
-          }
-          if (msg[0] === 'EVENT') {
-            const [, , event] = msg;
-            if (!events.has(event.id)) {
-              events.add(event.id);
-              machina.push(msg);
-            }
-          }
+        } catch {
+          // Handle errors silently
         }
-      })().catch(() => {});
+      })();
+      relayPromises.push(relayPromise);
     }
 
     try {
@@ -154,6 +161,8 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
       }
     } finally {
       controller.abort();
+      // Wait for all relay promises to complete to prevent hanging promises
+      await Promise.allSettled(relayPromises);
     }
   }
 

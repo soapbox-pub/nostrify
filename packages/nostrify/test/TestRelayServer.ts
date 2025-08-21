@@ -149,17 +149,21 @@ export class TestRelayServer {
     });
   }
 
-  open(): void {
+  open(): Promise<void> {
     if (this.inited) throw new Error('TestRelayServer already initialized');
     if (!this.httpServer.listening) {
+      const { resolve, promise } = Promise.withResolvers<void>();
       this.httpServer = createServer();
       this.wsServer = new WebSocketServer({ server: this.httpServer });
       this.setupWebSocketServer();
       this.httpServer.listen(0, '127.0.0.1', () => {
         this.port = (this.httpServer.address() as AddressInfo).port;
         this.inited = true;
+        resolve();
       });
+      return promise;
     }
+    return Promise.resolve();
   }
 
   event(event: NostrEvent): Promise<void> {

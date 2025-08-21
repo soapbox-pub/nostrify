@@ -62,7 +62,7 @@ export class NConnectSigner implements NostrSigner {
           z.object({ read: z.boolean(), write: z.boolean() }),
         ),
       )
-      .parse(result);
+      .parse(result) as Record<string, { read: boolean; write: boolean }>; // FIXME: hack!
   }
 
   readonly nip04 = {

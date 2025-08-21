@@ -1,8 +1,8 @@
-import { NPolicy } from '@nostrify/types';
-import * as readline from 'node:readline';
+import type { NPolicy } from "@nostrify/types";
+import * as readline from "node:readline";
 
-import type { StrfryInputMessage, StrfryOutputMessage } from './types.ts';
-import process from 'node:process';
+import type { StrfryInputMessage, StrfryOutputMessage } from "./types.ts";
+import process from "node:process";
 
 /**
  * Reads strfry messages from stdin, processes them using the provided policy, and writes the results to stdout.
@@ -40,7 +40,7 @@ export async function strfry(
       // This replaces Deno's JsonParseStream.
       msg = JSON.parse(line) as StrfryInputMessage;
     } catch (error) {
-      console.error('Failed to parse incoming JSON:', error);
+      console.error("Failed to parse incoming JSON:", error);
       continue; // Skip malformed lines
     }
 
@@ -51,7 +51,7 @@ export async function strfry(
       const [, eventId, ok, reason] = await policy.call(msg.event, signal);
 
       const output: StrfryOutputMessage = {
-        action: ok ? 'accept' : 'reject',
+        action: ok ? "accept" : "reject",
         id: eventId,
         msg: reason,
       };
@@ -60,18 +60,18 @@ export async function strfry(
       console.log(JSON.stringify(output));
     } catch (error) {
       // Error handling logic is also identical.
-      if (error instanceof Error && error.name === 'AbortError') {
+      if (error instanceof Error && error.name === "AbortError") {
         const output: StrfryOutputMessage = {
-          action: 'reject',
+          action: "reject",
           id: msg.event.id,
-          msg: 'error: relay policy plugin timed out',
+          msg: "error: relay policy plugin timed out",
         };
         console.log(JSON.stringify(output));
       } else {
         const output: StrfryOutputMessage = {
-          action: 'reject',
+          action: "reject",
           id: msg.event.id,
-          msg: 'error: an unexpected error occurred',
+          msg: "error: an unexpected error occurred",
         };
         console.log(JSON.stringify(output));
       }

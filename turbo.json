@@ -1,7 +1,9 @@
 {
   "tasks": {
     "setup": {
-      "dependsOn": [],
+      "dependsOn": [
+        "^setup"
+      ],
       "outputs": [
         "node_modules/**/*"
       ]

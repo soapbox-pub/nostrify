@@ -1,9 +1,10 @@
 import { MockRelay } from './mod.ts';
-import { NostrClientMsg, NostrEvent, NostrRelayMsg } from '@nostrify/types';
+import type { NostrClientMsg, NostrEvent, NostrRelayMsg } from '@nostrify/types';
 import { NSchema as n } from '../NSchema.ts';
-import { WebSocketServer, WebSocket } from 'ws';
+import { WebSocket, WebSocketServer } from 'ws';
 import { createServer, Server } from 'node:http';
-import { AddressInfo } from 'node:net';
+import type { AddressInfo } from 'node:net';
+import { Buffer } from 'node:buffer';
 
 interface TestRelayServerOpts {
   handleMessage?(socket: WebSocket, msg: NostrClientMsg): Promise<void> | void;
@@ -11,19 +12,30 @@ interface TestRelayServerOpts {
 
 export class TestRelayServer {
   private port = 0;
+  private inited = false;
   private httpServer: Server;
   private wsServer: WebSocketServer;
+  private opts: TestRelayServerOpts;
   private connections = new Set<WebSocket>();
   private controllers = new Map<string, AbortController>();
   private store = new MockRelay();
 
-  constructor(private opts?: TestRelayServerOpts) {
+  constructor(opts?: TestRelayServerOpts) {
+    this.opts = opts || {};
     this.httpServer = createServer();
     this.wsServer = new WebSocketServer({ server: this.httpServer });
     this.setupWebSocketServer();
+  }
+
+  init() {
+    const { resolve, promise } = Promise.withResolvers<void>();
     this.httpServer.listen(0, '127.0.0.1', () => {
       this.port = (this.httpServer.address() as AddressInfo).port;
+      this.inited = true;
+      resolve();
     });
+
+    return promise;
   }
 
   private setupWebSocketServer(): void {
@@ -32,7 +44,6 @@ export class TestRelayServer {
 
       socket.on('close', () => {
         this.connections.delete(socket);
-        // Clean up any subscriptions for this socket
         for (const [subId, controller] of this.controllers.entries()) {
           controller.abort();
           this.controllers.delete(subId);
@@ -47,12 +58,12 @@ export class TestRelayServer {
               this.handleMessage.bind(this);
             handleMessage(socket, result.data);
           }
-        } catch (error) {
-          // Handle parsing errors silently
+        } catch {
+          // do nothing
         }
       });
 
-      socket.on('error', (error) => {
+      socket.on('error', (error: any) => {
         console.error('WebSocket error:', error);
         this.connections.delete(socket);
       });
@@ -60,6 +71,7 @@ export class TestRelayServer {
   }
 
   send(socket: WebSocket, msg: NostrRelayMsg): void {
+    if (!this.inited) throw new Error('TestRelayServer not initialized');
     if (socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify(msg));
     }
@@ -69,6 +81,8 @@ export class TestRelayServer {
     socket: WebSocket,
     msg: NostrClientMsg,
   ): Promise<void> {
+    if (!this.inited) throw new Error('TestRelayServer not initialized');
+
     switch (msg[0]) {
       case 'REQ': {
         const [_, subId, ...filters] = msg;
@@ -107,13 +121,15 @@ export class TestRelayServer {
   }
 
   get url(): string {
+    if (!this.inited) throw new Error('TestRelayServer not initialized');
     const addr = this.httpServer.address() as AddressInfo;
     return `ws://${addr.address}:${addr.port}`;
   }
 
+  // deno-lint-ignore require-await
   async close(): Promise<void> {
+    if (!this.inited) throw new Error('TestRelayServer not initialized');
     return new Promise((resolve) => {
-      // Close all WebSocket connections
       this.connections.forEach((conn) => {
         if (conn.readyState === WebSocket.OPEN) {
           conn.close();
@@ -121,14 +137,12 @@ export class TestRelayServer {
       });
       this.connections.clear();
 
-      // Abort all controllers
       this.controllers.forEach((controller) => controller.abort());
       this.controllers.clear();
 
-      // Close WebSocket server
       this.wsServer.close(() => {
-        // Close HTTP server
         this.httpServer.close(() => {
+          this.inited = false;
           resolve();
         });
       });
@@ -136,21 +150,32 @@ export class TestRelayServer {
   }
 
   open(): void {
+    if (this.inited) throw new Error('TestRelayServer already initialized');
     if (!this.httpServer.listening) {
       this.httpServer = createServer();
       this.wsServer = new WebSocketServer({ server: this.httpServer });
       this.setupWebSocketServer();
       this.httpServer.listen(0, '127.0.0.1', () => {
         this.port = (this.httpServer.address() as AddressInfo).port;
+        this.inited = true;
       });
     }
   }
 
   event(event: NostrEvent): Promise<void> {
+    if (!this.inited) throw new Error('TestRelayServer not initialized');
     return this.store.event(event);
   }
 
   async [Symbol.asyncDispose](): Promise<void> {
-    await this.close();
+    if (this.inited) {
+      await this.close();
+    }
+  }
+
+  static async create(opts?: TestRelayServerOpts) {
+    const server = new TestRelayServer(opts);
+    await server.init();
+    return server;
   }
 }

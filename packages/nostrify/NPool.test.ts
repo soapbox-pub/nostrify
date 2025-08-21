@@ -1,6 +1,6 @@
 import { test } from 'node:test';
-import { NostrEvent } from '@nostrify/types';
-import { ok, deepStrictEqual } from 'node:assert';
+import type { NostrEvent } from '@nostrify/types';
+import { deepStrictEqual, ok } from 'node:assert';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
 import { NPool } from './NPool.ts';
@@ -18,8 +18,8 @@ test('NPool.query', async () => {
   const controller = new AbortController();
   const tid = setTimeout(() => controller.abort(), 5000);
 
-  await using server1 = new TestRelayServer();
-  await using server2 = new TestRelayServer();
+  await using server1 = await TestRelayServer.create();
+  await using server2 = await TestRelayServer.create();
 
   for (const event of event1s) {
     await server1.event(event);
@@ -48,8 +48,8 @@ test('NPool.req', async () => {
   const controller = new AbortController();
   const tid = setTimeout(() => controller.abort(), 3000);
 
-  await using server1 = new TestRelayServer();
-  await using server2 = new TestRelayServer();
+  await using server1 = await TestRelayServer.create();
+  await using server2 = await TestRelayServer.create();
 
   for (const event of event1s) {
     await server1.event(event);
@@ -85,8 +85,8 @@ test('NPool.event', async () => {
   const controller = new AbortController();
   const tid = setTimeout(() => controller.abort(), 5000);
 
-  await using server1 = new TestRelayServer();
-  await using server2 = new TestRelayServer();
+  await using server1 = await TestRelayServer.create();
+  await using server2 = await TestRelayServer.create();
 
   for (const event of event1s) {
     await server1.event(event);
@@ -112,7 +112,10 @@ test('NPool.event', async () => {
 
   await pool.event(event, { signal: controller.signal });
 
-  deepStrictEqual((await pool.query([{ kinds: [1], '#unique': ['uniqueTag'] }], { signal: controller.signal })).length, 1);
+  deepStrictEqual(
+    (await pool.query([{ kinds: [1], '#unique': ['uniqueTag'] }], { signal: controller.signal })).length,
+    1,
+  );
 
   clearTimeout(tid);
 });

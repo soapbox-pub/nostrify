@@ -1,4 +1,4 @@
-import {
+import type {
   NostrClientMsg,
   NostrClientREQ,
   NostrEvent,
@@ -13,7 +13,8 @@ import {
   NRelay,
 } from '@nostrify/types';
 import { getFilterLimit, matchFilters, verifyEvent as _verifyEvent } from 'nostr-tools';
-import { ArrayQueue, Backoff, ExponentialBackoff, Websocket, WebsocketBuilder, WebsocketEvent } from 'websocket-ts';
+import { ArrayQueue, ExponentialBackoff, Websocket, WebsocketBuilder, WebsocketEvent } from 'websocket-ts';
+import type { Backoff } from 'websocket-ts';
 
 import { Machina } from './utils/Machina.ts';
 import { NSchema as n } from './NSchema.ts';
@@ -55,6 +56,8 @@ export class NRelay1 implements NRelay {
   private closedByUser = false;
   private idleTimer?: ReturnType<typeof setTimeout>;
   private controller = new AbortController();
+  private url: string;
+  private opts: NRelay1Opts;
 
   private ee = new EventTarget();
 
@@ -66,7 +69,9 @@ export class NRelay1 implements NRelay {
     this.opts.log?.({ ...log, url: this.url });
   }
 
-  constructor(private url: string, private opts: NRelay1Opts = {}) {
+  constructor(url: string, opts: NRelay1Opts = {}) {
+    this.url = url;
+    this.opts = opts;
     this.socket = this.createSocket();
     this.maybeStartIdleTimer();
   }
@@ -315,6 +320,8 @@ export class NRelay1 implements NRelay {
         return count;
       }
     }
+
+    throw new Error('Count ended -- this should never happen');
   }
 
   /** Get a stream of EE events. */

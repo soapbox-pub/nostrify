@@ -2,7 +2,7 @@
 
 import { z } from 'zod';
 
-import { NostrConnectRequest, NostrConnectResponse, NostrEvent, NostrSigner, NRelay } from '@nostrify/types';
+import type { NostrConnectRequest, NostrConnectResponse, NostrEvent, NostrSigner, NRelay } from '@nostrify/types';
 
 import { NSchema as n } from './NSchema.ts';
 
@@ -54,7 +54,6 @@ export class NConnectSigner implements NostrSigner {
   > {
     const result = await this.cmd('get_relays', []);
 
-    // @ts-expect-error this is fine
     return n
       .json()
       .pipe(

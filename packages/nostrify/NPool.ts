@@ -1,4 +1,11 @@
-import { NostrEvent, NostrFilter, NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT, NRelay } from '@nostrify/types';
+import type {
+  NostrEvent,
+  NostrFilter,
+  NostrRelayCLOSED,
+  NostrRelayEOSE,
+  NostrRelayEVENT,
+  NRelay,
+} from '@nostrify/types';
 import { getFilterLimit } from 'nostr-tools';
 
 import { CircularSet } from './utils/CircularSet.ts';
@@ -49,8 +56,11 @@ export interface NPoolOpts<T extends NRelay> {
  */
 export class NPool<T extends NRelay = NRelay> implements NRelay {
   private _relays = new Map<string, T>();
+  private opts: NPoolOpts<T>;
 
-  constructor(private opts: NPoolOpts<T>) {}
+  constructor(opts: NPoolOpts<T>) {
+    this.opts = opts;
+  }
 
   /** Get or create a relay instance for the given URL. */
   public relay(url: string): T {

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
-import { NostrConnectResponse } from '@nostrify/types';
-import { ok, deepStrictEqual } from 'node:assert';
+import type { NostrConnectResponse } from '@nostrify/types';
+import { deepStrictEqual, ok } from 'node:assert';
 import { generateSecretKey, verifyEvent } from 'nostr-tools';
 
 import { MockRelay } from './test/MockRelay.ts';

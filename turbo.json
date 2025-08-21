@@ -1,11 +1,24 @@
 {
   "tasks": {
+    "setup": {
+      "dependsOn": [],
+      "outputs": [
+        "node_modules/**/*"
+      ]
+    },
     "build": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
+      "dependsOn": [
+        "setup",
+        "^build"
+      ],
+      "outputs": [
+        "dist/**"
+      ]
     },
     "test": {
-      "dependsOn": ["build"],
+      "dependsOn": [
+        "build"
+      ],
       "outputs": []
     }
   }

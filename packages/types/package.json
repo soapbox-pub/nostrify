@@ -9,6 +9,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "setup": "pnpm i",
     "test": "node --test \"**/*.test.ts\""
   },
   "publishConfig": {

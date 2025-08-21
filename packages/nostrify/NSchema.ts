@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 import type {
   NostrClientAUTH,
@@ -20,7 +20,7 @@ import type {
   NostrRelayMsg,
   NostrRelayNOTICE,
   NostrRelayOK,
-} from "@nostrify/types";
+} from '@nostrify/types';
 
 /**
  * A suite of [zod](https://github.com/colinhacks/zod) schemas for Nostr.
@@ -67,16 +67,16 @@ class NSchema {
       .passthrough()
       .transform((value) => {
         const keys = [
-          "kinds",
-          "ids",
-          "authors",
-          "since",
-          "until",
-          "limit",
-          "search",
+          'kinds',
+          'ids',
+          'authors',
+          'since',
+          'until',
+          'limit',
+          'search',
         ];
         return Object.entries(value).reduce((acc, [key, val]) => {
-          if (keys.includes(key) || key.startsWith("#")) {
+          if (keys.includes(key) || key.startsWith('#')) {
             acc[key] = val;
           }
           return acc;
@@ -92,9 +92,7 @@ class NSchema {
     return z
       .string()
       .regex(/^[\x21-\x7E]{1,83}1[023456789acdefghjklmnpqrstuvwxyz]{6,}$/)
-      .refine((value) =>
-        prefix ? value.startsWith(`${prefix}1`) : true
-      ) as z.ZodType<`${P}1${string}`>;
+      .refine((value) => prefix ? value.startsWith(`${prefix}1`) : true) as z.ZodType<`${P}1${string}`>;
   }
 
   /** WebSocket URL starting with `ws://` or `wss://`. */
@@ -107,27 +105,27 @@ class NSchema {
 
   /** NIP-01 `EVENT` message from client to relay. */
   static clientEVENT(): z.ZodType<NostrClientEVENT> {
-    return z.tuple([z.literal("EVENT"), NSchema.event()]);
+    return z.tuple([z.literal('EVENT'), NSchema.event()]);
   }
 
   /** NIP-01 `REQ` message from client to relay. */
   static clientREQ(): z.ZodType<NostrClientREQ> {
-    return z.tuple([z.literal("REQ"), z.string()]).rest(NSchema.filter());
+    return z.tuple([z.literal('REQ'), z.string()]).rest(NSchema.filter());
   }
 
   /** NIP-45 `COUNT` message from client to relay. */
   static clientCOUNT(): z.ZodType<NostrClientCOUNT> {
-    return z.tuple([z.literal("COUNT"), z.string()]).rest(NSchema.filter());
+    return z.tuple([z.literal('COUNT'), z.string()]).rest(NSchema.filter());
   }
 
   /** NIP-01 `CLOSE` message from client to relay. */
   static clientCLOSE(): z.ZodType<NostrClientCLOSE> {
-    return z.tuple([z.literal("CLOSE"), z.string()]);
+    return z.tuple([z.literal('CLOSE'), z.string()]);
   }
 
   /** NIP-42 `AUTH` message from client to relay. */
   static clientAUTH(): z.ZodType<NostrClientAUTH> {
-    return z.tuple([z.literal("AUTH"), NSchema.event()]);
+    return z.tuple([z.literal('AUTH'), NSchema.event()]);
   }
 
   /** NIP-01 message from client to relay. */
@@ -143,38 +141,38 @@ class NSchema {
 
   /** NIP-01 `EVENT` message from relay to client. */
   static relayEVENT(): z.ZodType<NostrRelayEVENT> {
-    return z.tuple([z.literal("EVENT"), z.string(), NSchema.event()]);
+    return z.tuple([z.literal('EVENT'), z.string(), NSchema.event()]);
   }
 
   /** NIP-01 `OK` message from relay to client. */
   static relayOK(): z.ZodType<NostrRelayOK> {
-    return z.tuple([z.literal("OK"), NSchema.id(), z.boolean(), z.string()]);
+    return z.tuple([z.literal('OK'), NSchema.id(), z.boolean(), z.string()]);
   }
 
   /** NIP-01 `EOSE` message from relay to client. */
   static relayEOSE(): z.ZodType<NostrRelayEOSE> {
-    return z.tuple([z.literal("EOSE"), z.string()]);
+    return z.tuple([z.literal('EOSE'), z.string()]);
   }
 
   /** NIP-01 `NOTICE` message from relay to client. */
   static relayNOTICE(): z.ZodType<NostrRelayNOTICE> {
-    return z.tuple([z.literal("NOTICE"), z.string()]);
+    return z.tuple([z.literal('NOTICE'), z.string()]);
   }
 
   /** NIP-01 `CLOSED` message from relay to client. */
   static relayCLOSED(): z.ZodType<NostrRelayCLOSED> {
-    return z.tuple([z.literal("CLOSED"), z.string(), z.string()]);
+    return z.tuple([z.literal('CLOSED'), z.string(), z.string()]);
   }
 
   /** NIP-42 `AUTH` message from relay to client. */
   static relayAUTH(): z.ZodType<NostrRelayAUTH> {
-    return z.tuple([z.literal("AUTH"), z.string()]);
+    return z.tuple([z.literal('AUTH'), z.string()]);
   }
 
   /** NIP-45 `COUNT` message from relay to client. */
   static relayCOUNT(): z.ZodType<NostrRelayCOUNT> {
     return z.tuple([
-      z.literal("COUNT"),
+      z.literal('COUNT'),
       z.string(),
       z.object({
         count: z.number().int().nonnegative(),
@@ -203,7 +201,7 @@ class NSchema {
       banner: z.string().url().optional().catch(undefined),
       bot: z.boolean().optional().catch(undefined),
       display_name: z.string().optional().catch(undefined),
-      lud06: NSchema.bech32("lnurl").optional().catch(undefined),
+      lud06: NSchema.bech32('lnurl').optional().catch(undefined),
       lud16: z.string().email().optional().catch(undefined),
       name: z.string().optional().catch(undefined),
       nip05: z.string().email().optional().catch(undefined),
@@ -242,7 +240,7 @@ class NSchema {
       try {
         return JSON.parse(value) as unknown;
       } catch (_e) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Invalid JSON" });
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Invalid JSON' });
         return z.NEVER;
       }
     });

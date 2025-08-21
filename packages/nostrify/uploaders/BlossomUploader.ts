@@ -1,13 +1,13 @@
-import type { NostrSigner, NUploader } from "@nostrify/types";
-import { encodeHex } from "@std/encoding/hex";
-import { z } from "zod";
+import type { NostrSigner, NUploader } from '@nostrify/types';
+import { encodeHex } from '@std/encoding/hex';
+import { z } from 'zod';
 
-import { N64 } from "../utils/N64.ts";
+import { N64 } from '../utils/N64.ts';
 
 /** BlossomUploader options. */
 export interface BlossomUploaderOpts {
   /** Blossom servers to use. */
-  servers: Request["url"][];
+  servers: Request['url'][];
   /** Signer for Blossom authorizations. */
   signer: NostrSigner;
   /** Custom fetch implementation. */
@@ -18,7 +18,7 @@ export interface BlossomUploaderOpts {
 
 /** Upload files to Blossom servers. */
 export class BlossomUploader implements NUploader {
-  private servers: Request["url"][];
+  private servers: Request['url'][];
   private signer: NostrSigner;
   private fetch: typeof fetch;
   private expiresIn: number;
@@ -33,9 +33,9 @@ export class BlossomUploader implements NUploader {
   async upload(
     file: File,
     opts?: { signal?: AbortSignal },
-  ): Promise<[["url", string], ...string[][]]> {
+  ): Promise<[['url', string], ...string[][]]> {
     const x = encodeHex(
-      await crypto.subtle.digest("SHA-256", await file.arrayBuffer()),
+      await crypto.subtle.digest('SHA-256', await file.arrayBuffer()),
     );
 
     const now = Date.now();
@@ -46,24 +46,24 @@ export class BlossomUploader implements NUploader {
       content: `Upload ${file.name}`,
       created_at: Math.floor(now / 1000),
       tags: [
-        ["t", "upload"],
-        ["x", x],
-        ["size", file.size.toString()],
-        ["expiration", Math.floor(expiration / 1000).toString()],
+        ['t', 'upload'],
+        ['x', x],
+        ['size', file.size.toString()],
+        ['expiration', Math.floor(expiration / 1000).toString()],
       ],
     });
 
     const authorization = `Nostr ${N64.encodeEvent(event)}`;
 
     return Promise.any(this.servers.map(async (server) => {
-      const url = new URL("/upload", server);
+      const url = new URL('/upload', server);
 
       const response = await this.fetch(url, {
-        method: "PUT",
+        method: 'PUT',
         body: file,
         headers: {
           authorization,
-          "content-type": file.type,
+          'content-type': file.type,
         },
         signal: opts?.signal,
       });
@@ -71,15 +71,15 @@ export class BlossomUploader implements NUploader {
       const json = await response.json();
       const data = BlossomUploader.schema().parse(json);
 
-      const tags: [["url", string], ...string[][]] = [
-        ["url", data.url],
-        ["x", data.sha256],
-        ["ox", data.sha256],
-        ["size", data.size.toString()],
+      const tags: [['url', string], ...string[][]] = [
+        ['url', data.url],
+        ['x', data.sha256],
+        ['ox', data.sha256],
+        ['size', data.size.toString()],
       ];
 
       if (data.type) {
-        tags.push(["m", data.type]);
+        tags.push(['m', data.type]);
       }
 
       return tags;

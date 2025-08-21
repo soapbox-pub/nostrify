@@ -1,5 +1,5 @@
 import { test } from 'node:test';
-import { ok, deepStrictEqual } from 'node:assert';
+import { deepStrictEqual, ok } from 'node:assert';
 
 import { NSchema as n } from './NSchema.ts';
 

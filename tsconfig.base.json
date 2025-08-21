@@ -1,19 +1,19 @@
 {
-    "compilerOptions": {
-        "declaration": true,
-        "declarationMap": true,
-        "sourceMap": true,
-        "composite": true,
-        "lib": [
-            "dom",
-            "ESNext"
-        ],
-        "moduleResolution": "nodenext",
-        "module": "nodenext",
-        "skipLibCheck": true,
-        "target": "esnext",
-        "allowImportingTsExtensions": true,
-        "emitDeclarationOnly": true,
-        "resolveJsonModule": true
-    }
+  "compilerOptions": {
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "composite": true,
+    "lib": [
+      "dom",
+      "ESNext"
+    ],
+    "moduleResolution": "nodenext",
+    "module": "nodenext",
+    "skipLibCheck": true,
+    "target": "esnext",
+    "allowImportingTsExtensions": true,
+    "emitDeclarationOnly": true,
+    "resolveJsonModule": true
+  }
 }

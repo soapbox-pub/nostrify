@@ -1,10 +1,10 @@
-import type { NostrEvent } from "@nostrify/types";
-import { bech32 } from "@scure/base";
+import type { NostrEvent } from '@nostrify/types';
+import { bech32 } from '@scure/base';
 
-import { LNURLCallback } from "./types/LNURLCallback.ts";
-import { LNURLDetails } from "./types/LNURLDetails.ts";
+import { LNURLCallback } from './types/LNURLCallback.ts';
+import { LNURLDetails } from './types/LNURLDetails.ts';
 
-import { NSchema as n, z } from "../NSchema.ts";
+import { NSchema as n, z } from '../NSchema.ts';
 
 /**
  * Represents an LNURL, with methods to fetch details and generate invoices.
@@ -45,7 +45,7 @@ export class LNURL {
       20000,
     );
 
-    if (prefix !== "lnurl") {
+    if (prefix !== 'lnurl') {
       throw new Error('Expected a bech32 string starting with "lnurl1"');
     }
 
@@ -69,7 +69,7 @@ export class LNURL {
       );
     }
 
-    const [name, host] = ln.split("@");
+    const [name, host] = ln.split('@');
     const url = new URL(`/.well-known/lnurlp/${name}`, `https://${host}`);
 
     return new LNURL(url, opts);
@@ -79,7 +79,7 @@ export class LNURL {
   toString(): `lnurl1${string}` {
     const data = new TextEncoder().encode(this.url.toString());
     const words = bech32.toWords(data);
-    return bech32.encode("lnurl", words, 20000);
+    return bech32.encode('lnurl', words, 20000);
   }
 
   /** Resolve an LNURL to its details. */
@@ -101,11 +101,11 @@ export class LNURL {
     const details = await this.getDetails(opts);
     const callback = new URL(details.callback);
 
-    callback.searchParams.set("amount", opts.amount.toString());
-    callback.searchParams.set("lnurl", this.toString());
+    callback.searchParams.set('amount', opts.amount.toString());
+    callback.searchParams.set('lnurl', this.toString());
 
     if (opts.nostr) {
-      callback.searchParams.set("nostr", JSON.stringify(opts.nostr));
+      callback.searchParams.set('nostr', JSON.stringify(opts.nostr));
     }
 
     const response = await this.fetch(callback, opts);
@@ -124,13 +124,13 @@ export class LNURL {
       minSendable: z.number().positive().int(),
       metadata: z.string(),
       nostrPubkey: n.id().optional(),
-      tag: z.literal("payRequest"),
+      tag: z.literal('payRequest'),
     }).superRefine((details, ctx) => {
       if (details.minSendable > details.maxSendable) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "minSendable must be less than or equal to maxSendable",
-          path: ["minSendable"],
+          message: 'minSendable must be less than or equal to maxSendable',
+          path: ['minSendable'],
         });
       }
     }) as z.ZodType<LNURLDetails>;
@@ -139,7 +139,7 @@ export class LNURL {
   /** LNURL callback schema. */
   static lnurlCallbackSchema(): z.ZodType<LNURLCallback> {
     return z.object({
-      pr: n.bech32("lnbc"),
+      pr: n.bech32('lnbc'),
       routes: z.tuple([]),
     }) as unknown as z.ZodType<LNURLCallback>;
   }

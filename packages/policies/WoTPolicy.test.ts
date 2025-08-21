@@ -1,9 +1,9 @@
-import { test } from "node:test";
-import { ErrorRelay, genEvent, MockRelay } from "@nostrify/nostrify/test";
-import { ok } from "node:assert";
-import { generateSecretKey, getPublicKey } from "nostr-tools";
+import { test } from 'node:test';
+import { ErrorRelay, genEvent, MockRelay } from '@nostrify/nostrify/test';
+import { ok } from 'node:assert';
+import { generateSecretKey, getPublicKey } from 'nostr-tools';
 
-import { WoTPolicy } from "./WoTPolicy.ts";
+import { WoTPolicy } from './WoTPolicy.ts';
 
 function keygen(): { pubkey: string; seckey: Uint8Array } {
   const seckey = generateSecretKey();
@@ -11,7 +11,7 @@ function keygen(): { pubkey: string; seckey: Uint8Array } {
   return { pubkey, seckey };
 }
 
-test("WoTPolicy", async () => {
+test('WoTPolicy', async () => {
   const store = new MockRelay();
   const [alex, patrick, fiatjaf, replyguy] = [
     keygen(),
@@ -21,13 +21,13 @@ test("WoTPolicy", async () => {
   ];
 
   await store.event(
-    genEvent({ kind: 3, tags: [["p", patrick.pubkey]] }, alex.seckey),
+    genEvent({ kind: 3, tags: [['p', patrick.pubkey]] }, alex.seckey),
   );
   await store.event(
-    genEvent({ kind: 3, tags: [["p", fiatjaf.pubkey]] }, patrick.seckey),
+    genEvent({ kind: 3, tags: [['p', fiatjaf.pubkey]] }, patrick.seckey),
   );
   await store.event(
-    genEvent({ kind: 3, tags: [["p", patrick.pubkey]] }, fiatjaf.seckey),
+    genEvent({ kind: 3, tags: [['p', patrick.pubkey]] }, fiatjaf.seckey),
   );
 
   const policy = new WoTPolicy({ store, pubkeys: [alex.pubkey], depth: 2 });
@@ -38,7 +38,7 @@ test("WoTPolicy", async () => {
   ok(!(await policy.call(genEvent({}, replyguy.seckey)))[2]);
 });
 
-test("WoTPolicy constructor with error store", () => {
+test('WoTPolicy constructor with error store', () => {
   const store = new ErrorRelay();
   const alex = keygen();
 

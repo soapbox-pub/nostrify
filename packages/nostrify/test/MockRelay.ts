@@ -8,11 +8,11 @@ import type {
   NostrRelayEOSE,
   NostrRelayEVENT,
   NRelay,
-} from "@nostrify/types";
-import { matchFilters } from "nostr-tools";
+} from '@nostrify/types';
+import { matchFilters } from 'nostr-tools';
 
-import { Machina } from "../utils/Machina.ts";
-import { NSet } from "../NSet.ts";
+import { Machina } from '../utils/Machina.ts';
+import { NSet } from '../NSet.ts';
 
 /** Mock relay for testing. */
 export class MockRelay extends NSet implements NRelay {
@@ -32,13 +32,13 @@ export class MockRelay extends NSet implements NRelay {
 
     try {
       for (const event of await this.query(filters)) {
-        yield ["EVENT", uuid, event];
+        yield ['EVENT', uuid, event];
       }
 
-      yield ["EOSE", uuid];
+      yield ['EOSE', uuid];
 
       for await (const event of machina) {
-        yield ["EVENT", uuid, event];
+        yield ['EVENT', uuid, event];
       }
     } finally {
       this.subs.delete(uuid);
@@ -88,5 +88,5 @@ export class MockRelay extends NSet implements NRelay {
     return Promise.resolve();
   }
 
-  override [Symbol.toStringTag] = "MockRelay";
+  override [Symbol.toStringTag] = 'MockRelay';
 }

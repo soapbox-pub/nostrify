@@ -1,5 +1,14 @@
 # @nostrify/react
 
+## 0.2.12
+
+### Patch Changes
+
+- Get tests passing in CI, use esbuild to build final JS files
+- Updated dependencies
+  - @nostrify/nostrify@0.46.8
+  - @nostrify/types@0.36.4
+
 ## 0.2.11
 
 ### Patch Changes

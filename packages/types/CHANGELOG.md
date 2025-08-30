@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.36.4
+
+### Patch Changes
+
+- Get tests passing in CI, use esbuild to build final JS files
+
 ## 0.36.3
 
 ### Patch Changes

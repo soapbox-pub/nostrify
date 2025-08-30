@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.46.8
+
+### Patch Changes
+
+- Get tests passing in CI, use esbuild to build final JS files
+- Updated dependencies
+  - @nostrify/types@0.36.4
+
 ## 0.46.7
 
 ### Patch Changes

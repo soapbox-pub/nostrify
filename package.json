@@ -19,6 +19,7 @@
     "@std/streams": "jsr:^1.0.8",
     "@types/node": "^24.1.0",
     "@types/sinon": "^17.0.4",
+    "esbuild": "^0.25.9",
     "glob": "^11.0.3",
     "lerna": "^8.2.3",
     "lru-cache": "^10.2.0",

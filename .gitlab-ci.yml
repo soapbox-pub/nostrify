@@ -17,19 +17,13 @@ test:
   script:
     # - deno lint
     # - deno fmt
-    - pnpm i
+    - pnpm i -r
     - pnpm test
   services:
     - postgres:16
   variables:
     DATABASE_URL: postgres://postgres:postgres@postgres:5432/postgres
     POSTGRES_HOST_AUTH_METHOD: trust
-  artifacts:
-    when: always
-    paths:
-      - deno-test.xml
-    reports:
-      junit: deno-test.xml
 
 pages:
   stage: docs

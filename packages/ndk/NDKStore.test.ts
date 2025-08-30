@@ -1,15 +1,21 @@
-import { test } from 'node:test';
-import NDK from '@nostr-dev-kit/ndk';
-import { ok } from 'node:assert';
-import { finalizeEvent, generateSecretKey } from 'nostr-tools';
-import process from 'node:process';
-import type { NostrEvent } from '@nostrify/types';
+import { test } from "node:test";
+import NDK from "@nostr-dev-kit/ndk";
+import { ok } from "node:assert";
+import { finalizeEvent, generateSecretKey } from "nostr-tools";
+import process from "node:process";
+import type { NostrEvent } from "@nostrify/types";
 
-import { NDKStore } from './NDKStore.ts';
+import { NDKStore } from "./NDKStore.ts";
 
-test('NDKStore.query', { skip: process.env.CI === 'true' }, async () => {
+test("NDKStore.query", {
+  skip: process.env.CI === "true" || process.env.CI === "1",
+}, async () => {
   const ndk = new NDK({
-    explicitRelayUrls: ['wss://relay.mostr.pub', 'wss://relay.primal.net', 'wss://relay.nostr.band'],
+    explicitRelayUrls: [
+      "wss://relay.mostr.pub",
+      "wss://relay.primal.net",
+      "wss://relay.nostr.band",
+    ],
   });
   await ndk.connect(3000);
 
@@ -19,9 +25,15 @@ test('NDKStore.query', { skip: process.env.CI === 'true' }, async () => {
   ok(events.length);
 });
 
-test('NDKStore.req', { skip: process.env.CI === 'true' }, async () => {
+test("NDKStore.req", {
+  skip: process.env.CI === "true" || process.env.CI === "1",
+}, async () => {
   const ndk = new NDK({
-    explicitRelayUrls: ['wss://relay.mostr.pub', 'wss://relay.primal.net', 'wss://relay.nostr.band'],
+    explicitRelayUrls: [
+      "wss://relay.mostr.pub",
+      "wss://relay.primal.net",
+      "wss://relay.nostr.band",
+    ],
   });
   await ndk.connect(3000);
 
@@ -29,7 +41,7 @@ test('NDKStore.req', { skip: process.env.CI === 'true' }, async () => {
   const events: NostrEvent[] = [];
 
   for await (const msg of relay.req([{ kinds: [1], limit: 3 }])) {
-    if (msg[0] === 'EVENT') {
+    if (msg[0] === "EVENT") {
       events.push(msg[2]);
       break;
     }
@@ -38,9 +50,11 @@ test('NDKStore.req', { skip: process.env.CI === 'true' }, async () => {
   ok(events.length);
 });
 
-test('NDKStore.event', { skip: process.env.CI === 'true' }, async () => {
+test("NDKStore.event", {
+  skip: process.env.CI === "true" || process.env.CI === "1",
+}, async () => {
   const ndk = new NDK({
-    explicitRelayUrls: ['wss://relay.mostr.pub'],
+    explicitRelayUrls: ["wss://relay.mostr.pub"],
   });
   await ndk.connect(3000);
 
@@ -48,7 +62,8 @@ test('NDKStore.event', { skip: process.env.CI === 'true' }, async () => {
 
   const event: NostrEvent = finalizeEvent({
     kind: 1,
-    content: 'This is an automated test from Nostrify: https://gitlab.com/soapbox-pub/nostrify',
+    content:
+      "This is an automated test from Nostrify: https://gitlab.com/soapbox-pub/nostrify",
     tags: [],
     created_at: Math.floor(Date.now() / 1000),
   }, generateSecretKey());

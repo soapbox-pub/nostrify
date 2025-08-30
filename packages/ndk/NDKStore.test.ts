@@ -7,7 +7,7 @@ import type { NostrEvent } from "@nostrify/types";
 
 import { NDKStore } from "./NDKStore.ts";
 
-test("NDKStore.query", {
+await test("NDKStore.query", {
   skip: process.env.CI === "true" || process.env.CI === "1",
 }, async () => {
   const ndk = new NDK({
@@ -25,7 +25,7 @@ test("NDKStore.query", {
   ok(events.length);
 });
 
-test("NDKStore.req", {
+await test("NDKStore.req", {
   skip: process.env.CI === "true" || process.env.CI === "1",
 }, async () => {
   const ndk = new NDK({
@@ -50,7 +50,7 @@ test("NDKStore.req", {
   ok(events.length);
 });
 
-test("NDKStore.event", {
+await test("NDKStore.event", {
   skip: process.env.CI === "true" || process.env.CI === "1",
 }, async () => {
   const ndk = new NDK({

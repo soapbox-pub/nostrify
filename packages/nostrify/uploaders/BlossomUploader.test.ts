@@ -8,7 +8,7 @@ import fs from "node:fs/promises";
 import { URL } from "node:url";
 import { Readable } from "node:stream";
 
-test(
+await test(
   "BlossomUploader.upload",
   { skip: process.env.CI === "true" || process.env.CI === "1" },
   async () => {

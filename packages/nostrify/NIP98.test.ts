@@ -1,46 +1,49 @@
-import { test } from 'node:test';
-import { deepStrictEqual, rejects } from 'node:assert';
-import { generateSecretKey } from 'nostr-tools';
-import { ZodError } from 'zod';
+import { test } from "node:test";
+import { deepStrictEqual, rejects } from "node:assert";
+import { generateSecretKey } from "nostr-tools";
+import { ZodError } from "zod";
 
-import { NIP98 } from './NIP98.ts';
-import { NSecSigner } from './NSecSigner.ts';
-import { N64 } from './utils/mod.ts';
+import { NIP98 } from "./NIP98.ts";
+import { NSecSigner } from "./NSecSigner.ts";
+import { N64 } from "./utils/mod.ts";
 
-test('NIP98.template', async () => {
-  const request = new Request('https://example.com');
+await test("NIP98.template", async () => {
+  const request = new Request("https://example.com");
   const event = await NIP98.template(request);
 
   deepStrictEqual(event.kind, 27235);
   deepStrictEqual(event.tags, [
-    ['method', 'GET'],
-    ['u', 'https://example.com/'],
+    ["method", "GET"],
+    ["u", "https://example.com/"],
   ]);
 });
 
-test('NIP98.template with payload', async () => {
-  const request = new Request('https://example.com', {
-    method: 'POST',
-    body: 'Hello, world!',
+await test("NIP98.template with payload", async () => {
+  const request = new Request("https://example.com", {
+    method: "POST",
+    body: "Hello, world!",
   });
   const event = await NIP98.template(request);
 
   deepStrictEqual(event.kind, 27235);
   deepStrictEqual(event.tags, [
-    ['method', 'POST'],
-    ['u', 'https://example.com/'],
-    ['payload', '315f5bdb76d078c43b8ac0064e4a0164612b1fce77c869345bfc94c75894edd3'],
+    ["method", "POST"],
+    ["u", "https://example.com/"],
+    [
+      "payload",
+      "315f5bdb76d078c43b8ac0064e4a0164612b1fce77c869345bfc94c75894edd3",
+    ],
   ]);
 });
 
-test('NIP98.verify', async () => {
+await test("NIP98.verify", async () => {
   const signer = new NSecSigner(generateSecretKey());
-  const request = new Request('https://example.com');
+  const request = new Request("https://example.com");
 
   const t = await NIP98.template(request);
   const event = await signer.signEvent(t);
 
-  request.headers.set('authorization', `Nostr ${N64.encodeEvent(event)}`);
+  request.headers.set("authorization", `Nostr ${N64.encodeEvent(event)}`);
 
   const proof = await NIP98.verify(request);
 
@@ -48,30 +51,30 @@ test('NIP98.verify', async () => {
   deepStrictEqual(proof.pubkey, await signer.getPublicKey());
 });
 
-test('NIP98.verify fails with missing header', async () => {
-  const request = new Request('https://example.com');
+await test("NIP98.verify fails with missing header", async () => {
+  const request = new Request("https://example.com");
 
   await rejects(
     () => NIP98.verify(request),
     Error,
-    'Missing Nostr authorization header',
+    "Missing Nostr authorization header",
   );
 });
 
-test('NIP98.verify fails with missing token', async () => {
-  const request = new Request('https://example.com');
-  request.headers.set('authorization', 'Nostr');
+await test("NIP98.verify fails with missing token", async () => {
+  const request = new Request("https://example.com");
+  request.headers.set("authorization", "Nostr");
 
   await rejects(
     () => NIP98.verify(request),
     Error,
-    'Missing Nostr authorization token',
+    "Missing Nostr authorization token",
   );
 });
 
-test('NIP98.verify fails with invalid token', async () => {
-  const request = new Request('https://example.com');
-  request.headers.set('authorization', 'Nostr invalid');
+await test("NIP98.verify fails with invalid token", async () => {
+  const request = new Request("https://example.com");
+  request.headers.set("authorization", "Nostr invalid");
 
   await rejects(
     () => NIP98.verify(request),
@@ -79,104 +82,113 @@ test('NIP98.verify fails with invalid token', async () => {
   );
 });
 
-test('NIP98.verify fails with invalid event', async () => {
+await test("NIP98.verify fails with invalid event", async () => {
   const signer = new NSecSigner(generateSecretKey());
-  const request = new Request('https://example.com');
+  const request = new Request("https://example.com");
 
   const t = await NIP98.template(request);
   const event = await signer.signEvent(t);
 
-  event.sig = 'invalid';
+  event.sig = "invalid";
 
-  request.headers.set('authorization', `Nostr ${N64.encodeEvent(event)}`);
+  request.headers.set("authorization", `Nostr ${N64.encodeEvent(event)}`);
 
   await rejects(
     () => NIP98.verify(request),
     Error,
-    'Event signature is invalid',
+    "Event signature is invalid",
   );
 });
 
-test('NIP98.verify fails with wrong event kind', async () => {
+await test("NIP98.verify fails with wrong event kind", async () => {
   const signer = new NSecSigner(generateSecretKey());
-  const request = new Request('https://example.com');
+  const request = new Request("https://example.com");
 
   const t = await NIP98.template(request);
   const event = await signer.signEvent({ ...t, kind: 1 });
 
-  request.headers.set('authorization', `Nostr ${N64.encodeEvent(event)}`);
+  request.headers.set("authorization", `Nostr ${N64.encodeEvent(event)}`);
 
   await rejects(
     () => NIP98.verify(request),
     Error,
-    'Event must be kind 27235',
+    "Event must be kind 27235",
   );
 });
 
-test('NIP98.verify fails with wrong request URL', async () => {
+await test("NIP98.verify fails with wrong request URL", async () => {
   const signer = new NSecSigner(generateSecretKey());
-  const request = new Request('https://example.com');
+  const request = new Request("https://example.com");
 
   const t = await NIP98.template(request);
-  const event = await signer.signEvent({ ...t, tags: [['u', 'https://example.org/']] });
+  const event = await signer.signEvent({
+    ...t,
+    tags: [["u", "https://example.org/"]],
+  });
 
-  request.headers.set('authorization', `Nostr ${N64.encodeEvent(event)}`);
+  request.headers.set("authorization", `Nostr ${N64.encodeEvent(event)}`);
 
   await rejects(
     () => NIP98.verify(request),
     Error,
-    'Event URL does not match request URL',
+    "Event URL does not match request URL",
   );
 });
 
-test('NIP98.verify fails with wrong request method', async () => {
+await test("NIP98.verify fails with wrong request method", async () => {
   const signer = new NSecSigner(generateSecretKey());
-  const request = new Request('https://example.com');
+  const request = new Request("https://example.com");
 
   const t = await NIP98.template(request);
-  const event = await signer.signEvent({ ...t, tags: [['u', 'https://example.com/'], ['method', 'POST']] });
+  const event = await signer.signEvent({
+    ...t,
+    tags: [["u", "https://example.com/"], ["method", "POST"]],
+  });
 
-  request.headers.set('authorization', `Nostr ${N64.encodeEvent(event)}`);
+  request.headers.set("authorization", `Nostr ${N64.encodeEvent(event)}`);
 
   await rejects(
     () => NIP98.verify(request),
     Error,
-    'Event method does not match HTTP request method',
+    "Event method does not match HTTP request method",
   );
 });
 
-test('NIP98.verify fails with expired event', async () => {
+await test("NIP98.verify fails with expired event", async () => {
   const signer = new NSecSigner(generateSecretKey());
-  const request = new Request('https://example.com');
+  const request = new Request("https://example.com");
 
   const t = await NIP98.template(request);
   const event = await signer.signEvent({ ...t, created_at: 0 });
 
-  request.headers.set('authorization', `Nostr ${N64.encodeEvent(event)}`);
+  request.headers.set("authorization", `Nostr ${N64.encodeEvent(event)}`);
 
   await rejects(
     () => NIP98.verify(request),
     Error,
-    'Event expired',
+    "Event expired",
   );
 });
 
-test('NIP98.verify fails with invalid payload', async () => {
+await test("NIP98.verify fails with invalid payload", async () => {
   const signer = new NSecSigner(generateSecretKey());
-  const request = new Request('https://example.com', {
-    method: 'POST',
-    body: 'Hello, world!',
+  const request = new Request("https://example.com", {
+    method: "POST",
+    body: "Hello, world!",
   });
 
   const t = await NIP98.template(request);
-  const tags = t.tags.filter(([name]) => name !== 'payload');
-  const event = await signer.signEvent({ ...t, tags: [...tags, ['payload', 'invalid']] });
+  const tags = t.tags.filter(([name]) => name !== "payload");
+  const event = await signer.signEvent({
+    ...t,
+    tags: [...tags, ["payload", "invalid"]],
+  });
 
-  request.headers.set('authorization', `Nostr ${N64.encodeEvent(event)}`);
+  request.headers.set("authorization", `Nostr ${N64.encodeEvent(event)}`);
 
   await rejects(
     () => NIP98.verify(request),
     Error,
-    'Event payload does not match request body',
+    "Event payload does not match request body",
   );
 });

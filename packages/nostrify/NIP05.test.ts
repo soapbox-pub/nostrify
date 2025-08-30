@@ -1,20 +1,24 @@
-import { test } from 'node:test';
-import { deepStrictEqual, rejects } from 'node:assert';
-import sinon from 'sinon';
+import { test } from "node:test";
+import { deepStrictEqual, rejects } from "node:assert";
+import sinon from "sinon";
 
-import { NIP05 } from './NIP05.ts';
+import { NIP05 } from "./NIP05.ts";
 
-test('NIP05.lookup', async () => {
-  const { default: nostrJson } = await import('../../fixtures/nostr.json', { with: { type: 'json' } });
+await test("NIP05.lookup", async () => {
+  const { default: nostrJson } = await import("../../fixtures/nostr.json", {
+    with: { type: "json" },
+  });
 
-  const fetchStub = sinon.stub(globalThis, 'fetch');
+  const fetchStub = sinon.stub(globalThis, "fetch");
   fetchStub.resolves(new Response(JSON.stringify(nostrJson)));
 
-  const result = await NIP05.lookup('alex_at_gleasonator.com@mostr.pub', { fetch: fetchStub });
+  const result = await NIP05.lookup("alex_at_gleasonator.com@mostr.pub", {
+    fetch: fetchStub,
+  });
 
   const expected = {
-    pubkey: '79c2cae114ea28a981e7559b4fe7854a473521a8d22a66bbab9fa248eb820ff6',
-    relays: ['wss://relay.mostr.pub'],
+    pubkey: "79c2cae114ea28a981e7559b4fe7854a473521a8d22a66bbab9fa248eb820ff6",
+    relays: ["wss://relay.mostr.pub"],
   };
 
   deepStrictEqual(result, expected);
@@ -22,16 +26,18 @@ test('NIP05.lookup', async () => {
 });
 
 // https://github.com/nostrability/nostrability/issues/143#issuecomment-2565772246
-test('NIP05.lookup with invalid values but valid profile pointer', async () => {
-  const { default: nostrJson } = await import('../../fixtures/lncal.json', { with: { type: 'json' } });
+await test("NIP05.lookup with invalid values but valid profile pointer", async () => {
+  const { default: nostrJson } = await import("../../fixtures/lncal.json", {
+    with: { type: "json" },
+  });
 
-  const fetchStub = sinon.stub(globalThis, 'fetch');
+  const fetchStub = sinon.stub(globalThis, "fetch");
   fetchStub.resolves(new Response(JSON.stringify(nostrJson)));
 
-  const result = await NIP05.lookup('elsat@lncal.com', { fetch: fetchStub });
+  const result = await NIP05.lookup("elsat@lncal.com", { fetch: fetchStub });
 
   const expected = {
-    pubkey: '17538dc2a62769d09443f18c37cbe358fab5bbf981173542aa7c5ff171ed77c4',
+    pubkey: "17538dc2a62769d09443f18c37cbe358fab5bbf981173542aa7c5ff171ed77c4",
     relays: undefined,
   };
 
@@ -39,15 +45,15 @@ test('NIP05.lookup with invalid values but valid profile pointer', async () => {
   fetchStub.restore();
 });
 
-test('NIP05.lookup with invalid document', () => {
-  const fetchStub = sinon.stub(globalThis, 'fetch');
-  fetchStub.onCall(0).resolves(new Response(JSON.stringify({ names: 'yolo' })));
+await test("NIP05.lookup with invalid document", () => {
+  const fetchStub = sinon.stub(globalThis, "fetch");
+  fetchStub.onCall(0).resolves(new Response(JSON.stringify({ names: "yolo" })));
   fetchStub.onCall(1).resolves(new Response(JSON.stringify({})));
   fetchStub.onCall(2).resolves(new Response(JSON.stringify([])));
 
-  rejects(() => NIP05.lookup('alex@gleasonator.dev', { fetch: fetchStub }));
-  rejects(() => NIP05.lookup('alex@gleasonator.dev', { fetch: fetchStub }));
-  rejects(() => NIP05.lookup('alex@gleasonator.dev', { fetch: fetchStub }));
+  rejects(() => NIP05.lookup("alex@gleasonator.dev", { fetch: fetchStub }));
+  rejects(() => NIP05.lookup("alex@gleasonator.dev", { fetch: fetchStub }));
+  rejects(() => NIP05.lookup("alex@gleasonator.dev", { fetch: fetchStub }));
 
   fetchStub.restore();
 });

@@ -7,7 +7,7 @@ import fs from "node:fs/promises";
 import { NostrBuildUploader } from "./NostrBuildUploader.ts";
 import { Readable } from "node:stream";
 
-test(
+await test(
   "NostrBuildUploader.upload",
   { skip: process.env.CI === "true" || process.env.CI === "1" },
   async () => {

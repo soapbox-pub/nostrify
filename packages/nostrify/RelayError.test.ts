@@ -1,24 +1,24 @@
-import { test } from 'node:test';
-import { throws } from 'node:assert';
+import { test } from "node:test";
+import { throws } from "node:assert";
 
-import { RelayError } from './RelayError.ts';
+import { RelayError } from "./RelayError.ts";
 
-test('Construct a RelayError from the reason message', () => {
+await test("Construct a RelayError from the reason message", () => {
   throws(
     () => {
-      throw RelayError.fromReason('duplicate: already exists');
+      throw RelayError.fromReason("duplicate: already exists");
     },
     RelayError,
-    'duplicate: already exists',
+    "duplicate: already exists",
   );
 });
 
-test('Throw a new RelayError if the OK message is false', () => {
+await test("Throw a new RelayError if the OK message is false", () => {
   throws(
     () => {
-      RelayError.assert(['OK', 'yolo', false, 'error: bla bla bla']);
+      RelayError.assert(["OK", "yolo", false, "error: bla bla bla"]);
     },
     RelayError,
-    'error: bla bla bla',
+    "error: bla bla bla",
   );
 });

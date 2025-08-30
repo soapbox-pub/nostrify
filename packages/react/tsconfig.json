@@ -9,8 +9,12 @@
     "outDir": "./dist"
   },
   "include": [
-    "./**/*.ts",
-    "!./**/*.test.ts",
-    "!./**/*.bench.ts"
+    "./**/*.ts"
+  ],
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.bench.ts",
+    "example",
+    "dist"
   ]
 }

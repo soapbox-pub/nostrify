@@ -10,7 +10,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json && node ../../esbuild.config.js --package ./",
     "setup": "pnpm i",
-    "test": "node --test \"**/*.test.ts\""
+    "test": "node --test --test-concurrency=1 \"**/*.test.ts\""
   },
   "dependencies": {
     "@deno/kv": "^0.10.0",

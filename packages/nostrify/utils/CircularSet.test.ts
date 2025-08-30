@@ -1,9 +1,9 @@
-import { test } from 'node:test';
-import { deepStrictEqual } from 'node:assert';
+import { test } from "node:test";
+import { deepStrictEqual } from "node:assert";
 
-import { CircularSet } from './CircularSet.ts';
+import { CircularSet } from "./CircularSet.ts";
 
-test('CircularSet', () => {
+await test("CircularSet", () => {
   const set = new CircularSet<number>(3);
 
   set.add(1);

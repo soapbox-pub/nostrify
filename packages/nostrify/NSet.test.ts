@@ -1,13 +1,21 @@
-import { test } from 'node:test';
-import { deepStrictEqual } from 'node:assert';
+import { test } from "node:test";
+import { deepStrictEqual } from "node:assert";
 
-import { NSet } from './NSet.ts';
+import { NSet } from "./NSet.ts";
 
-test('NSet', () => {
+await test("NSet", () => {
   const set = new NSet();
   deepStrictEqual(set.size, 0);
 
-  const event = { id: '1', kind: 0, pubkey: 'abc', content: '', created_at: 0, sig: '', tags: [] };
+  const event = {
+    id: "1",
+    kind: 0,
+    pubkey: "abc",
+    content: "",
+    created_at: 0,
+    sig: "",
+    tags: [],
+  };
   set.add(event);
   deepStrictEqual(set.size, 1);
   deepStrictEqual(set.has(event), true);
@@ -33,10 +41,34 @@ test('NSet', () => {
   deepStrictEqual(set.has(event), false);
 });
 
-test('NSet.add (replaceable)', () => {
-  const event0 = { id: '1', kind: 0, pubkey: 'abc', content: '', created_at: 0, sig: '', tags: [] };
-  const event1 = { id: '2', kind: 0, pubkey: 'abc', content: '', created_at: 1, sig: '', tags: [] };
-  const event2 = { id: '3', kind: 0, pubkey: 'abc', content: '', created_at: 2, sig: '', tags: [] };
+await test("NSet.add (replaceable)", () => {
+  const event0 = {
+    id: "1",
+    kind: 0,
+    pubkey: "abc",
+    content: "",
+    created_at: 0,
+    sig: "",
+    tags: [],
+  };
+  const event1 = {
+    id: "2",
+    kind: 0,
+    pubkey: "abc",
+    content: "",
+    created_at: 1,
+    sig: "",
+    tags: [],
+  };
+  const event2 = {
+    id: "3",
+    kind: 0,
+    pubkey: "abc",
+    content: "",
+    created_at: 2,
+    sig: "",
+    tags: [],
+  };
 
   const set = new NSet();
   set.add(event0);
@@ -55,10 +87,34 @@ test('NSet.add (replaceable)', () => {
   deepStrictEqual(set.has(event2), true);
 });
 
-test('NSet.add (parameterized)', () => {
-  const event0 = { id: '1', kind: 30000, pubkey: 'abc', content: '', created_at: 0, sig: '', tags: [['d', 'a']] };
-  const event1 = { id: '2', kind: 30000, pubkey: 'abc', content: '', created_at: 1, sig: '', tags: [['d', 'a']] };
-  const event2 = { id: '3', kind: 30000, pubkey: 'abc', content: '', created_at: 2, sig: '', tags: [['d', 'a']] };
+await test("NSet.add (parameterized)", () => {
+  const event0 = {
+    id: "1",
+    kind: 30000,
+    pubkey: "abc",
+    content: "",
+    created_at: 0,
+    sig: "",
+    tags: [["d", "a"]],
+  };
+  const event1 = {
+    id: "2",
+    kind: 30000,
+    pubkey: "abc",
+    content: "",
+    created_at: 1,
+    sig: "",
+    tags: [["d", "a"]],
+  };
+  const event2 = {
+    id: "3",
+    kind: 30000,
+    pubkey: "abc",
+    content: "",
+    created_at: 2,
+    sig: "",
+    tags: [["d", "a"]],
+  };
 
   const set = new NSet();
   set.add(event0);
@@ -77,9 +133,25 @@ test('NSet.add (parameterized)', () => {
   deepStrictEqual(set.has(event2), true);
 });
 
-test('NSet.add (deletion)', () => {
-  const event0 = { id: '1', kind: 0, pubkey: 'abc', content: '', created_at: 0, sig: '', tags: [] };
-  const event1 = { id: '2', kind: 5, pubkey: 'abc', content: '', created_at: 0, sig: '', tags: [['e', '1']] };
+await test("NSet.add (deletion)", () => {
+  const event0 = {
+    id: "1",
+    kind: 0,
+    pubkey: "abc",
+    content: "",
+    created_at: 0,
+    sig: "",
+    tags: [],
+  };
+  const event1 = {
+    id: "2",
+    kind: 5,
+    pubkey: "abc",
+    content: "",
+    created_at: 0,
+    sig: "",
+    tags: [["e", "1"]],
+  };
 
   const set = new NSet();
 

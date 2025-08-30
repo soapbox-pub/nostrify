@@ -15,7 +15,7 @@ const event1s = events
   .toSorted((_) => 0.5 - Math.random())
   .slice(0, 10);
 
-test("NRelay1.query", async () => {
+await test("NRelay1.query", async () => {
   const controller = new AbortController();
   const tid = setTimeout(() => controller.abort(), 3000);
 
@@ -36,7 +36,7 @@ test("NRelay1.query", async () => {
   clearTimeout(tid);
 });
 
-test("NRelay1.query mismatched filter", async () => {
+await test("NRelay1.query mismatched filter", async () => {
   await using server = await TestRelayServer.create({
     handleMessage(socket, msg) {
       if (msg[0] === "REQ") {
@@ -53,7 +53,7 @@ test("NRelay1.query mismatched filter", async () => {
   deepStrictEqual(events, []);
 });
 
-test("NRelay1.req", async () => {
+await test("NRelay1.req", async () => {
   const controller = new AbortController();
   const tid = setTimeout(() => controller.abort(), 3000);
 
@@ -82,7 +82,7 @@ test("NRelay1.req", async () => {
   clearTimeout(tid);
 });
 
-test("NRelay1.event", async () => {
+await test("NRelay1.event", async () => {
   await using server = await TestRelayServer.create();
   await using relay = new NRelay1(server.url);
 
@@ -152,7 +152,7 @@ test.skip("NRelay1 backoff", async () => {
   });
 });
 
-test("NRelay1 idleTimeout", async () => {
+await test("NRelay1 idleTimeout", async () => {
   await using server = await TestRelayServer.create();
   await using relay = new NRelay1(server.url, { idleTimeout: 100 });
 
@@ -175,7 +175,7 @@ test("NRelay1 idleTimeout", async () => {
   });
 });
 
-test("NRelay1.count rejects when the server sends CLOSED", async () => {
+await test("NRelay1.count rejects when the server sends CLOSED", async () => {
   await using server = await TestRelayServer.create({
     handleMessage(socket, msg) {
       if (msg[0] === "COUNT") {
@@ -193,7 +193,7 @@ test("NRelay1.count rejects when the server sends CLOSED", async () => {
   await rejects(() => relay.count([{ kinds: [1] }]));
 });
 
-test("NRelay1 closes when it receives a binary message", async () => {
+await test("NRelay1 closes when it receives a binary message", async () => {
   await using server = await TestRelayServer.create({
     handleMessage(socket) {
       socket.send(new Uint8Array([0x00, 0x01, 0x02, 0x03]));

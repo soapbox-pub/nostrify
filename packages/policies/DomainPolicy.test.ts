@@ -1,12 +1,12 @@
-import { test } from 'node:test';
-import { genEvent, MockRelay } from '@nostrify/nostrify/test';
-import type { NostrMetadata } from '@nostrify/types';
-import { deepStrictEqual } from 'node:assert';
-import { generateSecretKey, getPublicKey } from 'nostr-tools';
+import { test } from "node:test";
+import { genEvent, MockRelay } from "@nostrify/nostrify/test";
+import type { NostrMetadata } from "@nostrify/types";
+import { deepStrictEqual } from "node:assert";
+import { generateSecretKey, getPublicKey } from "nostr-tools";
 
-import { DomainPolicy } from './DomainPolicy.ts';
+import { DomainPolicy } from "./DomainPolicy.ts";
 
-test('DomainPolicy allows events from authors with a valid nip05', async () => {
+await test("DomainPolicy allows events from authors with a valid nip05", async () => {
   const sk = generateSecretKey();
   const pubkey = getPublicKey(sk);
 
@@ -14,62 +14,73 @@ test('DomainPolicy allows events from authors with a valid nip05', async () => {
   const policy = new DomainPolicy(store, {
     // deno-lint-ignore require-await
     async lookup(nip05: string) {
-      if (nip05 === 'alex@gleasonator.dev') {
+      if (nip05 === "alex@gleasonator.dev") {
         return { pubkey };
       } else {
-        throw new Error('not found');
+        throw new Error("not found");
       }
     },
   });
 
-  const metadata: NostrMetadata = { nip05: 'alex@gleasonator.dev' };
-  await store.event(genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk));
-  const event = genEvent({ kind: 1, content: 'hello world' }, sk);
+  const metadata: NostrMetadata = { nip05: "alex@gleasonator.dev" };
+  await store.event(
+    genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk),
+  );
+  const event = genEvent({ kind: 1, content: "hello world" }, sk);
 
   const result = await policy.call(event);
 
-  deepStrictEqual(result, ['OK', event.id, true, '']);
+  deepStrictEqual(result, ["OK", event.id, true, ""]);
 });
 
-test('DomainPolicy rejects events from authors without a kind 0', async () => {
+await test("DomainPolicy rejects events from authors without a kind 0", async () => {
   const store = new MockRelay();
   const policy = new DomainPolicy(store);
-  const event = genEvent({ kind: 1, content: 'hello world' });
+  const event = genEvent({ kind: 1, content: "hello world" });
 
   const result = await policy.call(event);
 
-  deepStrictEqual(result, ['OK', event.id, false, 'blocked: author is missing a kind 0 event']);
+  deepStrictEqual(result, [
+    "OK",
+    event.id,
+    false,
+    "blocked: author is missing a kind 0 event",
+  ]);
 });
 
-test('DomainPolicy rejects events from authors with a missing nip05', async () => {
+await test("DomainPolicy rejects events from authors with a missing nip05", async () => {
   const store = new MockRelay();
   const policy = new DomainPolicy(store);
 
   const sk = generateSecretKey();
   const metadata: NostrMetadata = {};
-  await store.event(genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk));
-  const event = genEvent({ kind: 1, content: 'hello world' }, sk);
+  await store.event(
+    genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk),
+  );
+  const event = genEvent({ kind: 1, content: "hello world" }, sk);
 
   const result = await policy.call(event);
 
-  deepStrictEqual(result, ['OK', event.id, false, 'blocked: missing nip05']);
+  deepStrictEqual(result, ["OK", event.id, false, "blocked: missing nip05"]);
 });
 
-test('DomainPolicy rejects events from authors with a malformed nip05', async () => {
+await test("DomainPolicy rejects events from authors with a malformed nip05", async () => {
   const store = new MockRelay();
   const policy = new DomainPolicy(store);
 
   const sk = generateSecretKey();
-  const metadata: NostrMetadata = { nip05: 'asdf' };
-  await store.event(genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk));
-  const event = genEvent({ kind: 1, content: 'hello world' }, sk);
+  const metadata: NostrMetadata = { nip05: "asdf" };
+  await store.event(
+    genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk),
+  );
+  const event = genEvent({ kind: 1, content: "hello world" }, sk);
 
   const result = await policy.call(event);
 
-  deepStrictEqual(result, ['OK', event.id, false, 'blocked: missing nip05']);
+  deepStrictEqual(result, ["OK", event.id, false, "blocked: missing nip05"]);
 });
 
-test('DomainPolicy rejects events from authors with an invalid nip05', async () => {
+await test("DomainPolicy rejects events from authors with an invalid nip05", async () => {
   const store = new MockRelay();
 
   const policy = new DomainPolicy(store, {
@@ -80,17 +91,24 @@ test('DomainPolicy rejects events from authors with an invalid nip05', async () 
     },
   });
 
-  const metadata: NostrMetadata = { nip05: 'alex@gleasonator.dev' };
+  const metadata: NostrMetadata = { nip05: "alex@gleasonator.dev" };
   const sk = generateSecretKey();
-  await store.event(genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk));
-  const event = genEvent({ kind: 1, content: 'hello world' }, sk);
+  await store.event(
+    genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk),
+  );
+  const event = genEvent({ kind: 1, content: "hello world" }, sk);
 
   const result = await policy.call(event);
 
-  deepStrictEqual(result, ['OK', event.id, false, 'blocked: mismatched nip05 pubkey']);
+  deepStrictEqual(result, [
+    "OK",
+    event.id,
+    false,
+    "blocked: mismatched nip05 pubkey",
+  ]);
 });
 
-test('DomainPolicy rejects events from authors with a blacklisted nip05 domain', async () => {
+await test("DomainPolicy rejects events from authors with a blacklisted nip05 domain", async () => {
   const sk = generateSecretKey();
   const pubkey = getPublicKey(sk);
 
@@ -98,25 +116,32 @@ test('DomainPolicy rejects events from authors with a blacklisted nip05 domain',
   const policy = new DomainPolicy(store, {
     // deno-lint-ignore require-await
     async lookup(nip05: string) {
-      if (nip05 === 'bot@replyguy.dev') {
+      if (nip05 === "bot@replyguy.dev") {
         return { pubkey };
       } else {
-        throw new Error('not found');
+        throw new Error("not found");
       }
     },
-    blacklist: ['replyguy.dev'],
+    blacklist: ["replyguy.dev"],
   });
 
-  const metadata: NostrMetadata = { nip05: 'bot@replyguy.dev' };
-  await store.event(genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk));
-  const event = genEvent({ kind: 1, content: 'hello world' }, sk);
+  const metadata: NostrMetadata = { nip05: "bot@replyguy.dev" };
+  await store.event(
+    genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk),
+  );
+  const event = genEvent({ kind: 1, content: "hello world" }, sk);
 
   const result = await policy.call(event);
 
-  deepStrictEqual(result, ['OK', event.id, false, 'blocked: blacklisted nip05 domain']);
+  deepStrictEqual(result, [
+    "OK",
+    event.id,
+    false,
+    "blocked: blacklisted nip05 domain",
+  ]);
 });
 
-test("DomainPolicy rejects events from authors who aren't on a whitelisted domain", async () => {
+await test("DomainPolicy rejects events from authors who aren't on a whitelisted domain", async () => {
   const sk = generateSecretKey();
   const pubkey = getPublicKey(sk);
 
@@ -124,25 +149,32 @@ test("DomainPolicy rejects events from authors who aren't on a whitelisted domai
   const policy = new DomainPolicy(store, {
     // deno-lint-ignore require-await
     async lookup(nip05: string) {
-      if (nip05 === 'bot@replyguy.dev') {
+      if (nip05 === "bot@replyguy.dev") {
         return { pubkey };
       } else {
-        throw new Error('not found');
+        throw new Error("not found");
       }
     },
-    whitelist: ['gleasonator.dev'],
+    whitelist: ["gleasonator.dev"],
   });
 
-  const metadata: NostrMetadata = { nip05: 'bot@replyguy.dev' };
-  await store.event(genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk));
-  const event = genEvent({ kind: 1, content: 'hello world' }, sk);
+  const metadata: NostrMetadata = { nip05: "bot@replyguy.dev" };
+  await store.event(
+    genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk),
+  );
+  const event = genEvent({ kind: 1, content: "hello world" }, sk);
 
   const result = await policy.call(event);
 
-  deepStrictEqual(result, ['OK', event.id, false, 'blocked: nip05 domain not in whitelist']);
+  deepStrictEqual(result, [
+    "OK",
+    event.id,
+    false,
+    "blocked: nip05 domain not in whitelist",
+  ]);
 });
 
-test('DomainPolicy allows events from authors who are on a whitelisted domain', async () => {
+await test("DomainPolicy allows events from authors who are on a whitelisted domain", async () => {
   const sk = generateSecretKey();
   const pubkey = getPublicKey(sk);
 
@@ -150,25 +182,27 @@ test('DomainPolicy allows events from authors who are on a whitelisted domain', 
   const policy = new DomainPolicy(store, {
     // deno-lint-ignore require-await
     async lookup(nip05: string) {
-      if (nip05 === 'alex@gleasonator.dev') {
+      if (nip05 === "alex@gleasonator.dev") {
         return { pubkey };
       } else {
-        throw new Error('not found');
+        throw new Error("not found");
       }
     },
-    whitelist: ['gleasonator.dev'],
+    whitelist: ["gleasonator.dev"],
   });
 
-  const metadata: NostrMetadata = { nip05: 'alex@gleasonator.dev' };
-  await store.event(genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk));
-  const event = genEvent({ kind: 1, content: 'hello world' }, sk);
+  const metadata: NostrMetadata = { nip05: "alex@gleasonator.dev" };
+  await store.event(
+    genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk),
+  );
+  const event = genEvent({ kind: 1, content: "hello world" }, sk);
 
   const result = await policy.call(event);
 
-  deepStrictEqual(result, ['OK', event.id, true, '']);
+  deepStrictEqual(result, ["OK", event.id, true, ""]);
 });
 
-test('DomainPolicy rejects events from authors with a subdomain of a blacklisted domain', async () => {
+await test("DomainPolicy rejects events from authors with a subdomain of a blacklisted domain", async () => {
   const sk = generateSecretKey();
   const pubkey = getPublicKey(sk);
 
@@ -176,25 +210,32 @@ test('DomainPolicy rejects events from authors with a subdomain of a blacklisted
   const policy = new DomainPolicy(store, {
     // deno-lint-ignore require-await
     async lookup(nip05: string) {
-      if (nip05 === 'bot@spam.replyguy.dev') {
+      if (nip05 === "bot@spam.replyguy.dev") {
         return { pubkey };
       } else {
-        throw new Error('not found');
+        throw new Error("not found");
       }
     },
-    blacklist: ['replyguy.dev'],
+    blacklist: ["replyguy.dev"],
   });
 
-  const metadata: NostrMetadata = { nip05: 'bot@spam.replyguy.dev' };
-  await store.event(genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk));
-  const event = genEvent({ kind: 1, content: 'hello world' }, sk);
+  const metadata: NostrMetadata = { nip05: "bot@spam.replyguy.dev" };
+  await store.event(
+    genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk),
+  );
+  const event = genEvent({ kind: 1, content: "hello world" }, sk);
 
   const result = await policy.call(event);
 
-  deepStrictEqual(result, ['OK', event.id, false, 'blocked: blacklisted nip05 domain']);
+  deepStrictEqual(result, [
+    "OK",
+    event.id,
+    false,
+    "blocked: blacklisted nip05 domain",
+  ]);
 });
 
-test('DomainPolicy rejects events from authors with a deeply nested subdomain of a blacklisted domain', async () => {
+await test("DomainPolicy rejects events from authors with a deeply nested subdomain of a blacklisted domain", async () => {
   const sk = generateSecretKey();
   const pubkey = getPublicKey(sk);
 
@@ -202,25 +243,34 @@ test('DomainPolicy rejects events from authors with a deeply nested subdomain of
   const policy = new DomainPolicy(store, {
     // deno-lint-ignore require-await
     async lookup(nip05: string) {
-      if (nip05 === 'user@deep.nested.spam.replyguy.dev') {
+      if (nip05 === "user@deep.nested.spam.replyguy.dev") {
         return { pubkey };
       } else {
-        throw new Error('not found');
+        throw new Error("not found");
       }
     },
-    blacklist: ['replyguy.dev'],
+    blacklist: ["replyguy.dev"],
   });
 
-  const metadata: NostrMetadata = { nip05: 'user@deep.nested.spam.replyguy.dev' };
-  await store.event(genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk));
-  const event = genEvent({ kind: 1, content: 'hello world' }, sk);
+  const metadata: NostrMetadata = {
+    nip05: "user@deep.nested.spam.replyguy.dev",
+  };
+  await store.event(
+    genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk),
+  );
+  const event = genEvent({ kind: 1, content: "hello world" }, sk);
 
   const result = await policy.call(event);
 
-  deepStrictEqual(result, ['OK', event.id, false, 'blocked: blacklisted nip05 domain']);
+  deepStrictEqual(result, [
+    "OK",
+    event.id,
+    false,
+    "blocked: blacklisted nip05 domain",
+  ]);
 });
 
-test('DomainPolicy allows events from authors with similar but not subdomain of blacklisted domain', async () => {
+await test("DomainPolicy allows events from authors with similar but not subdomain of blacklisted domain", async () => {
   const sk = generateSecretKey();
   const pubkey = getPublicKey(sk);
 
@@ -228,20 +278,22 @@ test('DomainPolicy allows events from authors with similar but not subdomain of 
   const policy = new DomainPolicy(store, {
     // deno-lint-ignore require-await
     async lookup(nip05: string) {
-      if (nip05 === 'user@notreplyguy.dev') {
+      if (nip05 === "user@notreplyguy.dev") {
         return { pubkey };
       } else {
-        throw new Error('not found');
+        throw new Error("not found");
       }
     },
-    blacklist: ['replyguy.dev'],
+    blacklist: ["replyguy.dev"],
   });
 
-  const metadata: NostrMetadata = { nip05: 'user@notreplyguy.dev' };
-  await store.event(genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk));
-  const event = genEvent({ kind: 1, content: 'hello world' }, sk);
+  const metadata: NostrMetadata = { nip05: "user@notreplyguy.dev" };
+  await store.event(
+    genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk),
+  );
+  const event = genEvent({ kind: 1, content: "hello world" }, sk);
 
   const result = await policy.call(event);
 
-  deepStrictEqual(result, ['OK', event.id, true, '']);
+  deepStrictEqual(result, ["OK", event.id, true, ""]);
 });

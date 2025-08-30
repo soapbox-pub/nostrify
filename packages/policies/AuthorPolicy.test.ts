@@ -1,11 +1,11 @@
-import { test } from 'node:test';
-import { genEvent, MockRelay } from '@nostrify/nostrify/test';
-import { deepStrictEqual } from 'node:assert';
-import { generateSecretKey } from 'nostr-tools';
+import { test } from "node:test";
+import { genEvent, MockRelay } from "@nostrify/nostrify/test";
+import { deepStrictEqual } from "node:assert";
+import { generateSecretKey } from "nostr-tools";
 
-import { AuthorPolicy } from './AuthorPolicy.ts';
+import { AuthorPolicy } from "./AuthorPolicy.ts";
 
-test('AuthorPolicy', async () => {
+await test("AuthorPolicy", async () => {
   const store = new MockRelay();
   const policy = new AuthorPolicy(store);
 

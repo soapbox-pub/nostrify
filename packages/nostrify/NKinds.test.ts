@@ -1,9 +1,9 @@
-import { test } from 'node:test';
-import { deepStrictEqual } from 'node:assert';
+import { test } from "node:test";
+import { deepStrictEqual } from "node:assert";
 
-import { NKinds } from './NKinds.ts';
+import { NKinds } from "./NKinds.ts";
 
-test('NKinds', () => {
+await test("NKinds", () => {
   deepStrictEqual(NKinds.regular(1000), true);
   deepStrictEqual(NKinds.regular(10000), false);
   deepStrictEqual(NKinds.regular(0), false);

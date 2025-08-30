@@ -1,9 +1,9 @@
-import { test } from 'node:test';
-import { deepStrictEqual, rejects } from 'node:assert';
+import { test } from "node:test";
+import { deepStrictEqual, rejects } from "node:assert";
 
-import { Machina } from './Machina.ts';
+import { Machina } from "./Machina.ts";
 
-test('push, iterate, & close', async () => {
+await test("push, iterate, & close", async () => {
   const results = [];
   const machina = new Machina<number>();
 
@@ -22,7 +22,7 @@ test('push, iterate, & close', async () => {
   deepStrictEqual(results, [1, 2, 3]);
 });
 
-test('close & reopen', async () => {
+await test("close & reopen", async () => {
   const machina = new Machina<number>();
 
   machina.push(777);
@@ -38,17 +38,27 @@ test('close & reopen', async () => {
   }
 });
 
-test('aborts with signal', async () => {
-  const machina = new Machina<number>(AbortSignal.timeout(100));
+await test("aborts with signal", { timeout: 500 }, async () => {
+  const controller = new AbortController();
+  const machina = new Machina<number>(controller.signal);
 
-  await rejects(async () => {
-    for await (const _msg of machina) {
-      // Should never reach here.
+  // Abort after a short delay
+  setTimeout(() => controller.abort(), 50);
+
+  await rejects(
+    async () => {
+      for await (const _msg of machina) {
+        // Should never reach here.
+      }
+    },
+    {
+      name: 'AbortError',
+      constructor: DOMException,
     }
-  });
+  );
 });
 
-test('already aborted signal in constructor', async () => {
+await test("already aborted signal in constructor", async () => {
   const machina = new Machina<number>(AbortSignal.abort()); // doesn't throw
 
   await rejects(async () => {
@@ -58,7 +68,7 @@ test('already aborted signal in constructor', async () => {
   });
 });
 
-test('push after abort', async () => {
+await test("push after abort", async () => {
   const controller = new AbortController();
   const machina = new Machina<number>(controller.signal);
 
@@ -72,7 +82,7 @@ test('push after abort', async () => {
   }, DOMException);
 });
 
-test('multiple messages in queue', async () => {
+await test("multiple messages in queue", async () => {
   const results = [];
   const machina = new Machina<number>();
 

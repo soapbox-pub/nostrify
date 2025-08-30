@@ -1,11 +1,11 @@
-import { test } from 'node:test';
-import { deepStrictEqual } from 'node:assert';
+import { test } from "node:test";
+import { deepStrictEqual } from "node:assert";
 
-import { BunkerURI } from './BunkerURI.ts';
+import { BunkerURI } from "./BunkerURI.ts";
 
-test('BunkerURI', () => {
+await test("BunkerURI", () => {
   const uri = new BunkerURI(
-    'bunker://79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798?relay=wss%3A%2F%2Fditto.pub%2Frelay&secret=piAuZsxgKlil',
+    "bunker://79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798?relay=wss%3A%2F%2Fditto.pub%2Frelay&secret=piAuZsxgKlil",
   );
 
   deepStrictEqual({
@@ -13,21 +13,21 @@ test('BunkerURI', () => {
     relays: uri.relays,
     secret: uri.secret,
   }, {
-    pubkey: '79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798',
-    relays: ['wss://ditto.pub/relay'],
-    secret: 'piAuZsxgKlil',
+    pubkey: "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+    relays: ["wss://ditto.pub/relay"],
+    secret: "piAuZsxgKlil",
   });
 });
 
-test('BunkerURI.fromJSON', () => {
+await test("BunkerURI.fromJSON", () => {
   const result = BunkerURI.fromJSON({
-    pubkey: '79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798',
-    relays: ['wss://ditto.pub/relay'],
-    secret: 'piAuZsxgKlil',
+    pubkey: "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+    relays: ["wss://ditto.pub/relay"],
+    secret: "piAuZsxgKlil",
   });
 
   const expected =
-    'bunker://79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798?relay=wss%3A%2F%2Fditto.pub%2Frelay&secret=piAuZsxgKlil';
+    "bunker://79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798?relay=wss%3A%2F%2Fditto.pub%2Frelay&secret=piAuZsxgKlil";
 
   deepStrictEqual(result.toString(), expected);
 });

@@ -1,19 +1,19 @@
-import { test } from 'node:test';
-import { deepStrictEqual } from 'node:assert';
-import { finalizeEvent, generateSecretKey } from 'nostr-tools';
+import { test } from "node:test";
+import { deepStrictEqual } from "node:assert";
+import { finalizeEvent, generateSecretKey } from "nostr-tools";
 
-import { SizePolicy } from './SizePolicy.ts';
+import { SizePolicy } from "./SizePolicy.ts";
 
-test('SizePolicy', async () => {
+await test("SizePolicy", async () => {
   const policy = new SizePolicy();
 
   const event = finalizeEvent(
-    { kind: 1, content: 'yolo'.repeat(100), tags: [], created_at: 0 },
+    { kind: 1, content: "yolo".repeat(100), tags: [], created_at: 0 },
     generateSecretKey(),
   );
 
   const bigEvent = finalizeEvent(
-    { kind: 1, content: 'yolo'.repeat(2500), tags: [], created_at: 0 },
+    { kind: 1, content: "yolo".repeat(2500), tags: [], created_at: 0 },
     generateSecretKey(),
   );
 

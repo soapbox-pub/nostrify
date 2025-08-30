@@ -1,14 +1,14 @@
-import { test } from 'node:test';
-import { deepStrictEqual } from 'node:assert';
-import { finalizeEvent, generateSecretKey } from 'nostr-tools';
+import { test } from "node:test";
+import { deepStrictEqual } from "node:assert";
+import { finalizeEvent, generateSecretKey } from "nostr-tools";
 
-import { NoOpPolicy } from './NoOpPolicy.ts';
+import { NoOpPolicy } from "./NoOpPolicy.ts";
 
-test('NoOpPolicy', async () => {
+await test("NoOpPolicy", async () => {
   const policy = new NoOpPolicy();
 
   const event = finalizeEvent(
-    { kind: 1, content: '', tags: [], created_at: 0 },
+    { kind: 1, content: "", tags: [], created_at: 0 },
     generateSecretKey(),
   );
 

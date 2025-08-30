@@ -1,10 +1,10 @@
-import { test } from 'node:test';
-import { genEvent } from './mod.ts';
-import { rejects } from 'node:assert';
+import { test } from "node:test";
+import { genEvent } from "./mod.ts";
+import { rejects } from "node:assert";
 
-import { ErrorRelay } from './ErrorRelay.ts';
+import { ErrorRelay } from "./ErrorRelay.ts";
 
-test('ErrorRelay', async () => {
+await test("ErrorRelay", async () => {
   const store = new ErrorRelay();
   await rejects(() => store.event(genEvent()));
   await rejects(() => store.query([]));

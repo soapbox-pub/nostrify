@@ -1,12 +1,12 @@
-import { test } from 'node:test';
-import { deepStrictEqual } from 'node:assert';
-import { finalizeEvent, generateSecretKey } from 'nostr-tools';
+import { test } from "node:test";
+import { deepStrictEqual } from "node:assert";
+import { finalizeEvent, generateSecretKey } from "nostr-tools";
 
-import { AnyPolicy } from './AnyPolicy.ts';
-import { NoOpPolicy } from './NoOpPolicy.ts';
-import { ReadOnlyPolicy } from './ReadOnlyPolicy.ts';
+import { AnyPolicy } from "./AnyPolicy.ts";
+import { NoOpPolicy } from "./NoOpPolicy.ts";
+import { ReadOnlyPolicy } from "./ReadOnlyPolicy.ts";
 
-test('accepts when all policies accept', async () => {
+await test("accepts when all policies accept", async () => {
   const policy = new AnyPolicy([
     new NoOpPolicy(),
     new NoOpPolicy(),
@@ -14,7 +14,7 @@ test('accepts when all policies accept', async () => {
   ]);
 
   const event = finalizeEvent(
-    { kind: 1, content: '', tags: [], created_at: 0 },
+    { kind: 1, content: "", tags: [], created_at: 0 },
     generateSecretKey(),
   );
 
@@ -23,7 +23,7 @@ test('accepts when all policies accept', async () => {
   deepStrictEqual(ok, true);
 });
 
-test('accepts when some policies reject', async () => {
+await test("accepts when some policies reject", async () => {
   const policy = new AnyPolicy([
     new NoOpPolicy(),
     new ReadOnlyPolicy(),
@@ -31,7 +31,7 @@ test('accepts when some policies reject', async () => {
   ]);
 
   const event = finalizeEvent(
-    { kind: 1, content: '', tags: [], created_at: 0 },
+    { kind: 1, content: "", tags: [], created_at: 0 },
     generateSecretKey(),
   );
 
@@ -40,7 +40,7 @@ test('accepts when some policies reject', async () => {
   deepStrictEqual(ok, true);
 });
 
-test('rejects when all policies reject', async () => {
+await test("rejects when all policies reject", async () => {
   const policy = new AnyPolicy([
     new ReadOnlyPolicy(),
     new ReadOnlyPolicy(),
@@ -48,7 +48,7 @@ test('rejects when all policies reject', async () => {
   ]);
 
   const event = finalizeEvent(
-    { kind: 1, content: '', tags: [], created_at: 0 },
+    { kind: 1, content: "", tags: [], created_at: 0 },
     generateSecretKey(),
   );
 

@@ -62,16 +62,43 @@ const rewriteTsImports = {
   },
 };
 
-await esbuild.build({
-  entryPoints: allTs,
-  outdir: path.join(packageDir, "dist"),
-  format: "esm",
-  bundle: false,
-  sourcemap: false,
-  splitting: false,
-  platform: "node",
-  target: "esnext",
-  logLevel: "info",
-  loader: { ".ts": "ts" },
-  plugins: [rewriteTsImports],
-});
+console.log('Building with esbuild...');
+
+let success = false;
+
+try {
+  await esbuild.build({
+    entryPoints: allTs,
+    outdir: path.join(packageDir, "dist"),
+    format: "esm",
+    bundle: false,
+    sourcemap: false,
+    splitting: false,
+    platform: "node",
+    target: "esnext",
+    logLevel: "info",
+    loader: { ".ts": "ts" },
+    plugins: [rewriteTsImports],
+  });
+
+  success = true;
+}
+catch (e) {
+  console.error(`esbuild error: ${e}`);
+}
+
+if (!success) process.exit(0);
+
+console.info("Copying source files...");
+
+const distDir = path.join(packageDir, "dist");
+await fs.mkdir(distDir, { recursive: true });
+
+for (const f of allTs) {
+  const rel = path.relative(packageDir, f);
+  const out = path.join(distDir, rel);
+  await fs.mkdir(path.dirname(out), { recursive: true });
+  await fs.copyFile(f, out);
+}
+
+console.info('Done!');

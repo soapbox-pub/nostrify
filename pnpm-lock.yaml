@@ -43,7 +43,7 @@ importers:
         version: 9.3.1
       nostr-tools:
         specifier: ^2.13.0
-        version: 2.15.2(typescript@5.8.3)
+        version: 2.15.2(typescript@5.9.2)
       sinon:
         specifier: ^21.0.0
         version: 21.0.0
@@ -51,8 +51,8 @@ importers:
         specifier: ^2.5.5
         version: 2.5.5
       typescript:
-        specifier: ^5.8.3
-        version: 5.8.3
+        specifier: ^5.9.2
+        version: 5.9.2
       websocket-ts:
         specifier: ^2.2.1
         version: 2.2.1
@@ -76,7 +76,7 @@ importers:
         version: 2.0.0(kysely@0.27.6)(postgres@3.4.7)
       nostr-tools:
         specifier: ^2.13.0
-        version: 2.15.2(typescript@5.8.3)
+        version: 2.15.2(typescript@5.9.2)
       postgres:
         specifier: ^3.4.4
         version: 3.4.7
@@ -85,7 +85,7 @@ importers:
     dependencies:
       '@nostr-dev-kit/ndk':
         specifier: ^2.7.1
-        version: 2.14.32(nostr-tools@2.15.2(typescript@5.8.3))
+        version: 2.14.32(nostr-tools@2.15.2(typescript@5.9.2))
       '@nostrify/nostrify':
         specifier: workspace:*
         version: link:../nostrify
@@ -112,7 +112,7 @@ importers:
         version: 10.4.3
       nostr-tools:
         specifier: ^2.13.0
-        version: 2.15.2(typescript@5.8.3)
+        version: 2.15.2(typescript@5.9.2)
       websocket-ts:
         specifier: ^2.2.1
         version: 2.2.1
@@ -139,7 +139,7 @@ importers:
         version: 24.1.0
       nostr-tools:
         specifier: ^2.13.0
-        version: 2.15.2(typescript@5.8.3)
+        version: 2.15.2(typescript@5.9.2)
 
   packages/react:
     dependencies:
@@ -157,7 +157,7 @@ importers:
         version: 17.6.3
       nostr-tools:
         specifier: ^2.13.0
-        version: 2.15.2(typescript@5.8.3)
+        version: 2.15.2(typescript@5.9.2)
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -3225,8 +3225,8 @@ packages:
   typescript-lru-cache@2.0.0:
     resolution: {integrity: sha512-Jp57Qyy8wXeMkdNuZiglE6v2Cypg13eDA1chHwDG6kq51X7gk4K7P7HaDdzZKCxkegXkVHNcPD0n5aW6OZH3aA==}
 
-  typescript@5.8.3:
-    resolution: {integrity: sha512-p1diW6TqL9L07nNxvRMM7hMMw4c5XOo/1ibL4aAIGmSAt9slTE1Xgw5KWuof2uTOvCg9BY7ZRi+GaF+7sfgPeQ==}
+  typescript@5.9.2:
+    resolution: {integrity: sha512-CWBzXQrc/qOkhidw1OzBTQuYRbfyxDXJMVJ1XNwUHGROVmuaeiEm3OslpZ1RV96d7SKKjZKrSJu3+t/xlw3R9A==}
     engines: {node: '>=14.17'}
     hasBin: true
 
@@ -3963,7 +3963,7 @@ snapshots:
     dependencies:
       '@jsr/std__bytes': 1.0.6
 
-  '@lerna/create@8.2.3(encoding@0.1.13)(typescript@5.8.3)':
+  '@lerna/create@8.2.3(encoding@0.1.13)(typescript@5.9.2)':
     dependencies:
       '@npmcli/arborist': 7.5.4
       '@npmcli/package-json': 5.2.0
@@ -3981,7 +3981,7 @@ snapshots:
       console-control-strings: 1.1.0
       conventional-changelog-core: 5.0.1
       conventional-recommended-bump: 7.0.1
-      cosmiconfig: 9.0.0(typescript@5.8.3)
+      cosmiconfig: 9.0.0(typescript@5.9.2)
       dedent: 1.5.3
       execa: 5.0.0
       fs-extra: 11.3.0
@@ -4101,7 +4101,7 @@ snapshots:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.19.1
 
-  '@nostr-dev-kit/ndk@2.14.32(nostr-tools@2.15.2(typescript@5.8.3))':
+  '@nostr-dev-kit/ndk@2.14.32(nostr-tools@2.15.2(typescript@5.9.2))':
     dependencies:
       '@noble/curves': 1.9.5
       '@noble/hashes': 1.8.0
@@ -4109,7 +4109,7 @@ snapshots:
       '@scure/base': 1.2.6
       debug: 4.4.1
       light-bolt11-decoder: 3.2.0
-      nostr-tools: 2.15.2(typescript@5.8.3)
+      nostr-tools: 2.15.2(typescript@5.9.2)
       tseep: 1.3.1
       typescript-lru-cache: 2.0.0
     transitivePeerDependencies:
@@ -4859,14 +4859,14 @@ snapshots:
 
   core-util-is@1.0.3: {}
 
-  cosmiconfig@9.0.0(typescript@5.8.3):
+  cosmiconfig@9.0.0(typescript@5.9.2):
     dependencies:
       env-paths: 2.2.1
       import-fresh: 3.3.1
       js-yaml: 4.1.0
       parse-json: 5.2.0
     optionalDependencies:
-      typescript: 5.8.3
+      typescript: 5.9.2
 
   cross-spawn@7.0.6:
     dependencies:
@@ -5560,7 +5560,7 @@ snapshots:
 
   lerna@8.2.3(encoding@0.1.13):
     dependencies:
-      '@lerna/create': 8.2.3(encoding@0.1.13)(typescript@5.8.3)
+      '@lerna/create': 8.2.3(encoding@0.1.13)(typescript@5.9.2)
       '@npmcli/arborist': 7.5.4
       '@npmcli/package-json': 5.2.0
       '@npmcli/run-script': 8.1.0
@@ -5578,7 +5578,7 @@ snapshots:
       conventional-changelog-angular: 7.0.0
       conventional-changelog-core: 5.0.1
       conventional-recommended-bump: 7.0.1
-      cosmiconfig: 9.0.0(typescript@5.8.3)
+      cosmiconfig: 9.0.0(typescript@5.9.2)
       dedent: 1.5.3
       envinfo: 7.13.0
       execa: 5.0.0
@@ -5630,7 +5630,7 @@ snapshots:
       temp-dir: 1.0.0
       through: 2.3.8
       tinyglobby: 0.2.12
-      typescript: 5.8.3
+      typescript: 5.9.2
       upath: 2.0.1
       uuid: 10.0.0
       validate-npm-package-license: 3.0.4
@@ -5944,7 +5944,7 @@ snapshots:
       semver: 7.7.2
       validate-npm-package-license: 3.0.4
 
-  nostr-tools@2.15.2(typescript@5.8.3):
+  nostr-tools@2.15.2(typescript@5.9.2):
     dependencies:
       '@noble/ciphers': 0.5.3
       '@noble/curves': 1.2.0
@@ -5954,7 +5954,7 @@ snapshots:
       '@scure/bip39': 1.2.1
       nostr-wasm: 0.1.0
     optionalDependencies:
-      typescript: 5.8.3
+      typescript: 5.9.2
 
   nostr-wasm@0.1.0: {}
 
@@ -6668,7 +6668,7 @@ snapshots:
 
   tsx@4.20.4:
     dependencies:
-      esbuild: 0.25.8
+      esbuild: 0.25.9
       get-tsconfig: 4.10.1
     optionalDependencies:
       fsevents: 2.3.3
@@ -6727,7 +6727,7 @@ snapshots:
 
   typescript-lru-cache@2.0.0: {}
 
-  typescript@5.8.3: {}
+  typescript@5.9.2: {}
 
   uglify-js@3.19.3:
     optional: true

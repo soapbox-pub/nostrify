@@ -12,6 +12,5 @@
   ],
   "compilerOptions": {
     "outDir": "./dist",
-    "target": "es2024"
   }
 }

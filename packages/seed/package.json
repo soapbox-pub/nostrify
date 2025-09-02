@@ -14,7 +14,7 @@
   "types": "dist/mod.d.ts",
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json && node ../../esbuild.config.js --package ./",
+    "build": "npx tsc -p tsconfig.json && node ../../esbuild.config.js --package ./",
     "setup": "pnpm i",
     "test": "node --test \"**/*.test.ts\""
   },

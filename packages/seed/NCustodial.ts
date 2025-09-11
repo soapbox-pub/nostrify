@@ -1,4 +1,4 @@
-import { NSeedSigner } from './NSeedSigner.ts';
+import { NSeedSigner } from "./NSeedSigner.ts";
 
 /**
  * Signer manager for multiple users.
@@ -28,15 +28,15 @@ export class NCustodial {
   /** Get a signer for the given user. */
   async get(user: string, account = 0): Promise<NSeedSigner> {
     const cryptoKey = await crypto.subtle.importKey(
-      'raw',
-      this.#seed,
-      { name: 'HMAC', hash: { name: 'SHA-256' } },
+      "raw",
+      this.#seed as BufferSource,
+      { name: "HMAC", hash: { name: "SHA-256" } },
       false,
-      ['sign'],
+      ["sign"],
     );
 
     const data = new TextEncoder().encode(user);
-    const hash = await crypto.subtle.sign('HMAC', cryptoKey, data);
+    const hash = await crypto.subtle.sign("HMAC", cryptoKey, data);
     const seed = new Uint8Array(hash);
 
     return new NSeedSigner(seed, account);

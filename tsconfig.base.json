@@ -6,7 +6,9 @@
     "composite": true,
     "lib": [
       "dom",
-      "ESNext"
+      "ESNext",
+      "ES2024",
+      "ES2024.ArrayBuffer"
     ],
     "moduleResolution": "nodenext",
     "module": "nodenext",

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.36.6
+
+### Patch Changes
+
+- distribute ts files
+
+## 0.36.5
+
+### Patch Changes
+
+- tests should pass now
+
 ## 0.36.4
 
 ### Patch Changes

@@ -1,5 +1,23 @@
 # @nostrify/react
 
+## 0.2.14
+
+### Patch Changes
+
+- distribute ts files
+- Updated dependencies
+  - @nostrify/nostrify@0.46.10
+  - @nostrify/types@0.36.6
+
+## 0.2.13
+
+### Patch Changes
+
+- tests should pass now
+- Updated dependencies
+  - @nostrify/nostrify@0.46.9
+  - @nostrify/types@0.36.5
+
 ## 0.2.12
 
 ### Patch Changes

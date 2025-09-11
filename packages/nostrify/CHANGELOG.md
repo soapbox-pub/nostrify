@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.46.10
+
+### Patch Changes
+
+- distribute ts files
+- Updated dependencies
+  - @nostrify/types@0.36.6
+
+## 0.46.9
+
+### Patch Changes
+
+- tests should pass now
+- Updated dependencies
+  - @nostrify/types@0.36.5
+
 ## 0.46.8
 
 ### Patch Changes

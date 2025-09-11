@@ -1,6 +1,6 @@
 {
   "name": "@nostrify/ndk",
-  "version": "0.35.4",
+  "version": "0.35.6",
   "exports": "./mod.ts",
   "dependencies": {
     "@nostr-dev-kit/ndk": "^2.7.1",

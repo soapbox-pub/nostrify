@@ -1,5 +1,21 @@
 # @nostrify/seed
 
+## 0.42.6
+
+### Patch Changes
+
+- distribute ts files
+- Updated dependencies
+  - @nostrify/nostrify@0.46.10
+
+## 0.42.5
+
+### Patch Changes
+
+- tests should pass now
+- Updated dependencies
+  - @nostrify/nostrify@0.46.9
+
 ## 0.42.4
 
 ### Patch Changes

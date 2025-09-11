@@ -1,6 +1,6 @@
-import type { NProfilePointer } from '@nostrify/types';
+import type { NProfilePointer } from "@nostrify/types";
 
-import { NSchema as n, z } from './NSchema.ts';
+import { NSchema as n, z } from "./NSchema.ts";
 
 interface LookupOpts {
   fetch?: typeof fetch;
@@ -18,7 +18,7 @@ export class NIP05 {
     return z.object({
       pubkey: n.id(),
       relays: n.relayUrl().array().optional(),
-    });
+    }) as z.ZodType<NProfilePointer>;
   }
 
   /** Resolve NIP-05 name to a profile pointer. */
@@ -31,10 +31,10 @@ export class NIP05 {
     const match = nip05.match(NIP05.regex());
     if (!match) throw new Error(`NIP-05: invalid name ${nip05}`);
 
-    const [_, name = '_', domain] = match;
+    const [_, name = "_", domain] = match;
 
-    const url = new URL('/.well-known/nostr.json', `https://${domain}/`);
-    url.searchParams.set('name', name);
+    const url = new URL("/.well-known/nostr.json", `https://${domain}/`);
+    url.searchParams.set("name", name);
 
     const response = await fetch(url, { signal });
     const json = await response.json();

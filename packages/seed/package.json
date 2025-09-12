@@ -4,14 +4,13 @@
   "exports": {
     ".": "./dist/mod.js"
   },
+  "types": "dist/mod.d.ts",
   "dependencies": {
     "@nostrify/nostrify": "workspace:*",
     "@scure/bip32": "jsr:^1.6.2",
     "@scure/bip39": "jsr:^1.5.4",
     "@types/node": "^24.1.0"
   },
-  "main": "./mod.ts",
-  "types": "dist/mod.d.ts",
   "type": "module",
   "scripts": {
     "build": "npx tsc -p tsconfig.json && node ../../esbuild.config.js --package ./",

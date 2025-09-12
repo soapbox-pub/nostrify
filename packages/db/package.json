@@ -2,9 +2,8 @@
   "name": "@nostrify/db",
   "version": "0.39.10",
   "exports": {
-    ".": "./dist/mod.ts"
+    ".": "./dist/mod.js"
   },
-  "main": "./mod.ts",
   "types": "dist/mod.d.ts",
   "type": "module",
   "scripts": {

@@ -2,9 +2,8 @@
   "name": "@nostrify/policies",
   "version": "0.36.8",
   "exports": {
-    ".": "./dist/mod.ts"
+    ".": "./dist/mod.js"
   },
-  "main": "./mod.ts",
   "types": "dist/mod.d.ts",
   "type": "module",
   "scripts": {

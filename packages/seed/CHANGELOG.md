@@ -1,5 +1,13 @@
 # @nostrify/seed
 
+## 0.42.7
+
+### Patch Changes
+
+- export js files instead of TS files
+- Updated dependencies
+  - @nostrify/nostrify@0.46.11
+
 ## 0.42.6
 
 ### Patch Changes

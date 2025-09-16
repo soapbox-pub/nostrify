@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.46.11
+
+### Patch Changes
+
+- export js files instead of TS files
+- Updated dependencies
+  - @nostrify/types@0.36.7
+
 ## 0.46.10
 
 ### Patch Changes

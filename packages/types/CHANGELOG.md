@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.36.7
+
+### Patch Changes
+
+- export js files instead of TS files
+
 ## 0.36.6
 
 ### Patch Changes

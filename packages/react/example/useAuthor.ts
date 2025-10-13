@@ -1,9 +1,12 @@
-import { type NostrEvent, type NostrMetadata, NSchema as n } from '@nostrify/nostrify';
+import { NSchema as n } from '@nostrify/nostrify';
+import type { NostrEvent, NostrMetadata } from '@nostrify/types';
 import { useSuspenseQuery } from '@tanstack/react-query';
 
 import { useNostr } from '../useNostr.ts';
 
-export function useAuthor(pubkey: string | undefined): NostrMetadata & { event?: NostrEvent } {
+export function useAuthor(
+  pubkey: string | undefined,
+): NostrMetadata & { event?: NostrEvent } {
   const { nostr } = useNostr();
 
   const { data } = useSuspenseQuery<NostrMetadata & { event?: NostrEvent }>({

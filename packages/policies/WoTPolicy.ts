@@ -1,4 +1,4 @@
-import { NostrEvent, NostrRelayOK, NPolicy, NStore } from '@nostrify/types';
+import type { NostrEvent, NostrRelayOK, NPolicy, NStore } from '@nostrify/types';
 
 /** Options for the `WoTPolicy`. */
 interface WoTPolicyOpts {
@@ -18,8 +18,11 @@ interface WoTPolicyOpts {
 /** Whitelist pubkeys the given user follows, people those users follow, etc. up to `depth`. */
 export class WoTPolicy implements NPolicy {
   private pubkeys: Promise<Set<string>> | undefined;
+  private opts: WoTPolicyOpts;
 
-  constructor(private opts: WoTPolicyOpts) {}
+  constructor(opts: WoTPolicyOpts) {
+    this.opts = opts;
+  }
 
   async call(event: NostrEvent): Promise<NostrRelayOK> {
     this.pubkeys ??= this.getPubkeys();

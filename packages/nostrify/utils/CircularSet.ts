@@ -4,9 +4,11 @@
  */
 export class CircularSet<T> {
   private set: Set<T>;
+  private capacity: number;
 
-  constructor(private capacity: number) {
+  constructor(capacity: number) {
     this.set = new Set();
+    this.capacity = capacity;
   }
 
   add(item: T): void {

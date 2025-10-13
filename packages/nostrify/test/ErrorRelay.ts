@@ -1,5 +1,5 @@
 // deno-lint-ignore-file require-await require-yield
-import {
+import type {
   NostrEvent,
   NostrFilter,
   NostrRelayCLOSED,
@@ -18,19 +18,31 @@ export class ErrorRelay implements NRelay {
     throw new Error('This error is intentional.');
   }
 
-  async event(_event: NostrEvent, _opts?: { signal?: AbortSignal }): Promise<void> {
+  async event(
+    _event: NostrEvent,
+    _opts?: { signal?: AbortSignal },
+  ): Promise<void> {
     throw new Error('This error is intentional.');
   }
 
-  async query(_filters: NostrFilter[], _opts?: { signal?: AbortSignal }): Promise<NostrEvent[]> {
+  async query(
+    _filters: NostrFilter[],
+    _opts?: { signal?: AbortSignal },
+  ): Promise<NostrEvent[]> {
     throw new Error('This error is intentional.');
   }
 
-  async count(_filters: NostrFilter[], _opts?: { signal?: AbortSignal }): Promise<NostrRelayCOUNT[2]> {
+  async count(
+    _filters: NostrFilter[],
+    _opts?: { signal?: AbortSignal },
+  ): Promise<NostrRelayCOUNT[2]> {
     throw new Error('This error is intentional.');
   }
 
-  async remove(_filters: NostrFilter[], _opts?: { signal?: AbortSignal }): Promise<void> {
+  async remove(
+    _filters: NostrFilter[],
+    _opts?: { signal?: AbortSignal },
+  ): Promise<void> {
     throw new Error('This error is intentional.');
   }
 

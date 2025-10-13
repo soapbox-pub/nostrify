@@ -1,4 +1,4 @@
-import { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
+import type { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
 
 /**
  * Ban events from individual pubkeys.
@@ -9,7 +9,10 @@ import { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
  * ```
  */
 export class PubkeyBanPolicy implements NPolicy {
-  constructor(private pubkeys: Iterable<string>) {}
+  private pubkeys: Iterable<string>;
+  constructor(pubkeys: Iterable<string>) {
+    this.pubkeys = pubkeys;
+  }
 
   // deno-lint-ignore require-await
   async call({ id, pubkey }: NostrEvent): Promise<NostrRelayOK> {

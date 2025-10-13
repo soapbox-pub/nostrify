@@ -1,0 +1,14 @@
+packages:
+  - ./packages/ndk
+  - ./packages/nostrify
+  - ./packages/policies
+  - ./packages/react
+  - ./packages/seed
+  - ./packages/strfry
+  - ./packages/types
+  - ./packages/db
+  # TODO
+  # - ./packages/welshman
+onlyBuiltDependencies:
+  - esbuild
+  - nx

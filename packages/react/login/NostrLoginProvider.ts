@@ -17,7 +17,9 @@ interface NostrLoginProviderProps {
  * NostrLoginProvider is a React component that provides a context for managing Nostr logins.
  * It uses a reducer to handle the state of logins and stores them in localStorage.
  */
-export const NostrLoginProvider: FC<NostrLoginProviderProps> = ({ children, storageKey }: NostrLoginProviderProps) => {
+export const NostrLoginProvider: FC<NostrLoginProviderProps> = (
+  { children, storageKey }: NostrLoginProviderProps,
+) => {
   const [logins, dispatch] = useNostrLoginReducer(storageKey);
 
   const value: NostrLoginContextType = {

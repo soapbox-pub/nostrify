@@ -1,5 +1,7 @@
-import { NBrowserSigner, NConnectSigner, type NostrSigner, type NPool, NSecSigner } from '@nostrify/nostrify';
+import { NBrowserSigner, NConnectSigner, NSecSigner } from '@nostrify/nostrify';
 import { nip19 } from 'nostr-tools';
+import type { NPool } from '@nostrify/nostrify';
+import type { NostrSigner } from '@nostrify/types';
 
 import type { NLoginBunker, NLoginExtension, NLoginNsec } from './NLogin.ts';
 
@@ -15,7 +17,10 @@ export class NUser {
   ) {}
 
   static fromNsecLogin(login: NLoginNsec): NUser {
-    const sk = nip19.decode(login.data.nsec) as { type: 'nsec'; data: Uint8Array };
+    const sk = nip19.decode(login.data.nsec) as {
+      type: 'nsec';
+      data: Uint8Array;
+    };
 
     return new NUser(
       login.type,
@@ -25,7 +30,10 @@ export class NUser {
   }
 
   static fromBunkerLogin(login: NLoginBunker, pool: NPool): NUser {
-    const clientSk = nip19.decode(login.data.clientNsec) as { type: 'nsec'; data: Uint8Array };
+    const clientSk = nip19.decode(login.data.clientNsec) as {
+      type: 'nsec';
+      data: Uint8Array;
+    };
     const clientSigner = new NSecSigner(clientSk.data);
 
     return new NUser(

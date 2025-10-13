@@ -1,4 +1,4 @@
-import {
+import type {
   NostrClientMsg,
   NostrClientREQ,
   NostrEvent,
@@ -13,7 +13,8 @@ import {
   NRelay,
 } from '@nostrify/types';
 import { getFilterLimit, matchFilters, verifyEvent as _verifyEvent } from 'nostr-tools';
-import { ArrayQueue, Backoff, ExponentialBackoff, Websocket, WebsocketBuilder, WebsocketEvent } from 'websocket-ts';
+import { ArrayQueue, ExponentialBackoff, Websocket, WebsocketBuilder, WebsocketEvent } from 'websocket-ts';
+import type { Backoff } from 'websocket-ts';
 
 import { Machina } from './utils/Machina.ts';
 import { NSchema as n } from './NSchema.ts';
@@ -53,8 +54,10 @@ export class NRelay1 implements NRelay {
 
   private subs = new Map<string, NostrClientREQ>();
   private closedByUser = false;
-  private idleTimer?: number;
+  private idleTimer?: ReturnType<typeof setTimeout>;
   private controller = new AbortController();
+  private url: string;
+  private opts: NRelay1Opts;
 
   private ee = new EventTarget();
 
@@ -66,7 +69,9 @@ export class NRelay1 implements NRelay {
     this.opts.log?.({ ...log, url: this.url });
   }
 
-  constructor(private url: string, private opts: NRelay1Opts = {}) {
+  constructor(url: string, opts: NRelay1Opts = {}) {
+    this.url = url;
+    this.opts = opts;
     this.socket = this.createSocket();
     this.maybeStartIdleTimer();
   }
@@ -118,7 +123,11 @@ export class NRelay1 implements NRelay {
         });
       })
       .onError((socket) => {
-        this.log({ level: 'error', ns: 'relay.ws.error', readyState: socket.readyState });
+        this.log({
+          level: 'error',
+          ns: 'relay.ws.error',
+          readyState: socket.readyState,
+        });
       })
       .onMessage((_socket, e) => {
         if (typeof e.data !== 'string') {
@@ -129,10 +138,18 @@ export class NRelay1 implements NRelay {
         const result = n.json().pipe(n.relayMsg()).safeParse(e.data);
 
         if (result.success) {
-          this.log({ level: 'trace', ns: 'relay.ws.message', data: result.data as JsonValue });
+          this.log({
+            level: 'trace',
+            ns: 'relay.ws.message',
+            data: result.data as JsonValue,
+          });
           this.receive(result.data);
         } else {
-          this.log({ level: 'warn', ns: 'relay.ws.message', error: result.error });
+          this.log({
+            level: 'warn',
+            ns: 'relay.ws.message',
+            error: result.error,
+          });
         }
       })
       .build();
@@ -145,16 +162,24 @@ export class NRelay1 implements NRelay {
     switch (msg[0]) {
       case 'EVENT':
         if (!verifyEvent(msg[2])) break;
-        this.ee.dispatchEvent(new CustomEvent(`sub:${msg[1]}`, { detail: msg }));
+        this.ee.dispatchEvent(
+          new CustomEvent(`sub:${msg[1]}`, { detail: msg }),
+        );
         break;
       case 'EOSE':
-        this.ee.dispatchEvent(new CustomEvent(`sub:${msg[1]}`, { detail: msg }));
+        this.ee.dispatchEvent(
+          new CustomEvent(`sub:${msg[1]}`, { detail: msg }),
+        );
         break;
       case 'CLOSED':
         this.subs.delete(msg[1]);
         this.maybeStartIdleTimer();
-        this.ee.dispatchEvent(new CustomEvent(`sub:${msg[1]}`, { detail: msg }));
-        this.ee.dispatchEvent(new CustomEvent(`count:${msg[1]}`, { detail: msg }));
+        this.ee.dispatchEvent(
+          new CustomEvent(`sub:${msg[1]}`, { detail: msg }),
+        );
+        this.ee.dispatchEvent(
+          new CustomEvent(`count:${msg[1]}`, { detail: msg }),
+        );
         break;
       case 'OK':
         this.ee.dispatchEvent(new CustomEvent(`ok:${msg[1]}`, { detail: msg }));
@@ -163,10 +188,14 @@ export class NRelay1 implements NRelay {
         this.ee.dispatchEvent(new CustomEvent('notice', { detail: msg }));
         break;
       case 'COUNT':
-        this.ee.dispatchEvent(new CustomEvent(`count:${msg[1]}`, { detail: msg }));
+        this.ee.dispatchEvent(
+          new CustomEvent(`count:${msg[1]}`, { detail: msg }),
+        );
         break;
       case 'AUTH':
-        auth?.(msg[1]).then((event) => this.send(['AUTH', event])).catch(() => {});
+        auth?.(msg[1]).then((event) => this.send(['AUTH', event])).catch(
+          () => {},
+        );
     }
   }
 
@@ -222,10 +251,16 @@ export class NRelay1 implements NRelay {
     }
   }
 
-  async query(filters: NostrFilter[], opts?: { signal?: AbortSignal }): Promise<NostrEvent[]> {
+  async query(
+    filters: NostrFilter[],
+    opts?: { signal?: AbortSignal },
+  ): Promise<NostrEvent[]> {
     const events = new NSet();
 
-    const limit = filters.reduce((result, filter) => result + getFilterLimit(filter), 0);
+    const limit = filters.reduce(
+      (result, filter) => result + getFilterLimit(filter),
+      0,
+    );
     if (limit === 0) return [];
 
     for await (const msg of this.req(filters, opts)) {
@@ -241,7 +276,10 @@ export class NRelay1 implements NRelay {
     return [...events];
   }
 
-  async event(event: NostrEvent, opts?: { signal?: AbortSignal }): Promise<void> {
+  async event(
+    event: NostrEvent,
+    opts?: { signal?: AbortSignal },
+  ): Promise<void> {
     const result = this.once(`ok:${event.id}`, opts?.signal);
 
     try {
@@ -282,10 +320,15 @@ export class NRelay1 implements NRelay {
         return count;
       }
     }
+
+    throw new Error('Count ended -- this should never happen');
   }
 
   /** Get a stream of EE events. */
-  private async *on<K extends keyof EventMap>(key: K, signal?: AbortSignal): AsyncIterable<EventMap[K]> {
+  private async *on<K extends keyof EventMap>(
+    key: K,
+    signal?: AbortSignal,
+  ): AsyncIterable<EventMap[K]> {
     const _signal = signal ? AbortSignal.any([this.controller.signal, signal]) : this.controller.signal;
 
     if (_signal.aborted) throw this.abortError();
@@ -305,7 +348,10 @@ export class NRelay1 implements NRelay {
   }
 
   /** Wait for a single EE event. */
-  private async once<K extends keyof EventMap>(key: K, signal?: AbortSignal): Promise<EventMap[K]> {
+  private async once<K extends keyof EventMap>(
+    key: K,
+    signal?: AbortSignal,
+  ): Promise<EventMap[K]> {
     for await (const msg of this.on(key, signal)) {
       return msg;
     }
@@ -329,9 +375,19 @@ export class NRelay1 implements NRelay {
     // If the connection was manually closed, there's no need to start a timer.
     if (this.closedByUser) return;
 
-    this.log({ level: 'debug', ns: 'relay.idletimer', state: 'running', timeout: idleTimeout });
+    this.log({
+      level: 'debug',
+      ns: 'relay.idletimer',
+      state: 'running',
+      timeout: idleTimeout,
+    });
     this.idleTimer = setTimeout(() => {
-      this.log({ level: 'debug', ns: 'relay.idletimer', state: 'aborted', timeout: idleTimeout });
+      this.log({
+        level: 'debug',
+        ns: 'relay.idletimer',
+        state: 'aborted',
+        timeout: idleTimeout,
+      });
       this.socket.close();
     }, idleTimeout);
   }
@@ -369,7 +425,9 @@ export class NRelay1 implements NRelay {
 
     if (this.socket.readyState !== WebSocket.CLOSED) {
       await new Promise((resolve) => {
-        this.socket.addEventListener(WebsocketEvent.close, resolve, { once: true });
+        this.socket.addEventListener(WebsocketEvent.close, resolve, {
+          once: true,
+        });
       });
     }
   }

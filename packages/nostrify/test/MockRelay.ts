@@ -1,6 +1,6 @@
 // deno-lint-ignore-file require-await
 
-import {
+import type {
   NostrEvent,
   NostrFilter,
   NostrRelayCLOSED,
@@ -16,7 +16,10 @@ import { NSet } from '../NSet.ts';
 
 /** Mock relay for testing. */
 export class MockRelay extends NSet implements NRelay {
-  readonly subs: Map<string, { filters: NostrFilter[]; machina: Machina<NostrEvent> }> = new Map();
+  readonly subs: Map<
+    string,
+    { filters: NostrFilter[]; machina: Machina<NostrEvent> }
+  > = new Map();
 
   async *req(
     filters: NostrFilter[],

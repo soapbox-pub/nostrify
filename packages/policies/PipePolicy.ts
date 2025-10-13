@@ -1,4 +1,4 @@
-import { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
+import type { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
 
 /**
  * Processes events through multiple policies.
@@ -20,7 +20,10 @@ import { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
  * ```
  */
 export class PipePolicy implements NPolicy {
-  constructor(private policies: NPolicy[]) {}
+  private policies: NPolicy[] = [];
+  constructor(policies: NPolicy[]) {
+    this.policies = policies;
+  }
 
   async call(event: NostrEvent, signal?: AbortSignal): Promise<NostrRelayOK> {
     for (const policy of this.policies) {

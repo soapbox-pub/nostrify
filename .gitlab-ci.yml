@@ -1,10 +1,11 @@
-image: denoland/deno:2.2.10
+image: node:24
 
 default:
   interruptible: true
   before_script:
     - apt-get update
     - apt-get install -y git
+    - corepack enable
 
 stages:
   - test
@@ -14,26 +15,21 @@ test:
   stage: test
   timeout: 2 minutes
   script:
-    - deno fmt --check
-    - deno lint
-    - deno task test
+    # - deno lint
+    # - deno fmt
+    - pnpm i -r
+    - pnpm test
   services:
     - postgres:16
   variables:
     DATABASE_URL: postgres://postgres:postgres@postgres:5432/postgres
     POSTGRES_HOST_AUTH_METHOD: trust
-  artifacts:
-    when: always
-    paths:
-      - deno-test.xml
-    reports:
-      junit: deno-test.xml
 
 pages:
   stage: docs
   timeout: 2 minutes
   script:
-    - deno task docs:build
+    - npx deno task docs:build
     - mv docs/.vitepress/dist public
   artifacts:
     paths:

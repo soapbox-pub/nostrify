@@ -1,0 +1,21 @@
+{
+  "name": "@nostrify/strfry",
+  "version": "0.2.8",
+  "exports": {
+    ".": "./dist/mod.js"
+  },
+  "types": "dist/mod.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "npx tsc -p tsconfig.json && node ../../esbuild.config.js --package ./",
+    "setup": "pnpm i",
+    "test": "node --test \"**/*.test.ts\""
+  },
+  "dependencies": {
+    "@nostrify/types": "workspace:*",
+    "@types/node": "^24.1.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

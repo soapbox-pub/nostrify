@@ -1,8 +1,9 @@
-import { assertEquals } from '@std/assert';
+import { test } from "node:test";
+import { deepStrictEqual } from "node:assert";
 
-import { CircularSet } from './CircularSet.ts';
+import { CircularSet } from "./CircularSet.ts";
 
-Deno.test('CircularSet', () => {
+await test("CircularSet", () => {
   const set = new CircularSet<number>(3);
 
   set.add(1);
@@ -11,5 +12,5 @@ Deno.test('CircularSet', () => {
   set.add(3);
   set.add(4);
 
-  assertEquals([...set], [2, 3, 4]);
+  deepStrictEqual([...set], [2, 3, 4]);
 });

@@ -1,17 +1,18 @@
-import { genEvent } from '@nostrify/nostrify/test';
-import { assertRejects } from '@std/assert';
+import { test } from "node:test";
+import { genEvent } from "./mod.ts";
+import { rejects } from "node:assert";
 
-import { ErrorRelay } from './ErrorRelay.ts';
+import { ErrorRelay } from "./ErrorRelay.ts";
 
-Deno.test('ErrorRelay', async () => {
+await test("ErrorRelay", async () => {
   const store = new ErrorRelay();
-  await assertRejects(() => store.event(genEvent()));
-  await assertRejects(() => store.query([]));
-  await assertRejects(() => store.count([]));
-  await assertRejects(() => store.remove([]));
-  await assertRejects(() => store.close());
+  await rejects(() => store.event(genEvent()));
+  await rejects(() => store.query([]));
+  await rejects(() => store.count([]));
+  await rejects(() => store.remove([]));
+  await rejects(() => store.close());
 
-  await assertRejects(async () => {
+  await rejects(async () => {
     for await (const _ of store.req([])) {
       // Do nothing.
     }

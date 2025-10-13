@@ -1,6 +1,13 @@
 import NDK, { NDKEvent } from '@nostr-dev-kit/ndk';
 import { Machina } from '@nostrify/nostrify/utils';
-import { NostrEvent, NostrFilter, NostrRelayCLOSED, NostrRelayEOSE, NostrRelayEVENT, NRelay } from '@nostrify/types';
+import type {
+  NostrEvent,
+  NostrFilter,
+  NostrRelayCLOSED,
+  NostrRelayEOSE,
+  NostrRelayEVENT,
+  NRelay,
+} from '@nostrify/types';
 
 /**
  * NDK storage adapter.

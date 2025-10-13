@@ -1,0 +1,57 @@
+# @nostrify/seed
+
+## 0.42.7
+
+### Patch Changes
+
+- export js files instead of TS files
+- Updated dependencies
+  - @nostrify/nostrify@0.46.11
+
+## 0.42.6
+
+### Patch Changes
+
+- distribute ts files
+- Updated dependencies
+  - @nostrify/nostrify@0.46.10
+
+## 0.42.5
+
+### Patch Changes
+
+- tests should pass now
+- Updated dependencies
+  - @nostrify/nostrify@0.46.9
+
+## 0.42.4
+
+### Patch Changes
+
+- Get tests passing in CI, use esbuild to build final JS files
+- Updated dependencies
+  - @nostrify/nostrify@0.46.8
+
+## 0.42.3
+
+### Patch Changes
+
+- fix imports in workspace packages
+- Updated dependencies
+  - @nostrify/nostrify@0.46.7
+
+## 0.42.2
+
+### Patch Changes
+
+- Fix typescript config so it outputs ESM not CJS built files
+- Updated dependencies
+  - @nostrify/nostrify@0.46.6
+
+## 0.42.1
+
+### Patch Changes
+
+- fix package.json setup
+- Updated dependencies
+  - @nostrify/nostrify@0.46.5

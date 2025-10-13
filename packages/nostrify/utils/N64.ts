@@ -1,4 +1,4 @@
-import { NostrEvent } from '@nostrify/types';
+import type { NostrEvent } from '@nostrify/types';
 import { decodeBase64, encodeBase64 } from '@std/encoding/base64';
 
 import { NSchema as n } from '../NSchema.ts';

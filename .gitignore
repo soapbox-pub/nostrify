@@ -3,3 +3,5 @@
 *.lmdb-lock
 deno-test.xml
 node_modules
+dist/
+.turbo

@@ -1,13 +1,14 @@
-import { assertEquals } from '@std/assert';
-import { finalizeEvent, generateSecretKey } from 'nostr-tools';
+import { test } from "node:test";
+import { deepStrictEqual } from "node:assert";
+import { finalizeEvent, generateSecretKey } from "nostr-tools";
 
-import { OpenAIPolicy } from './OpenAIPolicy.ts';
+import { OpenAIPolicy } from "./OpenAIPolicy.ts";
 
 const timeout = 50;
 
-Deno.test('rejects flagged events', async () => {
+await test("rejects flagged events", async () => {
   const event = finalizeEvent(
-    { kind: 1, content: 'I want to kill them.', tags: [], created_at: 0 },
+    { kind: 1, content: "I want to kill them.", tags: [], created_at: 0 },
     generateSecretKey(),
   );
 
@@ -18,14 +19,20 @@ Deno.test('rejects flagged events', async () => {
       ),
     );
 
-  assertEquals((await new OpenAIPolicy({ apiKey: '', fetch }).call(event, AbortSignal.timeout(timeout)))[2], false);
+  deepStrictEqual(
+    (await new OpenAIPolicy({ apiKey: "", fetch }).call(
+      event,
+      AbortSignal.timeout(timeout),
+    ))[2],
+    false,
+  );
 
   await new Promise((resolve) => setTimeout(resolve, timeout));
 });
 
-Deno.test('accepts unflagged events', async () => {
+await test("accepts unflagged events", async () => {
   const event = finalizeEvent(
-    { kind: 1, content: 'I want to love them.', tags: [], created_at: 0 },
+    { kind: 1, content: "I want to love them.", tags: [], created_at: 0 },
     generateSecretKey(),
   );
 
@@ -36,7 +43,13 @@ Deno.test('accepts unflagged events', async () => {
       ),
     );
 
-  assertEquals((await new OpenAIPolicy({ apiKey: '', fetch }).call(event, AbortSignal.timeout(timeout)))[2], false);
+  deepStrictEqual(
+    (await new OpenAIPolicy({ apiKey: "", fetch }).call(
+      event,
+      AbortSignal.timeout(timeout),
+    ))[2],
+    false,
+  );
 
   await new Promise((resolve) => setTimeout(resolve, timeout));
 });

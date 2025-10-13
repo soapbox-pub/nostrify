@@ -1,4 +1,4 @@
-import { NostrEvent } from '@nostrify/types';
+import type { NostrEvent } from '@nostrify/types';
 import { encodeHex } from '@std/encoding/hex';
 import { verifyEvent as _verifyEvent } from 'nostr-tools';
 
@@ -11,7 +11,9 @@ export class NIP98 {
     request: Request,
     opts?: { validatePayload?: boolean },
   ): Promise<Omit<NostrEvent, 'id' | 'pubkey' | 'sig'>> {
-    const { validatePayload = ['POST', 'PUT', 'PATCH'].includes(request.method) } = opts ?? {};
+    const {
+      validatePayload = ['POST', 'PUT', 'PATCH'].includes(request.method),
+    } = opts ?? {};
     const { method, url } = request;
 
     const tags = [

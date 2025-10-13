@@ -1,5 +1,7 @@
-import { BunkerURI, NConnectSigner, type NostrSigner, type NPool, NSecSigner } from '@nostrify/nostrify';
+import { BunkerURI, NConnectSigner, NSecSigner } from '@nostrify/nostrify';
+import type { NPool } from '@nostrify/nostrify';
 import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools';
+import type { NostrSigner } from '@nostrify/types';
 
 /** An object represeting any supported Nostr login credentials. */
 export type NLoginType = NLoginNsec | NLoginBunker | NLoginExtension | NLoginOther;

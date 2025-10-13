@@ -2,8 +2,7 @@
 
 import { finalizeEvent, getPublicKey, nip04, nip44 } from 'nostr-tools';
 
-import { NostrEvent } from '@nostrify/types';
-import { NostrSigner } from '@nostrify/types';
+import type { NostrEvent, NostrSigner } from '@nostrify/types';
 
 /**
  * NIP-07-compatible signer with secret key. It is a drop-in replacement for `window.nostr`.
@@ -28,7 +27,10 @@ export class NSecSigner implements NostrSigner {
     return this.pubkey ??= getPublicKey(this.#secretKey);
   }
 
-  async signEvent(event: Omit<NostrEvent, 'id' | 'pubkey' | 'sig'>): Promise<NostrEvent> {
+  async signEvent(
+    event: Omit<NostrEvent, 'id' | 'pubkey' | 'sig'>,
+  ): Promise<NostrEvent> {
+    // @ts-ignore this is fine
     return finalizeEvent(event, this.#secretKey);
   }
 

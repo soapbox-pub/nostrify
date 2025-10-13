@@ -458,7 +458,7 @@
         "@vue/shared",
         "entities",
         "estree-walker",
-        "source-map-js"
+        "source-map.ts"
       ]
     },
     "@vue/compiler-dom@3.5.13": {
@@ -479,7 +479,7 @@
         "estree-walker",
         "magic-string",
         "postcss",
-        "source-map-js"
+        "source-map.ts"
       ]
     },
     "@vue/compiler-ssr@3.5.13": {
@@ -845,7 +845,7 @@
       "dependencies": [
         "nanoid",
         "picocolors",
-        "source-map-js"
+        "source-map.ts"
       ]
     },
     "preact@10.26.5": {
@@ -1020,7 +1020,7 @@
       "integrity": "sha512-fCkfdOk8yRZT8GD9BFqusW3+GggWYZ/rYncOfmgcDtP3ualNHCAg+Robxp2/6xfH1WwPHtGpPwv7mbA3qomtBw==",
       "dependencies": [
         "@docsearch/css",
-        "@docsearch/js",
+        "@docsearch.ts",
         "@iconify-json/simple-icons",
         "@shikijs/core",
         "@shikijs/transformers",
@@ -1032,7 +1032,7 @@
         "@vueuse/core",
         "@vueuse/integrations",
         "focus-trap",
-        "mark.js",
+        "mark.ts",
         "minisearch",
         "shiki",
         "vite",

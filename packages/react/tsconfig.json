@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "lib": [
+      "dom"
+    ],
+    "outDir": "./dist"
+  },
+  "include": [
+    "./**/*.ts"
+  ],
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.bench.ts",
+    "example",
+    "dist"
+  ]
+}

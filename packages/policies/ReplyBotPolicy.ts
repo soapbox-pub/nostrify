@@ -1,4 +1,4 @@
-import { NostrEvent, NostrRelayOK, NPolicy, NStore } from '@nostrify/types';
+import type { NostrEvent, NostrRelayOK, NPolicy, NStore } from '@nostrify/types';
 
 /** Options for the ReplyBotPolicy. */
 export interface ReplyBotPolicyOpts {
@@ -12,7 +12,10 @@ export interface ReplyBotPolicyOpts {
 
 /** Block events that reply too quickly to another event. */
 export class ReplyBotPolicy implements NPolicy {
-  constructor(private opts: ReplyBotPolicyOpts) {}
+  private opts: ReplyBotPolicyOpts;
+  constructor(opts: ReplyBotPolicyOpts) {
+    this.opts = opts;
+  }
 
   async call(event: NostrEvent, signal?: AbortSignal): Promise<NostrRelayOK> {
     const { store, threshold = 1, kinds = [1] } = this.opts;
@@ -25,7 +28,7 @@ export class ReplyBotPolicy implements NPolicy {
 
         if (prevEvent) {
           const diff = event.created_at - prevEvent.created_at;
-          const pTag = prevEvent.tags.find(([name, value]) => name === 'p' && value === event.pubkey);
+          const pTag = prevEvent.tags.find(([name, value]: string[]) => name === 'p' && value === event.pubkey);
 
           if (diff <= threshold && !pTag) {
             return ['OK', event.id, false, 'rate-limited: replied too quickly'];

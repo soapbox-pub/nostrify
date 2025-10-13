@@ -1,6 +1,6 @@
 // deno-lint-ignore-file require-await
 
-import { NostrEvent, NostrFilter, NostrRelayCOUNT, NStore } from '@nostrify/types';
+import type { NostrEvent, NostrFilter, NostrRelayCOUNT, NStore } from '@nostrify/types';
 import { LRUCache } from 'lru-cache';
 import { matchFilters } from 'nostr-tools';
 
@@ -28,7 +28,9 @@ import { NSet } from './NSet.ts';
  * ```
  */
 class NCache extends NSet implements NStore {
-  constructor(...args: ConstructorParameters<typeof LRUCache<string, NostrEvent>>) {
+  constructor(
+    ...args: ConstructorParameters<typeof LRUCache<string, NostrEvent>>
+  ) {
     super(new LRUCache<string, NostrEvent>(...args) as Map<string, NostrEvent>);
   }
 

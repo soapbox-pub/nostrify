@@ -309,6 +309,52 @@ fiatjaf.signEvent(t);
 
 TODO
 
+## Development
+
+### Running Tests
+
+To run the test suite, use pnpm:
+
+```bash
+# Install dependencies
+pnpm i -r
+
+# Run all tests
+pnpm test
+```
+
+### Containerized Testing
+
+For testing in a containerized environment (similar to CI), you can use the `test-containerized.sh` script:
+
+```bash
+./test-containerized.sh
+```
+
+This script will:
+
+- Clone the repository in a Node.js container
+- Install dependencies using pnpm
+- Run the test suite in a CI-like environment
+- Provide you with a shell in the container after tests complete
+
+### Publishing Packages
+
+This project uses Changesets for managing package versions and releases. To publish packages:
+
+```bash
+# Create a changeset for your changes
+pnpm changeset
+
+# Bump package versions based on changesets
+pnpm pkgs:version
+
+# Publish packages to the registry
+pnpm pkgs:publish
+```
+
+The `changeset` command will guide you through creating a changeset file that describes what packages have changed and what type of release (major, minor, patch) they should receive.
+
 ## License
 
 [MIT](./LICENSE)

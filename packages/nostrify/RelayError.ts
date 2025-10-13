@@ -1,4 +1,4 @@
-import { NostrRelayOK } from '@nostrify/nostrify';
+import type { NostrRelayOK } from '@nostrify/types';
 
 /** NIP-01 command line result. */
 export class RelayError extends Error {

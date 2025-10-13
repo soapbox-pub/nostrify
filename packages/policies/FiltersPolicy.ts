@@ -1,6 +1,6 @@
 import { matchFilters } from 'nostr-tools';
 
-import { NostrEvent, NostrFilter, NostrRelayOK, NPolicy } from '@nostrify/types';
+import type { NostrEvent, NostrFilter, NostrRelayOK, NPolicy } from '@nostrify/types';
 
 /**
  * Reject events which don't match the filters.
@@ -14,7 +14,10 @@ import { NostrEvent, NostrFilter, NostrRelayOK, NPolicy } from '@nostrify/types'
  * ```
  */
 export class FiltersPolicy implements NPolicy {
-  constructor(private filters: NostrFilter[]) {}
+  private filters: NostrFilter[];
+  constructor(filters: NostrFilter[]) {
+    this.filters = filters;
+  }
 
   // deno-lint-ignore require-await
   async call(event: NostrEvent): Promise<NostrRelayOK> {

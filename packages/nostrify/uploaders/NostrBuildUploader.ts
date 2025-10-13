@@ -2,8 +2,7 @@ import { z } from 'zod';
 
 import { N64 } from '../utils/N64.ts';
 import { NIP98 } from '../NIP98.ts';
-import { NostrSigner } from '@nostrify/types';
-import { NUploader } from '@nostrify/types';
+import type { NostrSigner, NUploader } from '@nostrify/types';
 
 /** NostrBuildUploader options. */
 export interface NostrBuildUploaderOpts {
@@ -27,7 +26,10 @@ export class NostrBuildUploader implements NUploader {
     this.fetch = opts?.fetch ?? globalThis.fetch.bind(globalThis);
   }
 
-  async upload(file: File, opts?: { signal?: AbortSignal }): Promise<[['url', string], ...string[][]]> {
+  async upload(
+    file: File,
+    opts?: { signal?: AbortSignal },
+  ): Promise<[['url', string], ...string[][]]> {
     const formData = new FormData();
     formData.append('fileToUpload', file);
 
@@ -45,6 +47,7 @@ export class NostrBuildUploader implements NUploader {
 
     const response = await this.fetch(request);
     const json = await response.json();
+    console.log(json);
     const [data] = NostrBuildUploader.schema().parse(json).data;
 
     const tags: [['url', string], ...string[][]] = [

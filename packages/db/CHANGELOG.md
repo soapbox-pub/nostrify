@@ -1,5 +1,68 @@
 # Changelog
 
+## 0.39.11
+
+### Patch Changes
+
+- export js files instead of TS files
+- Updated dependencies
+  - @nostrify/nostrify@0.46.11
+  - @nostrify/types@0.36.7
+
+## 0.39.10
+
+### Patch Changes
+
+- distribute ts files
+- Updated dependencies
+  - @nostrify/nostrify@0.46.10
+  - @nostrify/types@0.36.6
+
+## 0.39.9
+
+### Patch Changes
+
+- tests should pass now
+- Updated dependencies
+  - @nostrify/nostrify@0.46.9
+  - @nostrify/types@0.36.5
+
+## 0.39.8
+
+### Patch Changes
+
+- Get tests passing in CI, use esbuild to build final JS files
+- Updated dependencies
+  - @nostrify/nostrify@0.46.8
+  - @nostrify/types@0.36.4
+
+## 0.39.7
+
+### Patch Changes
+
+- fix imports in workspace packages
+- Updated dependencies
+  - @nostrify/nostrify@0.46.7
+  - @nostrify/types@0.36.3
+
+## 0.39.6
+
+### Patch Changes
+
+- Fix typescript config so it outputs ESM not CJS built files
+- Updated dependencies
+  - @nostrify/nostrify@0.46.6
+  - @nostrify/types@0.36.2
+
+## 0.39.5
+
+### Patch Changes
+
+- fix package.json setup
+- Updated dependencies
+  - @nostrify/nostrify@0.46.5
+  - @nostrify/types@0.36.1
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
@@ -93,7 +156,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 0.32.2 - 2024-09-15
 
-- NPostgres: select from nostr_events.*
+- NPostgres: select from nostr_events.\*
 
 ## 0.32.1 - 2024-09-15
 

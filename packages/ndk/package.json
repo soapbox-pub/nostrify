@@ -1,0 +1,22 @@
+{
+  "name": "@nostrify/ndk",
+  "version": "0.35.7",
+  "exports": {
+    ".": "./dist/mod.js"
+  },
+  "types": "./dist/mod.d.ts",
+  "dependencies": {
+    "@nostr-dev-kit/ndk": "^2.7.1",
+    "@nostrify/nostrify": "workspace:*",
+    "@nostrify/types": "workspace:*"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "npx tsc -p tsconfig.json && node ../../esbuild.config.js --package ./",
+    "setup": "pnpm i",
+    "test": "node --test \"**/*.test.ts\""
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

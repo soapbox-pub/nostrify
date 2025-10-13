@@ -1,9 +1,9 @@
 import { Suspense } from 'react';
 
-import { useAuthor } from './useAuthor.ts';
-import { useCurrentUser } from './useCurrentUser.ts';
-import { useLoginActions } from './useLoginActions.ts';
-import { useSocialFeed } from './useSocialFeed.ts';
+import { useAuthor } from './useAuthor';
+import { useCurrentUser } from './useCurrentUser';
+import { useLoginActions } from './useLoginActions';
+import { useSocialFeed } from './useSocialFeed';
 
 import type { NostrEvent } from '@nostrify/nostrify';
 
@@ -58,7 +58,10 @@ function FeedPost({ event }: { event: NostrEvent }) {
   const author = useAuthor(event.pubkey);
 
   return (
-    <div key={event.id} style={{ border: '1px solid gray', padding: '10px', margin: '20px 0' }}>
+    <div
+      key={event.id}
+      style={{ border: '1px solid gray', padding: '10px', margin: '20px 0' }}
+    >
       <div>{author.name ?? event.pubkey}</div>
       <div>{event.content}</div>
     </div>

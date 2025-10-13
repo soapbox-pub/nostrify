@@ -1,0 +1,34 @@
+{
+  "name": "@nostrify/react",
+  "version": "0.2.15",
+  "exports": {
+    ".": "./dist/mod.js",
+    "./login": "./dist/login/mod.js"
+  },
+  "types": "dist/mod.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "npx tsc -p tsconfig.json && node ../../esbuild.config.js --package ./",
+    "setup": "pnpm i",
+    "test": "node --test \"**/*.test.ts\""
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "@types/node": "^24.1.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "@deno/vite-plugin": "^1.0.4",
+    "vite": "^6.2.2"
+  },
+  "dependencies": {
+    "@nostrify/types": "workspace:*",
+    "@nostrify/nostrify": "workspace:*",
+    "@tanstack/react-query": "^5.69.0",
+    "happy-dom": "^17.4.4",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "nostr-tools": "^2.13.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,4 +1,4 @@
-import { NostrEvent } from '@nostrify/types';
+import type { NostrEvent } from '@nostrify/types';
 
 /**
  * Nostr event implementation of the `Set` interface.
@@ -75,8 +75,14 @@ class NSet {
     return this.cache.delete(event.id);
   }
 
-  forEach(callbackfn: (event: NostrEvent, key: NostrEvent, set: typeof this) => void, thisArg?: any): void {
-    return this.cache.forEach((event, _id) => callbackfn(event, event, this), thisArg);
+  forEach(
+    callbackfn: (event: NostrEvent, key: NostrEvent, set: typeof this) => void,
+    thisArg?: any,
+  ): void {
+    return this.cache.forEach(
+      (event, _id) => callbackfn(event, event, this),
+      thisArg,
+    );
   }
 
   has(event: NostrEvent): boolean {
@@ -124,12 +130,13 @@ class NSet {
     const { kind, pubkey } = event;
 
     if (NSet.isReplaceable(kind)) {
-      return kind === target.kind && pubkey === target.pubkey && NSet.sortEvents([event, target])[0] === event;
+      return kind === target.kind && pubkey === target.pubkey &&
+        NSet.sortEvents([event, target])[0] === event;
     }
 
     if (NSet.isAddressable(kind)) {
-      const d1 = event.tags.find(([name]) => name === 'd')?.[1] || '';
-      const d2 = target.tags.find(([name]) => name === 'd')?.[1] || '';
+      const d1 = event.tags.find(([name]: string[]) => name === 'd')?.[1] || '';
+      const d2 = target.tags.find(([name]: string[]) => name === 'd')?.[1] || '';
 
       return kind === target.kind &&
         pubkey === target.pubkey &&

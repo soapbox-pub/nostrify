@@ -6,7 +6,10 @@ export type NLoginAction =
   | { type: 'login.set'; id: string }
   | { type: 'login.clear' };
 
-export function nostrLoginReducer(state: NLoginType[], action: NLoginAction): NLoginType[] {
+export function nostrLoginReducer(
+  state: NLoginType[],
+  action: NLoginAction,
+): NLoginType[] {
   switch (action.type) {
     case 'login.add': {
       const filtered = state.filter((login) => login.id !== action.login.id);

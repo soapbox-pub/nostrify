@@ -1,4 +1,4 @@
-import { NostrEvent, NostrRelayInfo, NostrRelayOK, NPolicy } from '@nostrify/types';
+import type { NostrEvent, NostrRelayInfo, NostrRelayOK, NPolicy } from '@nostrify/types';
 
 /**
  * Allows only the listed pubkeys to post. All other events are rejected.
@@ -9,7 +9,11 @@ import { NostrEvent, NostrRelayInfo, NostrRelayOK, NPolicy } from '@nostrify/typ
  * ```
  */
 export class WhitelistPolicy implements NPolicy {
-  constructor(private pubkeys: Iterable<string>) {}
+  private pubkeys: Iterable<string>;
+
+  constructor(pubkeys: Iterable<string>) {
+    this.pubkeys = pubkeys;
+  }
 
   // deno-lint-ignore require-await
   async call({ id, pubkey }: NostrEvent): Promise<NostrRelayOK> {

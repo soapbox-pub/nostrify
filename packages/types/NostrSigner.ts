@@ -5,7 +5,9 @@ export interface NostrSigner {
   /** Returns a public key as hex. */
   getPublicKey(): Promise<string>;
   /** Takes an event template, adds `id`, `pubkey` and `sig` and returns it. */
-  signEvent(event: Omit<NostrEvent, 'id' | 'pubkey' | 'sig'>): Promise<NostrEvent>;
+  signEvent(
+    event: Omit<NostrEvent, 'id' | 'pubkey' | 'sig'>,
+  ): Promise<NostrEvent>;
   /** Returns a record of relay URLs to relay policies. */
   getRelays?(): Promise<Record<string, { read: boolean; write: boolean }>>;
   /** @deprecated NIP-04 crypto methods. Use `nip44` instead. */

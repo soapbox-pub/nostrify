@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.48.0
+
+### Minor Changes
+
+- NostrBuildUploader: make `signer` required
+
 ## 0.47.1
 
 ### Patch Changes

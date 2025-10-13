@@ -5,6 +5,7 @@ export { NConnectSigner, type NConnectSignerOpts } from './NConnectSigner.ts';
 export { NIP05 } from './NIP05.ts';
 export { NIP50 } from './NIP50.ts';
 export { NIP98 } from './NIP98.ts';
+export { NIP98Client, type NIP98ClientOpts } from './NIP98Client.ts';
 export { NKinds } from './NKinds.ts';
 export { NPool, type NPoolOpts } from './NPool.ts';
 export { NRelay1, type NRelay1Opts } from './NRelay1.ts';

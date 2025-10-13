@@ -29,7 +29,7 @@ pages:
   stage: docs
   timeout: 2 minutes
   script:
-    - npx deno task docs:build
+    - npm run docs:build
     - mv docs/.vitepress/dist public
   artifacts:
     paths:

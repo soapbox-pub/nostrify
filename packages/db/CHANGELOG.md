@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.39.13
+
+### Patch Changes
+
+- Updated dependencies
+  - @nostrify/nostrify@0.47.1
+
+## 0.39.12
+
+### Patch Changes
+
+- Updated dependencies
+  - @nostrify/nostrify@0.47.0
+
 ## 0.39.11
 
 ### Patch Changes
@@ -66,7 +80,8 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+and this project adheres to
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## 0.39.4 - 2025-02-19
 
@@ -134,13 +149,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- NPostgres: speed up queries of replaceable events by restoring conditional sort.
+- NPostgres: speed up queries of replaceable events by restoring conditional
+  sort.
 
 ## 0.36.1 - 2024-10-07
 
 ### Changed
 
-- NPostgres: return all columns in query, let parseEventRow decide which to take.
+- NPostgres: return all columns in query, let parseEventRow decide which to
+  take.
 
 ## 0.36.0 - 2024-10-07
 
@@ -206,5 +223,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Initial release as a standalone package. Previously part of `jsr:@nostrify/nostrify`.
+- Initial release as a standalone package. Previously part of
+  `jsr:@nostrify/nostrify`.
 - Added replaceable events index.

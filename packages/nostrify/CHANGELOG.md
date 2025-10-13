@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.47.1
+
+### Patch Changes
+
+- rebuild package for NIP98Client member
+
+## 0.47.0
+
+### Minor Changes
+
+- Add NIP98Client
+
 ## 0.46.11
 
 ### Patch Changes
@@ -59,7 +71,8 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+and this project adheres to
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## 0.46.4 - 2025-07-15
 
@@ -71,7 +84,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Fix fetch calls in browser by binding globalThis (NIP05, LNURL, BlossomUploader).
+- Fix fetch calls in browser by binding globalThis (NIP05, LNURL,
+  BlossomUploader).
 - BlossomUploader: use a browser-supported file hashing method.
 
 ## 0.46.0 - 2025-05-10
@@ -96,7 +110,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- BREAKING: Redesign the `LNURL` module to be a stateful class, more similar to `URL`.
+- BREAKING: Redesign the `LNURL` module to be a stateful class, more similar to
+  `URL`.
 
 ## 0.44.0 - 2025-04-23
 
@@ -108,7 +123,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Moved `NSeedSigner`, `NPhraseSigner`, and `NCustodial` into a separate `@nostrify/seed` package.
+- Moved `NSeedSigner`, `NPhraseSigner`, and `NCustodial` into a separate
+  `@nostrify/seed` package.
 
 ## 0.42.1 - 2025-04-10
 
@@ -143,7 +159,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- NRelay1: batch ids-only filters and filters for replaceable events by author/kind within the same event loop.
+- NRelay1: batch ids-only filters and filters for replaceable events by
+  author/kind within the same event loop.
 
 ## 0.40.0 - 2025-03-26
 
@@ -242,7 +259,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- NRelay1: added `idleTimeout` option to automatically close inactive connections.
+- NRelay1: added `idleTimeout` option to automatically close inactive
+  connections.
 - NRelay1: support `await using` syntax.
 
 ## 0.31.0 - 2024-09-09
@@ -250,11 +268,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added ReplyBotPolicy to block replies from bots in the same second.
-- Added AuthorPolicy to reject events from authors without a kind 0, or with a particular kind 0.
+- Added AuthorPolicy to reject events from authors without a kind 0, or with a
+  particular kind 0.
 
 ### Changed
 
-- BREAKING: Moved moderation policies to the `@nostrify/policies` package. Replace `@nostrify/nostrify/policies` with `@nostrify/policies` in your project.
+- BREAKING: Moved moderation policies to the `@nostrify/policies` package.
+  Replace `@nostrify/nostrify/policies` with `@nostrify/policies` in your
+  project.
 
 ### Fixed
 
@@ -294,7 +315,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- BREAKING: NDatabase: add kind, pubkey, and created_at columns to nostr_tags table. These columns are non-nullable, so the old database will need to be deleted or manually migrated.
+- BREAKING: NDatabase: add kind, pubkey, and created_at columns to nostr_tags
+  table. These columns are non-nullable, so the old database will need to be
+  deleted or manually migrated.
 
 ## [0.26.3] - 2024-07-18
 
@@ -318,7 +341,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- BREAKING: NPool: remove `reqRelays` option, add `reqRouter`. Rename `eventRelays` to `eventRouter`.
+- BREAKING: NPool: remove `reqRelays` option, add `reqRouter`. Rename
+  `eventRelays` to `eventRouter`.
 
 ## [0.25.0] - 2024-06-29
 
@@ -336,7 +360,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- NDatabase: add intrinsic limits to filters when applicable, skip 0 limit filters.
+- NDatabase: add intrinsic limits to filters when applicable, skip 0 limit
+  filters.
 
 ## [0.23.2] - 2024-06-13
 
@@ -379,7 +404,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- NostrMetadata: added `website` field so `NSchema.metadata()` returns the correct type.
+- NostrMetadata: added `website` field so `NSchema.metadata()` returns the
+  correct type.
 
 ### Changed
 
@@ -404,7 +430,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `NUploader` interface and two uploader classes under `@nostrify/nostrify/uploaders`.
+- `NUploader` interface and two uploader classes under
+  `@nostrify/nostrify/uploaders`.
 - Blossom uploader (`BlossomUploader`) to upload files to Blossom servers.
 - nostr.build uploader (`NostrBuildUploader`) to upload files to nostr.build.
 - `NIP98` module to verify NIP-98 Requests.
@@ -419,11 +446,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- NConnectSigner: NIP-44 encryption support by setting `{ encryption: 'nip44' }` in the constructor.
+- NConnectSigner: NIP-44 encryption support by setting `{ encryption: 'nip44' }`
+  in the constructor.
 
 ### Fixed
 
-- NDatabase: Postgres FTS now correctly uses the `searchText` option to create the search index.
+- NDatabase: Postgres FTS now correctly uses the `searchText` option to create
+  the search index.
 
 ## [0.20.0] - 2024-05-16
 
@@ -433,7 +462,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- BREAKING: NDatabase `fts5` option has been renamed to `fts`, and now accepts a string of either `'sqlite'` or `'postgres'`.
+- BREAKING: NDatabase `fts5` option has been renamed to `fts`, and now accepts a
+  string of either `'sqlite'` or `'postgres'`.
 
 ## [0.19.2] - 2024-05-16
 
@@ -445,14 +475,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- NDatabase: fix deleting everything for the author when they delete a single event.
+- NDatabase: fix deleting everything for the author when they delete a single
+  event.
 
 ## [0.19.0] - 2024-05-13
 
 ### Fixed
 
 - Improved performance of NDatabase when querying replaceable events by author.
-- NConnect.signEvent now throws if the connect message was rejected by the relay.
+- NConnect.signEvent now throws if the connect message was rejected by the
+  relay.
 
 ## [0.18.0] - 2024-05-04
 
@@ -462,13 +494,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.17.1] - 2024-04-29
 
-Redeploy to JSR (to hopefully fix [npm compatibility](https://github.com/jsr-io/jsr/issues/446)).
+Redeploy to JSR (to hopefully fix
+[npm compatibility](https://github.com/jsr-io/jsr/issues/446)).
 
 ## [0.17.0] - 2024-04-28
 
 ### Changed
 
-- BREAKING: change `NRelay.req` return type from an AsyncGenerator to an AsyncIterable.
+- BREAKING: change `NRelay.req` return type from an AsyncGenerator to an
+  AsyncIterable.
 
 ## [0.16.0] - 2024-04-25
 
@@ -492,7 +526,8 @@ Redeploy to JSR (to hopefully fix [npm compatibility](https://github.com/jsr-io/
 
 ### Fixed
 
-- `NConnectSigner` - fixed race condition between sending messages and receiving responses.
+- `NConnectSigner` - fixed race condition between sending messages and receiving
+  responses.
 
 ## [0.14.1] - 2024-04-24
 
@@ -504,7 +539,8 @@ Redeploy to JSR (to hopefully fix [npm compatibility](https://github.com/jsr-io/
 
 ### Fixed
 
-- BREAKING: fixed `NConnectSigner.connect` method signature (it doesn't need to accept a pubkey).
+- BREAKING: fixed `NConnectSigner.connect` method signature (it doesn't need to
+  accept a pubkey).
 
 ## [0.13.0] - 2024-04-24
 
@@ -522,7 +558,8 @@ Redeploy to JSR (to hopefully fix [npm compatibility](https://github.com/jsr-io/
 
 ### Added
 
-- Added `AnyPolicy` policy, a pipeline policy which rejects only if all policies reject.
+- Added `AnyPolicy` policy, a pipeline policy which rejects only if all policies
+  reject.
 
 ### Changed
 
@@ -532,7 +569,8 @@ Redeploy to JSR (to hopefully fix [npm compatibility](https://github.com/jsr-io/
 
 ### Added
 
-- Added moderation policies. Including the `NPolicy` interface and several policies.
+- Added moderation policies. Including the `NPolicy` interface and several
+  policies.
 
 ## [0.10.2] - 2024-04-21
 

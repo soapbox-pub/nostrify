@@ -1,5 +1,5 @@
 {
-  "tasks": {
+  "scripts": {
     "dev": "npx vitepress dev",
     "build": "npx vitepress build && node scripts/llmstxt.ts",
     "preview": "npx vitepress preview"

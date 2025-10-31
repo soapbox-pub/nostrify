@@ -1,8 +1,6 @@
 import { test } from "node:test";
 import { deepStrictEqual, rejects } from "node:assert";
 import { generateSecretKey } from "nostr-tools";
-import { ZodError } from "zod";
-
 import { NIP98 } from "./NIP98.ts";
 import { NSecSigner } from "./NSecSigner.ts";
 import { N64 } from "./utils/mod.ts";
@@ -78,7 +76,7 @@ await test("NIP98.verify fails with invalid token", async () => {
 
   await rejects(
     () => NIP98.verify(request),
-    ZodError,
+    (e) => e instanceof Error && e.message === "Invalid token",
   );
 });
 

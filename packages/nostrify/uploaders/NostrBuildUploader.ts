@@ -9,7 +9,7 @@ export interface NostrBuildUploaderOpts {
   /** nostr.build endpoint to use. Default: `https://nostr.build/api/v2/upload/files` */
   endpoint?: string;
   /** Signer to authenticate with NIP-98 requests. */
-  signer?: NostrSigner;
+  signer: NostrSigner;
   /** Custom fetch implementation. */
   fetch?: typeof fetch;
 }
@@ -17,7 +17,7 @@ export interface NostrBuildUploaderOpts {
 /** Upload files to nostr.build or another compatible server. */
 export class NostrBuildUploader implements NUploader {
   private endpoint: string;
-  private signer?: NostrSigner;
+  private signer: NostrSigner;
   private fetch: typeof fetch;
 
   constructor(opts?: NostrBuildUploaderOpts) {

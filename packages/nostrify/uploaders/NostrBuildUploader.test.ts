@@ -6,6 +6,8 @@ import fs from "node:fs/promises";
 
 import { NostrBuildUploader } from "./NostrBuildUploader.ts";
 import { Readable } from "node:stream";
+import { NSecSigner } from "../NSecSigner.ts";
+import { hexToBytes } from "nostr-tools/utils";
 
 await test(
   "NostrBuildUploader.upload",
@@ -18,7 +20,20 @@ await test(
       .blob();
     const file = new File([blob], "voadi.png", { type: "image/png" });
 
-    const uploader = new NostrBuildUploader();
+    const seckey = process.env.NOSTRIFY_NBU_SECRET_KEY;
+    if (!seckey) {
+      throw new Error(
+        "nostr.build with default uploader requires a secret key to be configured",
+      );
+    }
+
+    const uploader = new NostrBuildUploader({
+      signer: new NSecSigner(
+        hexToBytes(
+          seckey,
+        ),
+      ),
+    });
     const tags = await uploader.upload(file);
 
     deepStrictEqual(tags, [

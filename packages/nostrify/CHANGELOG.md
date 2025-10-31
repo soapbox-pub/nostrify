@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.48.0
+
+### Minor Changes
+
+- Remove all JSR imports
+
 ## 0.47.1
 
 ### Patch Changes

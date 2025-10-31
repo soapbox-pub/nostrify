@@ -1,5 +1,16 @@
 # @nostrify/seed
 
+## 0.43.0
+
+### Minor Changes
+
+- Remove all JSR imports
+
+### Patch Changes
+
+- Updated dependencies
+  - @nostrify/nostrify@0.48.0
+
 ## 0.42.9
 
 ### Patch Changes

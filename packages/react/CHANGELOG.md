@@ -1,5 +1,12 @@
 # @nostrify/react
 
+## 0.2.18
+
+### Patch Changes
+
+- Updated dependencies
+  - @nostrify/nostrify@0.48.0
+
 ## 0.2.17
 
 ### Patch Changes

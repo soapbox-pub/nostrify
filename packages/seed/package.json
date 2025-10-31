@@ -1,14 +1,14 @@
 {
   "name": "@nostrify/seed",
-  "version": "0.42.10",
+  "version": "0.43.0",
   "exports": {
     ".": "./dist/mod.js"
   },
   "types": "dist/mod.d.ts",
   "dependencies": {
     "@nostrify/nostrify": "workspace:*",
-    "@scure/bip32": "jsr:^1.6.2",
-    "@scure/bip39": "jsr:^1.5.4",
+    "@scure/bip32": "^2.0.1",
+    "@scure/bip39": "^2.0.1",
     "@types/node": "^24.1.0"
   },
   "type": "module",

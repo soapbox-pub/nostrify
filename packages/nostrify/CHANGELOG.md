@@ -4,7 +4,7 @@
 
 ### Minor Changes
 
-- NostrBuildUploader: make `signer` required
+- Remove all JSR imports
 
 ## 0.47.1
 

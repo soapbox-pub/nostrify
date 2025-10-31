@@ -20,9 +20,9 @@ export class NostrBuildUploader implements NUploader {
   private signer: NostrSigner;
   private fetch: typeof fetch;
 
-  constructor(opts: NostrBuildUploaderOpts) {
+  constructor(opts?: NostrBuildUploaderOpts) {
     this.endpoint = opts?.endpoint ?? "https://nostr.build/api/v2/upload/files";
-    this.signer = opts.signer;
+    this.signer = opts?.signer;
     this.fetch = opts?.fetch ?? globalThis.fetch.bind(globalThis);
   }
 

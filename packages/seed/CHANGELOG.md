@@ -1,6 +1,10 @@
 # @nostrify/seed
 
-## 0.42.10
+## 0.43.0
+
+### Minor Changes
+
+- Remove all JSR imports
 
 ### Patch Changes
 

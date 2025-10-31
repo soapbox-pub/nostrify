@@ -14,9 +14,6 @@
   "packageManager": "pnpm@10.11.0+sha512.6540583f41cc5f628eb3d9773ecee802f4f9ef9923cc45b69890fb47991d4b092964694ec3a4f738a420c918a333062c8b925d312f42e4f0c263eb603551f977",
   "devDependencies": {
     "@changesets/cli": "^2.29.5",
-    "@std/encoding": "jsr:^0.224.1",
-    "@std/json": "jsr:^1.0.1",
-    "@std/streams": "jsr:^1.0.8",
     "@types/node": "^24.1.0",
     "@types/sinon": "^17.0.4",
     "esbuild": "^0.25.9",

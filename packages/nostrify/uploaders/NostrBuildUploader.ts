@@ -1,8 +1,8 @@
-import { z } from 'zod';
+import { z } from "zod";
 
-import { N64 } from '../utils/N64.ts';
-import { NIP98 } from '../NIP98.ts';
-import type { NostrSigner, NUploader } from '@nostrify/types';
+import { N64 } from "../utils/N64.ts";
+import { NIP98 } from "../NIP98.ts";
+import type { NostrSigner, NUploader } from "@nostrify/types";
 
 /** NostrBuildUploader options. */
 export interface NostrBuildUploaderOpts {
@@ -21,7 +21,7 @@ export class NostrBuildUploader implements NUploader {
   private fetch: typeof fetch;
 
   constructor(opts?: NostrBuildUploaderOpts) {
-    this.endpoint = opts?.endpoint ?? 'https://nostr.build/api/v2/upload/files';
+    this.endpoint = opts?.endpoint ?? "https://nostr.build/api/v2/upload/files";
     this.signer = opts?.signer;
     this.fetch = opts?.fetch ?? globalThis.fetch.bind(globalThis);
   }
@@ -29,12 +29,12 @@ export class NostrBuildUploader implements NUploader {
   async upload(
     file: File,
     opts?: { signal?: AbortSignal },
-  ): Promise<[['url', string], ...string[][]]> {
+  ): Promise<[["url", string], ...string[][]]> {
     const formData = new FormData();
-    formData.append('fileToUpload', file);
+    formData.append("fileToUpload", file);
 
     const request = new Request(this.endpoint, {
-      method: 'POST',
+      method: "POST",
       body: formData,
       signal: opts?.signal,
     });
@@ -42,7 +42,7 @@ export class NostrBuildUploader implements NUploader {
     if (this.signer) {
       const t = await NIP98.template(request);
       const event = await this.signer.signEvent(t);
-      request.headers.set('authorization', `Nostr ${N64.encodeEvent(event)}`);
+      request.headers.set("authorization", `Nostr ${N64.encodeEvent(event)}`);
     }
 
     const response = await this.fetch(request);
@@ -50,20 +50,20 @@ export class NostrBuildUploader implements NUploader {
     console.log(json);
     const [data] = NostrBuildUploader.schema().parse(json).data;
 
-    const tags: [['url', string], ...string[][]] = [
-      ['url', data.url],
-      ['m', data.mime],
-      ['x', data.sha256],
-      ['ox', data.original_sha256],
-      ['size', data.size.toString()],
+    const tags: [["url", string], ...string[][]] = [
+      ["url", data.url],
+      ["m", data.mime],
+      ["x", data.sha256],
+      ["ox", data.original_sha256],
+      ["size", data.size.toString()],
     ];
 
     if (data.dimensions) {
-      tags.push(['dim', `${data.dimensions.width}x${data.dimensions.height}`]);
+      tags.push(["dim", `${data.dimensions.width}x${data.dimensions.height}`]);
     }
 
     if (data.blurhash) {
-      tags.push(['blurhash', data.blurhash]);
+      tags.push(["blurhash", data.blurhash]);
     }
 
     return tags;

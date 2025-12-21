@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.48.1
+
+### Patch Changes
+
+- remove happy-dom dependency, fix improper test in NRelay1
+
 ## 0.48.0
 
 ### Minor Changes

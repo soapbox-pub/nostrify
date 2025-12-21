@@ -1,5 +1,13 @@
 # @nostrify/react
 
+## 0.2.19
+
+### Patch Changes
+
+- remove happy-dom dependency, fix improper test in NRelay1
+- Updated dependencies
+  - @nostrify/nostrify@0.48.1
+
 ## 0.2.18
 
 ### Patch Changes

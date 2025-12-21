@@ -157,9 +157,12 @@ await test("NRelay1 idleTimeout", async () => {
   await using relay = new NRelay1(server.url, { idleTimeout: 100 });
 
   await it("websocket opens", async () => {
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await new Promise((resolve) =>
+      relay.socket.addEventListener(WebsocketEvent.open, resolve, {
+        once: true,
+      })
+    );
     deepStrictEqual(relay.socket.readyState, WebSocket.OPEN);
-    await new Promise((resolve) => setTimeout(resolve, 20));
   });
 
   await it("websocket closes after idleTimeout", async () => {

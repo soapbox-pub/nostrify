@@ -8,8 +8,16 @@ default:
     - corepack enable
 
 stages:
+  - typecheck
   - test
   - docs
+
+typecheck:
+  stage: typecheck
+  timeout: 2 minutes
+  script:
+    - pnpm i -r
+    - pnpm typecheck
 
 test:
   stage: test

@@ -17,7 +17,7 @@ export interface NostrBuildUploaderOpts {
 /** Upload files to nostr.build or another compatible server. */
 export class NostrBuildUploader implements NUploader {
   private endpoint: string;
-  private signer: NostrSigner;
+  private signer?: NostrSigner;
   private fetch: typeof fetch;
 
   constructor(opts?: NostrBuildUploaderOpts) {

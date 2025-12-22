@@ -1,6 +1,7 @@
 {
   "scripts": {
     "test": "pnpm turbo run test",
+    "typecheck": "pnpm turbo run typecheck",
     "check": "deno check packages/**/*.ts",
     "react:dev": "npx vite packages/react/example",
     "docs:dev": "cd docs && npm i && npm run dev",

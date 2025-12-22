@@ -358,7 +358,6 @@ export class NPostgres implements NRelay {
 
   /** Combine filter queries into a single union query. */
   protected getEventsQuery(trx: Kysely<NPostgresSchema>, filters: NostrFilter[]): SelectEventsQuery {
-    // @ts-expect-error ????
     return trx.selectFrom((eb) =>
       filters
         .map((filter) => eb.selectFrom(() => this.getFilterQuery(trx, filter).as('e')).selectAll())

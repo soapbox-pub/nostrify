@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-BRANCH=npm-support
+BRANCH=better-type-checks
 
 podman run -it --rm node:24 bash -c "
   git clone https://gitlab.com/soapbox-pub/nostrify.git &&

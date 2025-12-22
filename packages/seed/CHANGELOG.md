@@ -1,5 +1,13 @@
 # @nostrify/seed
 
+## 0.43.2
+
+### Patch Changes
+
+- Implement type checking in CI for all libs.
+- Updated dependencies
+  - @nostrify/nostrify@0.48.2
+
 ## 0.43.1
 
 ### Patch Changes

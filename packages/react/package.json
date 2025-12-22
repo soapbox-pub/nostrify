@@ -1,6 +1,6 @@
 {
   "name": "@nostrify/react",
-  "version": "0.2.19",
+  "version": "0.2.20",
   "exports": {
     ".": "./dist/mod.js",
     "./login": "./dist/login/mod.js"
@@ -9,6 +9,7 @@
   "type": "module",
   "scripts": {
     "build": "npx tsc -p tsconfig.json && node ../../esbuild.config.js --package ./",
+    "typecheck": "npx tsc --noEmit",
     "setup": "pnpm i",
     "test": "node --test \"**/*.test.ts\""
   },

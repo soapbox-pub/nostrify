@@ -1,6 +1,6 @@
 {
   "name": "@nostrify/seed",
-  "version": "0.43.1",
+  "version": "0.43.2",
   "exports": {
     ".": "./dist/mod.js"
   },
@@ -14,6 +14,7 @@
   "type": "module",
   "scripts": {
     "build": "npx tsc -p tsconfig.json && node ../../esbuild.config.js --package ./",
+    "typecheck": "npx tsc --noEmit",
     "setup": "pnpm i",
     "test": "node --test \"**/*.test.ts\""
   },

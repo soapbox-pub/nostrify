@@ -1,6 +1,6 @@
 {
   "name": "@nostrify/nostrify",
-  "version": "0.48.1",
+  "version": "0.48.2",
   "exports": {
     ".": "./dist/mod.js",
     "./ln": "./dist/ln/mod.js",
@@ -13,6 +13,7 @@
   "type": "module",
   "scripts": {
     "build": "npx tsc -p tsconfig.json && node ../../esbuild.config.js --package ./",
+    "typecheck": "npx tsc --noEmit",
     "setup": "pnpm i",
     "test": "node --test \"**/*.test.ts\""
   },
@@ -30,5 +31,8 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1"
   }
 }

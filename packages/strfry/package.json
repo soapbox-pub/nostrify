@@ -1,6 +1,6 @@
 {
   "name": "@nostrify/strfry",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "exports": {
     ".": "./dist/mod.js"
   },
@@ -8,6 +8,7 @@
   "type": "module",
   "scripts": {
     "build": "npx tsc -p tsconfig.json && node ../../esbuild.config.js --package ./",
+    "typecheck": "npx tsc --noEmit",
     "setup": "pnpm i",
     "test": "node --test \"**/*.test.ts\""
   },

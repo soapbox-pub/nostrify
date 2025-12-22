@@ -1,6 +1,6 @@
 {
   "name": "@nostrify/types",
-  "version": "0.36.7",
+  "version": "0.36.8",
   "exports": {
     ".": "./dist/mod.js"
   },
@@ -8,6 +8,7 @@
   "type": "module",
   "scripts": {
     "build": "npx tsc -p tsconfig.json && node ../../esbuild.config.js --package ./",
+    "typecheck": "npx tsc --noEmit",
     "setup": "pnpm i",
     "test": "node --test \"**/*.test.ts\""
   },

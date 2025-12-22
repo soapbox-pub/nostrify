@@ -1,5 +1,14 @@
 # @nostrify/react
 
+## 0.2.20
+
+### Patch Changes
+
+- Implement type checking in CI for all libs.
+- Updated dependencies
+  - @nostrify/nostrify@0.48.2
+  - @nostrify/types@0.36.8
+
 ## 0.2.19
 
 ### Patch Changes

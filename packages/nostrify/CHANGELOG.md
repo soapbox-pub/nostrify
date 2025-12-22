@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.48.2
+
+### Patch Changes
+
+- Implement type checking in CI for all libs.
+- Updated dependencies
+  - @nostrify/types@0.36.8
+
 ## 0.48.1
 
 ### Patch Changes

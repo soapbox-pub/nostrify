@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.36.8
+
+### Patch Changes
+
+- Implement type checking in CI for all libs.
+
 ## 0.36.7
 
 ### Patch Changes

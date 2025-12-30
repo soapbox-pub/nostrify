@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "developer": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@soapbox.pub/developer-mcp@latest"]
+    },
+    "nostr": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@nostrbook/mcp@latest"]
+    },
+    "fetch": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["mcp-server-fetch", "--ignore-robots-txt"]
+    }
+  }
+}

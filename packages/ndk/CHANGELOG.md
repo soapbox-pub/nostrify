@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.35.13
+
+### Patch Changes
+
+- Fix TypeScript import errors by removing source .ts files from dist directory
+- Updated dependencies
+  - @nostrify/types@0.36.9
+  - @nostrify/nostrify@0.48.3
+
 ## 0.35.12
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # @nostrify/seed
 
+## 0.43.3
+
+### Patch Changes
+
+- Fix TypeScript import errors by removing source .ts files from dist directory
+- Updated dependencies
+  - @nostrify/nostrify@0.48.3
+
 ## 0.43.2
 
 ### Patch Changes

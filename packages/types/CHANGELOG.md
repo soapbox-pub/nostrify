@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.36.9
+
+### Patch Changes
+
+- Fix TypeScript import errors by removing source .ts files from dist directory
+
 ## 0.36.8
 
 ### Patch Changes

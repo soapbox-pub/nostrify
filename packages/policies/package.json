@@ -1,6 +1,6 @@
 {
   "name": "@nostrify/policies",
-  "version": "0.36.15",
+  "version": "0.36.16",
   "exports": {
     ".": "./dist/mod.js"
   },

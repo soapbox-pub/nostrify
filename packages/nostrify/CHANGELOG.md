@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.49.0
+
+### Minor Changes
+
+- Add configurable EOSE timeout to NPool to prevent slow relays from degrading query performance
+
+  Added a new `eoseTimeout` option to `NPoolOpts` that starts a timer after the first relay sends EOSE. This prevents slow relays from blocking queries while still giving them reasonable time to respond.
+
+  Key features:
+
+  - Defaults to 1000ms timeout after first EOSE
+  - Set to 0 to disable and wait for all relays (previous behavior)
+  - Configurable via `eoseTimeout` in NPool constructor options
+
+  This significantly improves query performance when using relay pools with varying response times.
+
 ## 0.48.3
 
 ### Patch Changes

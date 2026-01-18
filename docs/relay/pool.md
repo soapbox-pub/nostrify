@@ -42,5 +42,11 @@ for await (const msg of pool.req([{ kinds: [1] }])) {
 
 - `eventRelays` - A function like `(event: NostrEvent) => Promise<string[]>`. This function should return an array of relay URLs to use for publishing an EVENT. To support the Outbox model, it should analyze the `pubkey` field of the event.
 
+- `eoseTimeout` - Maximum time in milliseconds to wait for remaining relays after the first EOSE is received in `query()`. Defaults to `1000`ms. Set to `0` to disable timeout and wait for all relays.
+
 > [!TIP]
 > The `url` parameter is a unique relay identifier (string), and doesn't technically _have_ to be a URL, as long as you handle it correctly in your `open` function.
+
+## Performance
+
+By default, NPool will wait up to 1 second after the first relay sends EOSE before canceling slow relays. This prevents slow relays from degrading the performance of all queries. You can customize this timeout using the `eoseTimeout` option, or disable it by setting it to `0`.

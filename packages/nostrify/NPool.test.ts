@@ -126,3 +126,103 @@ await test("NPool.event", async () => {
 
   clearTimeout(tid);
 });
+
+await test("NPool.query with eoseTimeout", async () => {
+  const controller = new AbortController();
+  const tid = setTimeout(() => controller.abort(), 5000);
+
+  await using server1 = await TestRelayServer.create();
+  
+  // Create a slow server that delays EOSE by 2 seconds
+  await using server2 = await TestRelayServer.create({
+    async handleMessage(socket, msg) {
+      if (msg[0] === 'REQ') {
+        const [_, subId, ...filters] = msg;
+        // Send events first
+        for (const event of event1s) {
+          socket.send(JSON.stringify(['EVENT', subId, event]));
+        }
+        // Delay EOSE by 2 seconds
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        socket.send(JSON.stringify(['EOSE', subId]));
+      }
+    },
+  });
+
+  for (const event of event1s) {
+    await server1.event(event);
+  }
+
+  const pool = new NPool({
+    open: (url) => new NRelay1(url),
+    reqRouter: (filters) =>
+      new Map([
+        [server1.url, filters],
+        [server2.url, filters],
+      ]),
+    eventRouter: () => [server1.url],
+    eoseTimeout: 500, // 500ms timeout after first EOSE
+  });
+
+  const startTime = Date.now();
+  const events = await pool.query([{ kinds: [1], limit: 15 }]);
+  const duration = Date.now() - startTime;
+
+  // Should return events from the fast relay
+  deepStrictEqual(events.length, 10);
+  
+  // Should complete in less than 1 second (500ms fast relay + 500ms timeout)
+  // Not wait for the slow relay's 2 second delay
+  ok(duration < 1500, `Expected duration < 1500ms, got ${duration}ms`);
+  
+  await pool.close();
+  clearTimeout(tid);
+});
+
+await test("NPool.query with eoseTimeout disabled", async () => {
+  const controller = new AbortController();
+  const tid = setTimeout(() => controller.abort(), 5000);
+
+  await using server1 = await TestRelayServer.create();
+  
+  // Create a slow server that delays EOSE by 500ms
+  await using server2 = await TestRelayServer.create({
+    async handleMessage(socket, msg) {
+      if (msg[0] === 'REQ') {
+        const [_, subId, ...filters] = msg;
+        for (const event of event1s) {
+          socket.send(JSON.stringify(['EVENT', subId, event]));
+        }
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        socket.send(JSON.stringify(['EOSE', subId]));
+      }
+    },
+  });
+
+  for (const event of event1s) {
+    await server1.event(event);
+  }
+
+  const pool = new NPool({
+    open: (url) => new NRelay1(url),
+    reqRouter: (filters) =>
+      new Map([
+        [server1.url, filters],
+        [server2.url, filters],
+      ]),
+    eventRouter: () => [server1.url],
+    eoseTimeout: 0, // Disable timeout
+  });
+
+  const startTime = Date.now();
+  const events = await pool.query([{ kinds: [1], limit: 15 }]);
+  const duration = Date.now() - startTime;
+
+  deepStrictEqual(events.length, 10);
+  
+  // Should wait for both relays to finish (at least 500ms for the slow one)
+  ok(duration >= 400, `Expected duration >= 400ms, got ${duration}ms`);
+  
+  await pool.close();
+  clearTimeout(tid);
+});

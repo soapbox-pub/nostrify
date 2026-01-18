@@ -23,6 +23,8 @@ export interface NPoolOpts<T extends NRelay> {
     | Promise<ReadonlyMap<string, NostrFilter[]>>;
   /** Determines the relays to use for publishing the given event. To support the Outbox model, it should analyze the `pubkey` field of the event. */
   eventRouter(event: NostrEvent): string[] | Promise<string[]>;
+  /** Maximum time in milliseconds to wait for remaining relays after the first EOSE is received in query(). Defaults to 1000ms. Set to 0 to disable timeout. */
+  eoseTimeout?: number;
 }
 
 /**
@@ -121,6 +123,9 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
     const closes = new Set<string>();
     const events = new CircularSet<string>(1000);
 
+    const eoseTimeout = this.opts.eoseTimeout ?? 1000;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
     const relayPromises: Promise<void>[] = [];
 
     for (const [url, filters] of routes.entries()) {
@@ -130,6 +135,12 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
           for await (const msg of relay.req(filters, { signal })) {
             if (msg[0] === 'EOSE') {
               eoses.add(url);
+              // Start timeout after first EOSE if timeout is enabled
+              if (eoses.size === 1 && eoseTimeout > 0 && timeoutId === undefined) {
+                timeoutId = setTimeout(() => {
+                  controller.abort();
+                }, eoseTimeout);
+              }
               if (eoses.size === routes.size) {
                 machina.push(msg);
               }
@@ -160,6 +171,9 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
         yield msg;
       }
     } finally {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
       controller.abort();
       // Wait for all relay promises to complete to prevent hanging promises
       await Promise.allSettled(relayPromises);

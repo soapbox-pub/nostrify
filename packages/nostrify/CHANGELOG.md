@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.49.2
+
+### Patch Changes
+
+- Simplify NSchema by removing explicit zod type annotations and leveraging type inference
+
 ## 0.49.1
 
 ### Patch Changes

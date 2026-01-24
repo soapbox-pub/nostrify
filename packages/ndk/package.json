@@ -1,6 +1,6 @@
 {
   "name": "@nostrify/ndk",
-  "version": "0.35.14",
+  "version": "0.35.15",
   "exports": {
     ".": "./dist/mod.js"
   },

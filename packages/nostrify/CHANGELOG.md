@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.49.1
+
+### Patch Changes
+
+- Upgrade zod dependency from v3 to v4
+
 ## 0.49.0
 
 ### Minor Changes

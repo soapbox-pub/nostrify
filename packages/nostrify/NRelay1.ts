@@ -10,6 +10,7 @@ import type {
   NostrRelayMsg,
   NostrRelayNOTICE,
   NostrRelayOK,
+  NostrRelayInfo,
   NRelay,
 } from '@nostrify/types';
 import { getFilterLimit, matchFilters, verifyEvent as _verifyEvent } from 'nostr-tools';
@@ -28,7 +29,7 @@ type EventMap = {
   notice: NostrRelayNOTICE;
 };
 
-/** Options used for constructing an `NRelay1` instance. */
+  /** Options used for constructing an `NRelay1` instance. */
 export interface NRelay1Opts {
   /** Respond to `AUTH` challenges by producing a signed kind `22242` event. */
   auth?(challenge: string): Promise<NostrEvent>;
@@ -40,6 +41,8 @@ export interface NRelay1Opts {
   verifyEvent?(event: NostrEvent): boolean;
   /** Logger callback. */
   log?(log: NRelay1Log): void;
+  /** Custom fetch function for retrieving NIP-11 relay information. Default: `globalThis.fetch`. */
+  fetch?: typeof globalThis.fetch;
 }
 
 export interface NRelay1Log {
@@ -58,6 +61,7 @@ export class NRelay1 implements NRelay {
   private controller = new AbortController();
   private url: string;
   private opts: NRelay1Opts;
+  private relayInfoPromise?: Promise<NostrRelayInfo | undefined>;
 
   private ee = new EventTarget();
 
@@ -74,6 +78,57 @@ export class NRelay1 implements NRelay {
     this.opts = opts;
     this.socket = this.createSocket();
     this.maybeStartIdleTimer();
+  }
+
+  /** Fetch the NIP-11 relay information document. */
+  private async fetchRelayInfo(opts?: { signal?: AbortSignal }): Promise<NostrRelayInfo | undefined> {
+    try {
+      const { fetch: fetchFn = globalThis.fetch } = this.opts;
+      const { signal } = opts || {};
+      
+      const httpUrl = this.url.replace(/^wss?:\/\//, (match) => 
+        match === 'ws://' ? 'http://' : 'https://'
+      );
+      
+      const response = await fetchFn(httpUrl, {
+        headers: { Accept: 'application/nostr+json' },
+        signal,
+      });
+      
+      if (!response.ok) {
+        this.log({
+          level: 'warn',
+          ns: 'relay.nip11',
+          status: response.status,
+          message: 'Failed to fetch relay info',
+        });
+        return undefined;
+      }
+      
+      const info = await response.json() as NostrRelayInfo;
+      this.log({
+        level: 'debug',
+        ns: 'relay.nip11',
+        message: 'Successfully fetched relay info',
+      });
+      return info;
+    } catch (error) {
+      this.log({
+        level: 'warn',
+        ns: 'relay.nip11',
+        error: error instanceof Error ? error : new Error(String(error)),
+        message: 'Error fetching relay info',
+      });
+      return undefined;
+    }
+  }
+
+  /** Get the NIP-11 relay information document. Fetches on first call and caches the result. */
+  async getRelayInfo(opts?: { signal?: AbortSignal }): Promise<NostrRelayInfo | undefined> {
+    if (!this.relayInfoPromise) {
+      this.relayInfoPromise = this.fetchRelayInfo(opts);
+    }
+    return this.relayInfoPromise;
   }
 
   /** Create (and open) a WebSocket connection with automatic reconnect. */

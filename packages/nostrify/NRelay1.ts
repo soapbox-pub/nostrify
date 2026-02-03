@@ -105,13 +105,25 @@ export class NRelay1 implements NRelay {
         return undefined;
       }
       
-      const info = await response.json() as NostrRelayInfo;
+      const data = await response.json();
+      const result = n.relayInfo().safeParse(data);
+      
+      if (!result.success) {
+        this.log({
+          level: 'warn',
+          ns: 'relay.nip11',
+          error: result.error,
+          message: 'Invalid relay info format',
+        });
+        return undefined;
+      }
+      
       this.log({
         level: 'debug',
         ns: 'relay.nip11',
         message: 'Successfully fetched relay info',
       });
-      return info;
+      return result.data as NostrRelayInfo;
     } catch (error) {
       this.log({
         level: 'warn',

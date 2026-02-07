@@ -1,8 +1,0 @@
-{
-  "deno.enable": true,
-  "deno.lint": true,
-  "editor.defaultFormatter": "denoland.vscode-deno",
-  "[json]": {
-    "editor.defaultFormatter": "vscode.json-language-features"
-  }
-}

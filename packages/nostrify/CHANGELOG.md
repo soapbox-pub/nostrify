@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.50.0
+
+### Minor Changes
+
+- Add NIP-11 relay information document support to NRelay1 with `getRelayInfo()` method and `NSchema.relayInfo()` validation schema. Fix NRelay1.query to preserve relay-provided ordering for NIP-50 search filters instead of sorting by created_at.
+
 ## 0.49.2
 
 ### Patch Changes

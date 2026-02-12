@@ -322,7 +322,8 @@ export class NRelay1 implements NRelay {
     filters: NostrFilter[],
     opts?: { signal?: AbortSignal },
   ): Promise<NostrEvent[]> {
-    const events = new NSet();
+    const map = new Map<string, NostrEvent>();
+    const events = new NSet(map);
 
     const limit = filters.reduce(
       (result, filter) => result + getFilterLimit(filter),
@@ -340,7 +341,12 @@ export class NRelay1 implements NRelay {
       }
     }
 
-    return [...events];
+    // Don't sort results of search filters.
+    if (filters.some((filter) => typeof filter.search === 'string')) {
+      return [...map.values()];
+    } else {
+      return [...events];
+    }
   }
 
   async event(

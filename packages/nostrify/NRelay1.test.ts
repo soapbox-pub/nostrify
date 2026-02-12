@@ -36,6 +36,38 @@ await test("NRelay1.query", async () => {
   clearTimeout(tid);
 });
 
+await test("NRelay1.query with NIP-50 search preserves relay order", async () => {
+  // Create events with different timestamps. The relay will send them
+  // in "relevance" order (oldest first), not chronological order.
+  const sk = generateSecretKey();
+  const oldest = genEvent({ kind: 1, content: "most relevant", created_at: 1000 }, sk);
+  const middle = genEvent({ kind: 1, content: "somewhat relevant", created_at: 2000 }, sk);
+  const newest = genEvent({ kind: 1, content: "least relevant", created_at: 3000 }, sk);
+
+  // Relay sends in relevance order: oldest, middle, newest.
+  // Without the fix, NSet would sort them newest-first by created_at.
+  await using server = await TestRelayServer.create({
+    handleMessage(socket, msg) {
+      if (msg[0] === "REQ") {
+        const [, subId] = msg;
+        socket.send(JSON.stringify(["EVENT", subId, oldest]));
+        socket.send(JSON.stringify(["EVENT", subId, middle]));
+        socket.send(JSON.stringify(["EVENT", subId, newest]));
+        socket.send(JSON.stringify(["EOSE", subId]));
+      }
+    },
+  });
+
+  await using relay = new NRelay1(server.url);
+  const events = await relay.query([{ kinds: [1], search: "relevant" }]);
+
+  deepStrictEqual(events.length, 3);
+  // Results should preserve relay order (relevance), not be sorted by created_at.
+  deepStrictEqual(events[0].id, oldest.id);
+  deepStrictEqual(events[1].id, middle.id);
+  deepStrictEqual(events[2].id, newest.id);
+});
+
 await test("NRelay1.query mismatched filter", async () => {
   await using server = await TestRelayServer.create({
     handleMessage(socket, msg) {

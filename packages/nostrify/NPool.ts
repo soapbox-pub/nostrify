@@ -102,7 +102,7 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
    */
   async *req(
     filters: NostrFilter[],
-    opts?: { signal?: AbortSignal; relays?: string[] },
+    opts?: { signal?: AbortSignal; relays?: string[]; eoseTimeout?: number },
   ): AsyncIterable<NostrRelayEVENT | NostrRelayEOSE | NostrRelayCLOSED> {
     const controller = new AbortController();
     const signal = opts?.signal ? AbortSignal.any([opts.signal, controller.signal]) : controller.signal;
@@ -123,7 +123,7 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
     const closes = new Set<string>();
     const events = new CircularSet<string>(1000);
 
-    const eoseTimeout = this.opts.eoseTimeout ?? 1000;
+    const eoseTimeout = opts?.eoseTimeout;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     const relayPromises: Promise<void>[] = [];
@@ -136,7 +136,7 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
             if (msg[0] === 'EOSE') {
               eoses.add(url);
               // Start timeout after first EOSE if timeout is enabled
-              if (eoses.size === 1 && eoseTimeout > 0 && timeoutId === undefined) {
+              if (eoses.size === 1 && eoseTimeout !== undefined && eoseTimeout > 0 && timeoutId === undefined) {
                 timeoutId = setTimeout(() => {
                   controller.abort();
                 }, eoseTimeout);
@@ -226,8 +226,10 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
     );
     if (limit === 0) return [];
 
+    const eoseTimeout = this.opts.eoseTimeout ?? 1000;
+
     try {
-      for await (const msg of this.req(filters, opts)) {
+      for await (const msg of this.req(filters, { ...opts, eoseTimeout })) {
         if (msg[0] === 'EOSE') break;
         if (msg[0] === 'EVENT') events.add(msg[2]);
         if (msg[0] === 'CLOSED') break;

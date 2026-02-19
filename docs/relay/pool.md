@@ -49,4 +49,4 @@ for await (const msg of pool.req([{ kinds: [1] }])) {
 
 ## Performance
 
-By default, NPool will wait up to 1 second after the first relay sends EOSE before canceling slow relays. This prevents slow relays from degrading the performance of all queries. You can customize this timeout using the `eoseTimeout` option, or disable it by setting it to `0`.
+By default, `pool.query()` will wait up to 1 second after the first relay sends EOSE before canceling slow relays. This prevents slow relays from degrading the performance of queries. You can customize this timeout using the `eoseTimeout` option, or disable it by setting it to `0`. This timeout does not affect `pool.req()`, which will always wait for all relays.

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.50.1
+
+### Patch Changes
+
+- Fix eoseTimeout to only apply to `query()`, not `req()`. Previously, the EOSE timeout would abort streaming subscriptions via `req()` after the first relay sent EOSE, preventing callers from receiving events past EOSE.
+
 ## 0.50.0
 
 ### Minor Changes

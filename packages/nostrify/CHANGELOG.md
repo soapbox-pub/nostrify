@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.50.2
+
+### Patch Changes
+
+- Fix NPool relay flooding by adding synchronous `performance.now()` checks on EOSE and EVENT messages. `setTimeout` can be starved when the event loop is saturated with WebSocket messages from a flooding relay, so synchronous time checks reliably abort when `eoseTimeout` has elapsed since the first EOSE.
+
 ## 0.50.1
 
 ### Patch Changes

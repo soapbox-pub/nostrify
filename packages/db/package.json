@@ -1,6 +1,6 @@
 {
   "name": "@nostrify/db",
-  "version": "0.39.22",
+  "version": "0.39.23",
   "exports": {
     ".": "./dist/mod.js"
   },

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.50.3
+
+### Patch Changes
+
+- Fix NBrowserSigner to poll for extension availability instead of failing immediately. Handles the race condition where app code runs before the browser extension injects `window.nostr`.
+
 ## 0.50.2
 
 ### Patch Changes

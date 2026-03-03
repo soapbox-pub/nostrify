@@ -1,6 +1,6 @@
 {
   "name": "@nostrify/seed",
-  "version": "0.43.9",
+  "version": "0.43.10",
   "exports": {
     ".": "./dist/mod.js"
   },

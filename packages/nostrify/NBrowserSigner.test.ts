@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import { NSecSigner } from "@nostrify/nostrify";
-import { deepStrictEqual, rejects } from "node:assert";
+import { deepStrictEqual, ok, rejects } from "node:assert";
 import { finalizeEvent, generateSecretKey, getPublicKey } from "nostr-tools";
 
 import { NBrowserSigner } from "./NBrowserSigner.ts";
@@ -11,7 +11,7 @@ await test("NBrowserSigner - without extension", async () => {
   // Ensure no extension is available
   (globalThis as { nostr?: NostrSigner }).nostr = undefined;
 
-  const signer = new NBrowserSigner();
+  const signer = new NBrowserSigner({ timeout: 200 });
 
   await rejects(
     () => signer.getPublicKey(),
@@ -129,7 +129,7 @@ await test("NBrowserSigner - missing nip44 support", () => {
 
   const signer = new NBrowserSigner();
 
-  // Should return undefined when nip44 is not supported
+  // Should return undefined when extension is loaded but doesn't support nip44
   deepStrictEqual(signer.nip44, undefined);
 
   // Clean up
@@ -150,7 +150,7 @@ await test("NBrowserSigner - missing nip04 support", () => {
 
   const signer = new NBrowserSigner();
 
-  // Should return undefined when nip04 is not supported
+  // Should return undefined when extension is loaded but doesn't support nip04
   deepStrictEqual(signer.nip04, undefined);
 
   // Clean up
@@ -179,6 +179,54 @@ await test("NBrowserSigner - feature detection", () => {
     deepStrictEqual(typeof signer.nip04.encrypt, "function");
     deepStrictEqual(typeof signer.nip04.decrypt, "function");
   }
+
+  // Clean up
+  (globalThis as { nostr?: NostrSigner }).nostr = undefined;
+});
+
+await test("NBrowserSigner - extension appears after delay", async () => {
+  // Ensure no extension initially
+  (globalThis as { nostr?: NostrSigner }).nostr = undefined;
+
+  const secretKey = generateSecretKey();
+  const expectedPubkey = getPublicKey(secretKey);
+
+  const signer = new NBrowserSigner({ timeout: 3000 });
+
+  // Simulate extension injecting after 300ms
+  setTimeout(() => {
+    (globalThis as { nostr?: NostrSigner }).nostr = new NSecSigner(secretKey);
+  }, 300);
+
+  // Should wait for the extension and succeed
+  const pubkey = await signer.getPublicKey();
+  deepStrictEqual(pubkey, expectedPubkey);
+
+  // Clean up
+  (globalThis as { nostr?: NostrSigner }).nostr = undefined;
+});
+
+await test("NBrowserSigner - nip44 works when extension appears after delay", async () => {
+  // Ensure no extension initially
+  (globalThis as { nostr?: NostrSigner }).nostr = undefined;
+
+  const secretKey = generateSecretKey();
+  const expectedPubkey = getPublicKey(secretKey);
+
+  const signer = new NBrowserSigner({ timeout: 3000 });
+
+  // nip44 getter returns an object even without extension
+  ok(signer.nip44);
+
+  // Simulate extension injecting after 300ms
+  setTimeout(() => {
+    (globalThis as { nostr?: NostrSigner }).nostr = new NSecSigner(secretKey);
+  }, 300);
+
+  // Should wait for the extension and succeed
+  const plaintext = "Hello, world!";
+  const ciphertext = await signer.nip44!.encrypt(expectedPubkey, plaintext);
+  deepStrictEqual(await signer.nip44!.decrypt(expectedPubkey, ciphertext), plaintext);
 
   // Clean up
   (globalThis as { nostr?: NostrSigner }).nostr = undefined;

@@ -1,6 +1,6 @@
 {
   "name": "@nostrify/nostrify",
-  "version": "0.50.3",
+  "version": "0.50.4",
   "exports": {
     ".": "./dist/mod.js",
     "./ln": "./dist/ln/mod.js",

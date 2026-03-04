@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.50.4
+
+### Patch Changes
+
+- Republish with correct build artifacts.
+
 ## 0.50.3
 
 ### Patch Changes

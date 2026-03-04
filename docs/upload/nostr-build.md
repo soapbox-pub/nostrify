@@ -4,7 +4,7 @@
 
 ## Usage
 
-The [NostrBuildUploader](https://jsr.io/@nostrify/nostrify/doc/uploaders/~/NostrBuildUploader) can be used to upload files to nostr.build or any compatible server.
+The `NostrBuildUploader` can be used to upload files to nostr.build or any compatible server.
 
 ```ts
 import { NostrBuildUploader } from '@nostrify/nostrify/uploaders';

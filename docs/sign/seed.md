@@ -1,6 +1,6 @@
 # Seed Signer
 
-[`NSeedSigner`](https://jsr.io/@nostrify/nostrify/doc/~/NSeedSigner) derives a Nostr identity from a binary [Hierarchical Deterministic (HD)](https://bips.xyz/32) seed.
+`NSeedSigner` derives a Nostr identity from a binary [Hierarchical Deterministic (HD)](https://bips.xyz/32) seed.
 
 The seed is used to derive the secret key according to [NIP-06](https://github.com/nostr-protocol/nips/blob/master/06.md).
 This method is useful for supporting multiple accounts for the same user, or for sharing a Nostr account with a Bitcoin wallet.
@@ -28,7 +28,7 @@ const signer = new NSeedSigner(seed, 1);
 
 ## Mnemonic Phrase Signer
 
-[`NPhraseSigner`](https://jsr.io/@nostrify/nostrify/doc/~/NPhraseSigner) accepts a [mnemonic seed phrase](https://bips.xyz/39), which it uses as the seed.
+`NPhraseSigner` accepts a [mnemonic seed phrase](https://bips.xyz/39), which it uses as the seed.
 
 Internally, this signer uses NSeedSigner.
 It is essentially the same thing, it just converts the mnemonic phrase into a seed before passing it to the HD Seed signer.

@@ -1,6 +1,6 @@
 # Relay Pool
 
-The [`NPool`](https://jsr.io/@nostrify/nostrify/doc/~/NPool) class is an `NRelay` implementation for connecting to multiple relays.
+The `NPool` class is an `NRelay` implementation for connecting to multiple relays.
 
 ## Usage
 

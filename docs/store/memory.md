@@ -6,7 +6,7 @@ Nostrify ships with a few in-memory data structures and cache solutions, useful 
 
 One theory of Nostr is that a storage (such as a relay) is just an _event set_. Events are discrete values that can be added and removed from a set, but not duplicated.
 
-The [`NSet`](https://jsr.io/@nostrify/nostrify/doc/~/NSet) class implements the ES6 [`Set`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set) interface for events.
+The `NSet` class implements the ES6 [`Set`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set) interface for events.
 
 ```ts
 import { NSet } from '@nostrify/nostrify';
@@ -45,7 +45,7 @@ const set = new NSet(new LRUCache({ max: 1000 }));
 
 ## LRU Cache
 
-Nostrify ships with [`NCache`](https://jsr.io/@nostrify/nostrify/doc/~/NCache), an LRU cache based on NSet and [`lru-cache`](https://www.npmjs.com/package/lru-cache). It also implements NStore, making it a drop-in replacement for databases and relays.
+Nostrify ships with `NCache`, an LRU cache based on NSet and [`lru-cache`](https://www.npmjs.com/package/lru-cache). It also implements NStore, making it a drop-in replacement for databases and relays.
 
 ```ts
 import { NCache } from '@nostrify/nostrify';

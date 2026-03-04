@@ -1,6 +1,6 @@
 # Private Key Signer
 
-The [`NSecSigner`](https://jsr.io/@nostrify/nostrify/doc/~/NSecSigner) class uses a private key to sign events.
+The `NSecSigner` class uses a private key to sign events.
 
 ## Usage
 

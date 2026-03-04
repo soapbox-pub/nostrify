@@ -36,7 +36,7 @@ const [_, eventId, ok, reason] = await policy.call(event);
 
 ## The NPolicy Interface
 
-Policies use a simple interface, [`NPolicy`](https://jsr.io/@nostrify/types/doc/~/NPolicy), which accepts an event and returns a relay 'OK' message.
+Policies use a simple interface, `NPolicy`, which accepts an event and returns a relay 'OK' message.
 
 ```ts
 interface NPolicy {
@@ -44,7 +44,7 @@ interface NPolicy {
 }
 ```
 
-If the [`NostrRelayOK`](https://jsr.io/@nostrify/types/doc/~/NostrRelayOK) message returns `false`, the event should be rejected (or not shown to users).
+If the `NostrRelayOK` message returns `false`, the event should be rejected (or not shown to users).
 
 ## Included Policies
 
@@ -74,7 +74,7 @@ See [All Policies](/policy/all) for more information.
 
 ## Custom Policies
 
-You can create your own policy by implementing [`NPolicy`](https://jsr.io/@nostrify/types/doc/~/NPolicy). This allows you to reject events based on any criteria you choose.
+You can create your own policy by implementing `NPolicy`. This allows you to reject events based on any criteria you choose.
 
 ```ts
 import { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/nostrify';

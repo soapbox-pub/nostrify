@@ -1,6 +1,6 @@
 # Single Relay
 
-The [`NRelay1`](https://jsr.io/@nostrify/nostrify/doc/~/NRelay1) class manages a connection to a single relay, automatically reconnecting if the connection is lost.
+The `NRelay1` class manages a connection to a single relay, automatically reconnecting if the connection is lost.
 
 ## Usage
 

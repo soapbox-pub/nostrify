@@ -10,7 +10,7 @@ Ideally we'll also get some metadata about the file, so we can display images in
 
 ## NUploader
 
-[`NUploader`](https://jsr.io/@nostrify/types/doc/~/NUploader) has a single `upload` method that take a file and returns metadata.
+`NUploader` has a single `upload` method that take a file and returns metadata.
 
 ```ts
 const file: File = /* your file */;

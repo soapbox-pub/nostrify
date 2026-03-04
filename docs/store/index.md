@@ -1,12 +1,12 @@
 # Storages
 
-In Nostrify, a _storage_ is any object that implements the [`NStore`](https://jsr.io/@nostrify/types/doc/~/NStore) interface. This interface defines methods for storing, querying, and removing events.
+In Nostrify, a _storage_ is any object that implements the `NStore` interface. This interface defines methods for storing, querying, and removing events.
 
 Storages can be used interchangeably with relays, allowing you to switch between in-memory, SQL databases, and more without changing your code.
 
 ## NStore
 
-The [`NStore`](https://jsr.io/@nostrify/types/doc/~/NStore) interface defines the following methods:
+The `NStore` interface defines the following methods:
 
 - `event(event: NostrEvent): Promise<void>`: Insert an event.
 - `query(filters: NostrFilter[]): Promise<NostrEvent[]>`: Query events.

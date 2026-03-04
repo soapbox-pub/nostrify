@@ -15,7 +15,7 @@ That means signers from Nostrify are all drop-in replacements for `window.nostr`
 
 ## Custom Signers
 
-To build your own signer, just implement the [`NostrSigner`](https://jsr.io/@nostrify/nostrify/doc/~/NostrSigner) interface.
+To build your own signer, just implement the `NostrSigner` interface.
 
 ```ts
 import { NostrEvent, NostrSigner } from '@nostrify/nostrify';

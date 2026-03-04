@@ -9,35 +9,31 @@ It uses a powerful relay selection algorithm to choose the best relays for each 
 
 ## Installation
 
-You will need the [`@nostrify/welshman`](https://jsr.io/@nostrify/welshman) package.
+You will need the `@nostrify/welshman` package.
 
 ::: code-group
 
 ```sh [npm]
-npx jsr add @nostrify/welshman
-```
-
-```sh [Deno]
-deno add jsr:@nostrify/welshman
+npm install @nostrify/welshman
 ```
 
 ```sh [yarn]
-yarn add jsr:@nostrify/welshman
+yarn add @nostrify/welshman
 ```
 
 ```sh [pnpm]
-pnpm add jsr:@nostrify/welshman
+pnpm add @nostrify/welshman
 ```
 
 ```sh [Bun]
-bunx jsr add @nostrify/welshman
+bun add @nostrify/welshman
 ```
 
 :::
 
 ## Usage
 
-The [`NWelshman`](https://jsr.io/@nostrify/welshman/doc/~/NWelshman) class is a relay pool that accepts a Welshman Router object.
+The `NWelshman` class is a relay pool that accepts a Welshman Router object.
 
 ```ts
 import { NWelshman } from '@nostrify/welshman';

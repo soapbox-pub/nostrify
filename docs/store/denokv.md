@@ -2,14 +2,14 @@
 
 [Deno KV](https://docs.deno.com/deploy/kv/manual/) is a flexible key-value store with multiple backends. On Deno Deploy, it is backed by FoundationDB. Locally it is backed by SQLite, and it can also connect to remote databases that follow the [KV Connect](https://github.com/denoland/denokv/blob/main/proto/kv-connect.md) protocol.
 
-Nostrify offers support for Deno KV with the [`NDenoKv`](https://jsr.io/@nostrify/nostrify/doc/denokv/~/NDenoKv) class. You need the additional [`@nostrify/denokv`](https://jsr.io/@nostrify/denokv) package to use it.
+Nostrify offers support for Deno KV with the `NDenoKv` class. You need the additional `@nostrify/denokv` package to use it.
 
 > [!WARNING]
 > This feature is in an alpha state and based on an unstable Deno API.
 
 ## Usage
 
-NDenoKv implements [`NStore`](https://jsr.io/@nostrify/types/doc/~/NStore), allowing you to use it interchangeably with relays. Just initialize a Deno.Kv instance and pass it to NDenoKv.
+NDenoKv implements `NStore`, allowing you to use it interchangeably with relays. Just initialize a Deno.Kv instance and pass it to NDenoKv.
 
 ```ts
 import { NDenoKv } from '@nostrify/denokv';

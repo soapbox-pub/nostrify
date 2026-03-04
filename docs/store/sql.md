@@ -12,35 +12,31 @@ Nostrify can store events in a variety of SQL databases thanks to [Kysely](https
 
 ## Installation
 
-Install [`@nostrify/db`](https://jsr.io/@nostrify/db) from JSR.
+Install `@nostrify/db`:
 
 ::: code-group
 
 ```sh [npm]
-npx jsr add @nostrify/db
-```
-
-```sh [Deno]
-deno add jsr:@nostrify/db
+npm install @nostrify/db
 ```
 
 ```sh [yarn]
-yarn add jsr:@nostrify/db
+yarn add @nostrify/db
 ```
 
 ```sh [pnpm]
-pnpm add jsr:@nostrify/db
+pnpm add @nostrify/db
 ```
 
 ```sh [Bun]
-bunx jsr add @nostrify/db
+bun add @nostrify/db
 ```
 
 :::
 
 ## Usage
 
-NDatabase implements [`NStore`](https://jsr.io/@nostrify/types/doc/~/NStore), allowing you to use it interchangeably with relays.
+NDatabase implements `NStore`, allowing you to use it interchangeably with relays.
 
 First create a Kysely instance and connect it to whichever database you choose, then pass it to NDatabase.
 
@@ -122,7 +118,7 @@ NDatabase manages two tables:
 - `nostr_tags` stores tags to be indexed for tag filters.
 
 > [!TIP]
-> By default, all single-letter tags are indexed. You can customize this behavior by passing a custom [`indexTags`](https://jsr.io/@nostrify/db/doc/~/NDatabase.prototype.indexTags) function into NDatabase.
+> By default, all single-letter tags are indexed. You can customize this behavior by passing a custom `indexTags` function into NDatabase.
 
 > [!NOTE]
 > If FTS is enabled, the following table will also be created:
@@ -136,7 +132,7 @@ You should call this every time the program starts.
 
 ## SQLite on Deno
 
-Using [`@db/sqlite`](https://jsr.io/@db/sqlite) and [`@soapbox/kysely-deno-sqlite`](https://jsr.io/@soapbox/kysely-deno-sqlite), you can connect to an SQLite database in Deno.
+Using `@db/sqlite` and `@soapbox/kysely-deno-sqlite`, you can connect to an SQLite database in Deno.
 
 ```ts
 import { NDatabase } from '@nostrify/db';

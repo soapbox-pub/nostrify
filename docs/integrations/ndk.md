@@ -1,36 +1,32 @@
 # Nostrify with NDK
 
-Nostrify provides an adapter for [NDK](https://github.com/nostr-dev-kit/ndk) with [`@nostrify/ndk`](https://jsr.io/@nostrify/ndk). This enables you to use NDK as a storage backend for Nostrify.
+Nostrify provides an adapter for [NDK](https://github.com/nostr-dev-kit/ndk) with `@nostrify/ndk`. This enables you to use NDK as a storage backend for Nostrify.
 
 ## Installation
 
 ::: code-group
 
 ```sh [npm]
-npx jsr add @nostrify/ndk
-```
-
-```sh [Deno]
-deno add jsr:@nostrify/ndk
+npm install @nostrify/ndk
 ```
 
 ```sh [yarn]
-yarn add jsr:@nostrify/ndk
+yarn add @nostrify/ndk
 ```
 
 ```sh [pnpm]
-pnpm add jsr:@nostrify/ndk
+pnpm add @nostrify/ndk
 ```
 
 ```sh [Bun]
-bunx jsr add @nostrify/ndk
+bun add @nostrify/ndk
 ```
 
 :::
 
 ## Usage
 
-Set up NDK as normal, and then pass your NDK instance into [`NDKStore`](https://jsr.io/@nostrify/ndk/doc/~/NDKStore) to make it available as a [Nostrify relay](/relay/).
+Set up NDK as normal, and then pass your NDK instance into `NDKStore` to make it available as a [Nostrify relay](/relay/).
 
 ```ts
 import NDK from '@nostr-dev-kit/ndk';

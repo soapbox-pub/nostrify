@@ -1,27 +1,23 @@
 # Installation
 
-Nostrify is available on [jsr](https://jsr.io/@nostrify/nostrify), a modern alternative to npm.
+Nostrify is available on [npm](https://www.npmjs.com/package/@nostrify/nostrify).
 
-How its installed depends on the package manager or runtime you use.
+How its installed depends on the package manager you use.
 
 ::: code-group
 
 ```sh [npm]
-npx jsr add @nostrify/nostrify
-```
-
-```sh [Deno]
-deno add jsr:@nostrify/nostrify
+npm install @nostrify/nostrify
 ```
 
 ```sh [yarn]
-yarn add jsr:@nostrify/nostrify
+yarn add @nostrify/nostrify
 ```
 
 ```sh [pnpm]
-pnpm add jsr:@nostrify/nostrify
+pnpm add @nostrify/nostrify
 ```
 
 ```sh [Bun]
-bunx jsr add @nostrify/nostrify
+bun add @nostrify/nostrify
 ```

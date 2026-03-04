@@ -6,7 +6,7 @@ Files are uploaded to multiple servers and identified by their SHA-256 hash. If 
 
 ## Usage
 
-The [BlossomUploader](https://jsr.io/@nostrify/nostrify/doc/uploaders/~/BlossomUploader) can be used to upload files to multiple Blossom servers at once.
+The `BlossomUploader` can be used to upload files to multiple Blossom servers at once.
 
 ```ts
 import { BlossomUploader } from '@nostrify/nostrify/uploaders';

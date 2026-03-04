@@ -1,6 +1,6 @@
 # Lightning Zaps
 
-Nostrify provides an [LNURL class](https://jsr.io/@nostrify/nostrify/doc/ln/~/LNURL) for implementing [NIP-57](https://github.com/nostr-protocol/nips/blob/master/57.md) zaps.
+Nostrify provides an `LNURL` class for implementing [NIP-57](https://github.com/nostr-protocol/nips/blob/master/57.md) zaps.
 
 ## The `LNURL` class
 

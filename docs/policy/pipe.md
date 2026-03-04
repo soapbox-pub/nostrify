@@ -2,9 +2,9 @@
 
 Policies can be composed into pipelines, allowing you to reject events based on multiple criteria.
 
-This is achieved with the [`PipePolicy`](https://jsr.io/@nostrify/nostrify/doc/policies/~/PipePolicy) class, which accepts an array of policies and runs them in order. If any policy rejects the event, the pipeline stops and the event is rejected.
+This is achieved with the `PipePolicy` class, which accepts an array of policies and runs them in order. If any policy rejects the event, the pipeline stops and the event is rejected.
 
-You can also use the [`AnyPolicy`](https://jsr.io/@nostrify/nostrify/doc/policies/~/AnyPolicy) class to accept an event if any policy accepts it.
+You can also use the `AnyPolicy` class to accept an event if any policy accepts it.
 
 Furthermore, PipePolicy and AnyPolicy are themselves policies! So you can create nested pipelines for complex rules.
 

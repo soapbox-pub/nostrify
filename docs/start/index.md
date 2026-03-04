@@ -3,32 +3,28 @@
 Nostrify is a flexible library for building Nostr apps in TypeScript.
 It provides [Relays](/relay/), [Signers](/sign/), [Storages](/store/), and more to help you build your app.
 
-Classes in Nostrify conform to a set of standard [interfaces](https://jsr.io/@nostrify/nostrify/doc), so if one implementation doesn't work for you, you can switch it out, or build your own!
+Classes in Nostrify conform to a set of standard interfaces, so if one implementation doesn't work for you, you can switch it out, or build your own!
 
 ## Installation
 
-Nostrify is available on [jsr](https://jsr.io/@nostrify/nostrify), a modern alternative to npm.
+Nostrify is available on [npm](https://www.npmjs.com/package/@nostrify/nostrify).
 
 ::: code-group
 
 ```sh [npm]
-npx jsr add @nostrify/nostrify
-```
-
-```sh [Deno]
-deno add jsr:@nostrify/nostrify
+npm install @nostrify/nostrify
 ```
 
 ```sh [yarn]
-yarn add jsr:@nostrify/nostrify
+yarn add @nostrify/nostrify
 ```
 
 ```sh [pnpm]
-pnpm add jsr:@nostrify/nostrify
+pnpm add @nostrify/nostrify
 ```
 
 ```sh [Bun]
-bunx jsr add @nostrify/nostrify
+bun add @nostrify/nostrify
 ```
 
 :::

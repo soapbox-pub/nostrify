@@ -26,8 +26,8 @@ Let's start with a minimal policy file that accepts all events:
 #!/bin/sh
 //bin/true; exec deno run -A "$0" "$@"
 
-import { NoOpPolicy } from 'jsr:@nostrify/policies';
-import { strfry } from 'jsr:@nostrify/strfry;
+import { NoOpPolicy } from 'npm:@nostrify/policies';
+import { strfry } from 'npm:@nostrify/strfry';
 
 const policy = new NoOpPolicy(); // accept all events
 
@@ -63,8 +63,8 @@ import {
   PipePolicy,
   PowPolicy,
   RegexPolicy,
-} from 'jsr:@nostrify/policies';
-import { strfry } from 'jsr:@nostrify/strfry';
+} from 'npm:@nostrify/policies';
+import { strfry } from 'npm:@nostrify/strfry';
 
 // Create a regular policy object however you want.
 const policy = new PipePolicy([
@@ -90,11 +90,11 @@ await strfry(policy);
 
 ## How it Works
 
-The [`strfry()`](https://jsr.io/@nostrify/strfry/doc/~/strfry) function in Nostrify acts as a glue layer between strfry's stdin/stdout and Nostrify policies.
+The `strfry()` function in Nostrify acts as a glue layer between strfry's stdin/stdout and Nostrify policies.
 
 This means you can use Nostrify to write [policies for Ditto](https://docs.soapbox.pub/ditto/policies) and strfry at the same time.
 
-See [`@nostrify/strfry`](https://jsr.io/@nostrify/strfry) on JSR for more details.
+See `@nostrify/strfry` on [npm](https://www.npmjs.com/package/@nostrify/strfry) for more details.
 
 ## Advanced Policies
 
@@ -107,9 +107,9 @@ For example, this policy fetches the kind 0 of each event's author from the rela
 #!/bin/sh
 //bin/true; exec deno run -A '$0' '$@'
 
-import { NRelay1 } from 'jsr:@nostrify/nostrify';
-import { DomainPolicy } from 'jsr:@nostrify/policies';
-import { strfry } from 'jsr:@nostrify/strfry';
+import { NRelay1 } from 'npm:@nostrify/nostrify';
+import { DomainPolicy } from 'npm:@nostrify/policies';
+import { strfry } from 'npm:@nostrify/strfry';
 
 const store = new NRelay1('ws://127.0.0.1:7777'); // connect to strfry relay
 const policy = new DomainPolicy(store); // enforce valid NIP-05 authors

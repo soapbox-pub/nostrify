@@ -4,41 +4,37 @@ outline: deep
 
 # Postgres
 
-Nostrify has special support for Postgres with the [`NPostgres`](https://jsr.io/@nostrify/db/doc/~/NPostgres) class. This is currently the fastest and most complete storage implementation, and also the one used by [Ditto](https://soapbox.pub/ditto/).
+Nostrify has special support for Postgres with the `NPostgres` class. This is currently the fastest and most complete storage implementation, and also the one used by [Ditto](https://soapbox.pub/ditto/).
 
 For SQLite and other databases, see [SQL Databases](/store/sql).
 
 ## Installation
 
-Install [`@nostrify/db`](https://jsr.io/@nostrify/db) from JSR.
+Install `@nostrify/db`:
 
 ::: code-group
 
 ```sh [npm]
-npx jsr add @nostrify/db
-```
-
-```sh [Deno]
-deno add jsr:@nostrify/db
+npm install @nostrify/db
 ```
 
 ```sh [yarn]
-yarn add jsr:@nostrify/db
+yarn add @nostrify/db
 ```
 
 ```sh [pnpm]
-pnpm add jsr:@nostrify/db
+pnpm add @nostrify/db
 ```
 
 ```sh [Bun]
-bunx jsr add @nostrify/db
+bun add @nostrify/db
 ```
 
 :::
 
 ## Usage
 
-NPostgres implements [`NStore`](https://jsr.io/@nostrify/types/doc/~/NStore), allowing you to use it interchangeably with relays.
+NPostgres implements `NStore`, allowing you to use it interchangeably with relays.
 
 First create a Kysely instance, then pass it to NPostgres.
 

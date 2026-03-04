@@ -10,7 +10,7 @@ for await (const msg of relay.req([{ kinds: [1, 6] }])) {
 ```
 
 Relays on Nostrify are actually just another type of [storage](/store/).
-They implement [`NRelay`](https://jsr.io/@nostrify/types/doc/~/NRelay) (which is based on [`NStore`](https://jsr.io/@nostrify/types/doc/~/NStore)). As a result, relays and storages are interchangeable in most cases.
+They implement `NRelay` (which is based on `NStore`). As a result, relays and storages are interchangeable in most cases.
 
 ```ts
 // Normal `NStore` methods work on relays, too!
@@ -23,7 +23,7 @@ const events = await relay.query({ kinds: [0] }); // Get events
 
 Most Nostr libraries use callbacks to stream data from relays. Nostrify uses [AsyncGenerator](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/AsyncGenerator)s instead, which are more powerful and easier to use.
 
-Messages are streamed in a for-loop when calling `.req()`. This method returns an async generator that yields [NIP-01 messages](https://jsr.io/@nostrify/types/doc/~/NostrRelayMsg) from the relay. Breaking out of the loop closes the subscription automatically.
+Messages are streamed in a for-loop when calling `.req()`. This method returns an async generator that yields NIP-01 messages from the relay. Breaking out of the loop closes the subscription automatically.
 
 ```ts
 for await (const msg of relay.req([{ kinds: [0] }])) {
@@ -57,7 +57,7 @@ controller.abort(); // <- This sends a `CLOSE` message to the relay
 
 ## Custom Relays
 
-You can create your own relay by implementing the [`NRelay`](https://jsr.io/@nostrify/types/doc/~/NRelay) interface. This allows you to connect to a relay however you choose.
+You can create your own relay by implementing the `NRelay` interface. This allows you to connect to a relay however you choose.
 
 ```ts
 import { NostrEvent, NostrFilter, NostrRelayMsg, NRelay } from '@nostrify/nostrify';

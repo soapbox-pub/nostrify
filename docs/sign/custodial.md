@@ -1,6 +1,6 @@
 # Custodial Signer
 
-The [`NCustodial`](https://jsr.io/@nostrify/nostrify/doc/~/NCustodial) class is useful for custodial auth where you want to manage one secret for the entire application.
+The `NCustodial` class is useful for custodial auth where you want to manage one secret for the entire application.
 
 Pass a shared secret into it, then it will generate keys for your users determinstically.
 

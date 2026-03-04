@@ -4,28 +4,24 @@ Nostrify provides a React integration package to easily incorporate Nostr functi
 
 ## Installation
 
-Install [`@nostrify/react`](https://jsr.io/@nostrify/react) from JSR.
+Install `@nostrify/react`:
 
 ::: code-group
 
 ```sh [npm]
-npx jsr add @nostrify/react
-```
-
-```sh [Deno]
-deno add jsr:@nostrify/react
+npm install @nostrify/react
 ```
 
 ```sh [yarn]
-yarn add jsr:@nostrify/react
+yarn add @nostrify/react
 ```
 
 ```sh [pnpm]
-pnpm add jsr:@nostrify/react
+pnpm add @nostrify/react
 ```
 
 ```sh [Bun]
-bunx jsr add @nostrify/react
+bun add @nostrify/react
 ```
 
 :::

@@ -1,6 +1,6 @@
 # Nostr Connect
 
-The [`NConnectSigner`](https://jsr.io/@nostrify/nostrify/doc/~/NConnectSigner) class signs events over a relay with a remote signer, according to [NIP-46](https://github.com/nostr-protocol/nips/blob/master/46.md).
+The `NConnectSigner` class signs events over a relay with a remote signer, according to [NIP-46](https://github.com/nostr-protocol/nips/blob/master/46.md).
 
 ## Usage
 

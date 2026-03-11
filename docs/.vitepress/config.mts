@@ -116,6 +116,7 @@ export default defineConfig({
     },
   },
   vite: {
+    envDir: process.cwd(),
     plugins: [
       groupIconVitePlugin(),
     ],

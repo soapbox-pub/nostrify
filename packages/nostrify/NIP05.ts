@@ -10,7 +10,7 @@ interface LookupOpts {
 export class NIP05 {
   /** NIP-05 value regex. */
   static regex(): RegExp {
-    return /^(?:([\w.+-]+)@)?([\w.-]+)$/;
+    return /^(?:([\w.+-]+)@)?((?:[\w-]+\.)+[\w-]+)$/;
   }
 
   /** Nostr pubkey with relays object. */

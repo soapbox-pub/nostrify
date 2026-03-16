@@ -166,6 +166,16 @@ export class TestRelayServer {
     return Promise.resolve();
   }
 
+  /** Close all active WebSocket connections without shutting down the server. */
+  dropConnections(): void {
+    if (!this.inited) throw new Error('TestRelayServer not initialized');
+    this.connections.forEach((conn) => {
+      if (conn.readyState === WebSocket.OPEN) {
+        conn.close();
+      }
+    });
+  }
+
   event(event: NostrEvent): Promise<void> {
     if (!this.inited) throw new Error('TestRelayServer not initialized');
     return this.store.event(event);

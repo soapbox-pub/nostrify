@@ -57,35 +57,51 @@ export class BlossomUploader implements NUploader {
 
     const authorization = `Nostr ${N64.encodeEvent(event)}`;
 
-    return Promise.any(this.servers.map(async (server) => {
-      const url = new URL("/upload", server);
+    return Promise.any(
+      this.servers.map(async (server) => {
+        const url = new URL("/upload", server);
 
-      const response = await this.fetch(url, {
-        method: "PUT",
-        body: file,
-        headers: {
-          authorization,
-          "content-type": file.type,
-        },
-        signal: opts?.signal,
-      });
+        const response = await this.fetch(url, {
+          method: "PUT",
+          body: file,
+          headers: {
+            authorization,
+            "content-type": file.type,
+          },
+          signal: opts?.signal,
+        });
 
-      const json = await response.json();
-      const data = BlossomUploader.schema().parse(json);
+        const text = await response.text();
 
-      const tags: [["url", string], ...string[][]] = [
-        ["url", data.url],
-        ["x", data.sha256],
-        ["ox", data.sha256],
-        ["size", data.size.toString()],
-      ];
+        if (!response.ok) {
+          throw new Error(
+            `Blossom upload failed (${response.status}): ${text}`,
+          );
+        }
 
-      if (data.type) {
-        tags.push(["m", data.type]);
-      }
+        let json: unknown;
+        try {
+          json = JSON.parse(text);
+        } catch {
+          throw new Error(`Blossom server returned non-JSON response: ${text}`);
+        }
 
-      return tags;
-    }));
+        const data = BlossomUploader.schema().parse(json);
+
+        const tags: [["url", string], ...string[][]] = [
+          ["url", data.url],
+          ["x", data.sha256],
+          ["ox", data.sha256],
+          ["size", data.size.toString()],
+        ];
+
+        if (data.type) {
+          tags.push(["m", data.type]);
+        }
+
+        return tags;
+      }),
+    );
   }
 
   /** Blossom "BlobDescriptor" schema. */

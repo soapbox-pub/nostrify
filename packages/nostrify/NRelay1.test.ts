@@ -2,7 +2,7 @@ import { it, test } from "node:test";
 import type { NostrEvent } from "@nostrify/types";
 import { deepStrictEqual, ok, rejects } from "node:assert";
 import { finalizeEvent, generateSecretKey } from "nostr-tools";
-import { WebsocketEvent } from "websocket-ts";
+import { ExponentialBackoff, WebsocketEvent } from "websocket-ts";
 
 import { genEvent } from "./test/mod.ts";
 import { TestRelayServer } from "./test/TestRelayServer.ts";
@@ -114,7 +114,7 @@ await test("NRelay1.req", async () => {
   clearTimeout(tid);
 });
 
-await test("NRelay1.event", async () => {
+await test("NRelay1.event sends while connection is open", async () => {
   await using server = await TestRelayServer.create();
   await using relay = new NRelay1(server.url);
 
@@ -122,6 +122,71 @@ await test("NRelay1.event", async () => {
     kind: 1,
     content:
       "This is an automated test from Nostrify: https://gitlab.com/soapbox-pub/nostrify",
+    tags: [],
+    created_at: Math.floor(Date.now() / 1000),
+  }, generateSecretKey());
+
+  await relay.event(event);
+});
+
+await test("NRelay1.event sends before connection is open", async () => {
+  await using server = await TestRelayServer.create();
+  await using relay = new NRelay1(server.url);
+
+  const event: NostrEvent = finalizeEvent({
+    kind: 1,
+    content: "Sent before connection was established",
+    tags: [],
+    created_at: Math.floor(Date.now() / 1000),
+  }, generateSecretKey());
+
+  // Send immediately without waiting for the connection to open.
+  // The ArrayQueue buffer should hold the message and deliver it
+  // once the socket opens.
+  await relay.event(event);
+});
+
+await test("NRelay1.event throws when OK is false", async () => {
+  await using server = await TestRelayServer.create({
+    handleMessage(socket, msg) {
+      if (msg[0] === "EVENT") {
+        server.send(socket, ["OK", msg[1].id, false, "blocked: not allowed"]);
+      }
+    },
+  });
+
+  await using relay = new NRelay1(server.url);
+
+  const event: NostrEvent = finalizeEvent({
+    kind: 1,
+    content: "This event should be rejected",
+    tags: [],
+    created_at: Math.floor(Date.now() / 1000),
+  }, generateSecretKey());
+
+  await rejects(() => relay.event(event), /blocked: not allowed/);
+});
+
+await test("NRelay1.event sends after reconnect from CLOSING state", async () => {
+  await using server = await TestRelayServer.create();
+  await using relay = new NRelay1(server.url, {
+    backoff: new ExponentialBackoff(100),
+  });
+
+  await new Promise<void>((resolve) =>
+    relay.socket.addEventListener(WebsocketEvent.open, () => resolve(), {
+      once: true,
+    })
+  );
+
+  server.dropConnections();
+
+  // Wait briefly for the socket to register as closed.
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  const event: NostrEvent = finalizeEvent({
+    kind: 1,
+    content: "Sent while connection was closing, delivered after reconnect",
     tags: [],
     created_at: Math.floor(Date.now() / 1000),
   }, generateSecretKey());

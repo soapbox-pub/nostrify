@@ -26,6 +26,27 @@ const tags = await uploader.upload(file);
 - `fetch` (optional) custom fetch implementation.
 - `expiresIn` (optional) number of milliseconds each upload request should expire in. (Default: `60_000`)
 
+### Uploading from the filesystem
+
+The `upload` method accepts a [`File`](https://developer.mozilla.org/en-US/docs/Web/API/File) object. To upload a local file in Node.js or Deno, read it into a `File` first:
+
+```ts
+// Node.js
+import { readFile } from 'node:fs/promises';
+const data = await readFile('./cat.png');
+const file = new File([data], 'cat.png', { type: 'image/png' });
+
+// Deno
+const data = await Deno.readFile('./cat.png');
+const file = new File([data], 'cat.png', { type: 'image/png' });
+```
+
+Then pass it to the uploader:
+
+```ts
+const tags = await uploader.upload(file);
+```
+
 ## Results
 
 Results are returned as a tags array (`string[][]`) of [NIP-94] tags. The first tag is guaranteed to be a `url`.

@@ -266,3 +266,25 @@ import { WhitelistPolicy } from '@nostrify/policies';
 // Only allow events from these pubkeys.
 const policy = new WhitelistPolicy(['e810...', 'fafa...', '1e89...']);
 ```
+
+## WoTPolicy
+
+Whitelist pubkeys based on a Web of Trust — the follow graph starting from a set of seed pubkeys.
+
+```ts
+import { WoTPolicy } from '@nostrify/policies';
+
+const policy = new WoTPolicy({
+  store,
+  pubkeys: ['ab12...'], // Seed pubkeys (your follows)
+  depth: 2,             // Follow 2 levels deep
+  quorum: 2,            // Require at least 2 WoT members to follow a pubkey
+});
+```
+
+### Options
+
+- `store` - An [`NStore`](/store/) instance to query kind 3 follow lists from.
+- `pubkeys` - Initial set of trusted seed pubkeys.
+- `depth` - How many levels of follow lists to traverse. `0` whitelists only the seed pubkeys. `1` includes their follows. `2` includes follows-of-follows, etc.
+- `quorum` (optional) - Minimum number of people within the greater Web of Trust who must follow a pubkey for it to be trusted. Defaults to `1` (anyone reachable is allowed). Higher values prevent sybil attacks where one compromised account adds many bots to the trust graph.

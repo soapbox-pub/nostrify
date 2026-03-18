@@ -24,4 +24,7 @@ All options are optional.
 
 - `auth` - A function like `(challenge: string) => Promise<NostrEvent>`. If provided, it will be called whenever the relay sends an `AUTH` message, and then it will send the resulting event back to the relay in an `AUTH` message. If not provided, auth is ignored.
 - `backoff` - A [`Backoff`](https://github.com/jjxxs/websocket-ts/blob/v2.1.5/src/backoff/backoff.ts) object for reconnection attempts, or `false` to disable automatic reconnect. Default is `new ExponentialBackoff(1000)`.
+- `idleTimeout` - How long to wait (in milliseconds) for the caller to create a subscription before closing the connection. Set to `false` to disable. Default is `30_000`.
 - `verifyEvent` - Custom event verification function. Default is `nostrTools.verifyEvent`.
+- `log` - Logger callback for debugging. Receives an object with `level`, `ns`, and context-specific fields.
+- `fetch` - Custom fetch function for retrieving NIP-11 relay information. Default is `globalThis.fetch`.

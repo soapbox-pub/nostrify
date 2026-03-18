@@ -69,6 +69,7 @@ Nostrify ships with a few policies to get you started.
 | [RegexPolicy](/policy/all#regexpolicy)                     | Reject events whose content matches the regex.                                                                              | `/(🟠\|🔥\|😳)ChtaGPT/i`                                      |
 | [SizePolicy](/policy/all#sizepolicy)                       | Reject events that are too large.                                                                                           | `{ maxBytes: 8192 }`                                          |
 | [WhitelistPolicy](/policy/all#whitelistpolicy)             | Allows only the listed pubkeys to post to the relay. All other events are rejected.                                         | `['e810...', 'fafa...', '1e89...']`                           |
+| [WoTPolicy](/policy/all#wotpolicy)                         | Whitelist pubkeys based on a Web of Trust follow graph.                                                                     | `{ store, pubkeys: [...], depth: 2 }`                         |
 
 See [All Policies](/policy/all) for more information.
 

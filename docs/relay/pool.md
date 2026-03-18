@@ -6,18 +6,21 @@ The `NPool` class is an `NRelay` implementation for connecting to multiple relay
 
 This class is designed with the [Outbox model](/relay/outbox) in mind.
 
-Instead of passing relay URLs into each method, you pass functions into the constructor that statically-analyzes filters and events to determine which relays to use for requesting and publishing events.
+Instead of passing relay URLs into each method, you pass functions into the constructor that statically-analyze filters and events to determine which relays to use for requesting and publishing events.
 
 ```ts
 const pool = new NPool({
   open(url) {
     return new NRelay1(url);
   },
-  async reqRelays(filters) {
-    return [/* Return an array of relay URLs. */];
+  async reqRouter(filters) {
+    return new Map([
+      ['wss://relay.damus.io', filters],
+      ['wss://nos.lol', filters],
+    ]);
   },
-  async eventRelays(event) {
-    return [/* Return an array of relay URLs. */];
+  async eventRouter(event) {
+    return ['wss://relay.damus.io', 'wss://nos.lol'];
   },
 });
 
@@ -38,9 +41,9 @@ for await (const msg of pool.req([{ kinds: [1] }])) {
 
 - `open` - A function like `(url: string) => NRelay`. This function should return a new instance of `NRelay` for the given URL.
 
-- `reqRelays` - A function like `(filters: NostrFilter[]) => Promise<string[]>`. This function should return an array of relay URLs to use for making a REQ to the given filters. To support the Outbox model, it should analyze the `authors` field of the filters.
+- `reqRouter` - A function like `(filters: NostrFilter[]) => ReadonlyMap<string, NostrFilter[]> | Promise<ReadonlyMap<string, NostrFilter[]>>`. Returns a map of relay URLs to the filters that should be sent to each relay. To support the Outbox model, it should analyze the `authors` field of the filters.
 
-- `eventRelays` - A function like `(event: NostrEvent) => Promise<string[]>`. This function should return an array of relay URLs to use for publishing an EVENT. To support the Outbox model, it should analyze the `pubkey` field of the event.
+- `eventRouter` - A function like `(event: NostrEvent) => string[] | Promise<string[]>`. Returns an array of relay URLs to use for publishing an EVENT. To support the Outbox model, it should analyze the `pubkey` field of the event.
 
 - `eoseTimeout` - Maximum time in milliseconds to wait for remaining relays after the first EOSE is received in `query()`. Defaults to `1000`ms. Set to `0` to disable timeout and wait for all relays.
 

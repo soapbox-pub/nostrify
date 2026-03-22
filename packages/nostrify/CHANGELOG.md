@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.50.5
+
+### Patch Changes
+
+- Fix NRelay1 and NPool to not enforce an inferred limit on coordinate filters. Filters targeting a single replaceable kind + single author, or a single addressable kind + single author + single `#d` tag, now allow relays to send back historical events instead of closing the subscription after receiving just one event.
+
 ## 0.50.4
 
 ### Patch Changes

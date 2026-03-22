@@ -13,7 +13,9 @@ import type {
   NostrRelayInfo,
   NRelay,
 } from '@nostrify/types';
-import { getFilterLimit, matchFilters, verifyEvent as _verifyEvent } from 'nostr-tools';
+import { matchFilters, verifyEvent as _verifyEvent } from 'nostr-tools';
+
+import { getFilterLimit } from './utils/getFilterLimit.ts';
 import { ArrayQueue, ExponentialBackoff, Websocket, WebsocketBuilder, WebsocketEvent } from 'websocket-ts';
 import type { Backoff } from 'websocket-ts';
 

@@ -6,7 +6,7 @@ import type {
   NostrRelayEVENT,
   NRelay,
 } from '@nostrify/types';
-import { getFilterLimit } from 'nostr-tools';
+import { getFilterLimit } from './utils/getFilterLimit.ts';
 
 import { CircularSet } from './utils/CircularSet.ts';
 import { Machina } from './utils/Machina.ts';

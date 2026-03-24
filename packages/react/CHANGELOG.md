@@ -1,5 +1,16 @@
 # @nostrify/react
 
+## 0.3.0
+
+### Minor Changes
+
+- Add client-initiated NIP-46 (`nostrconnect://`) support
+
+  - `NLogin.fromNostrConnect(params, pool, opts?)` — new static method for the client-initiated NIP-46 flow. The client generates ephemeral keys, displays a `nostrconnect://` URI (as a QR code or deep link), and waits for the remote signer to respond. Returns an `NLoginBunker` compatible with the existing session restoration in `NUser.fromBunkerLogin()`.
+  - `generateNostrConnectParams(relays)` — generates an ephemeral keypair and random secret for a nostrconnect session.
+  - `generateNostrConnectURI(params, opts?)` — builds the `nostrconnect://` URI string with relay, secret, name, and callback parameters.
+  - `NostrConnectParams` and `NostrConnectURIOptions` types are exported.
+
 ## 0.2.31
 
 ### Patch Changes

@@ -1,5 +1,5 @@
 import { useNostr } from '@nostrify/react';
-import { NLogin, useNostrLogin } from '@nostrify/react/login';
+import { NLogin, type NostrConnectParams, useNostrLogin } from '@nostrify/react/login';
 
 export function useLoginActions() {
   const { nostr } = useNostr();
@@ -16,6 +16,10 @@ export function useLoginActions() {
     },
     async extension(): Promise<void> {
       const login = await NLogin.fromExtension();
+      addLogin(login);
+    },
+    async nostrconnect(params: NostrConnectParams, signal?: AbortSignal): Promise<void> {
+      const login = await NLogin.fromNostrConnect(params, nostr, { signal });
       addLogin(login);
     },
   };

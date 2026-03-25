@@ -1,5 +1,5 @@
 import { it, test } from "node:test";
-import type { NostrEvent } from "@nostrify/types";
+import type { NostrClientMsg, NostrEvent } from "@nostrify/types";
 import { deepStrictEqual, ok, rejects } from "node:assert";
 import { finalizeEvent, generateSecretKey } from "nostr-tools";
 import { ExponentialBackoff, WebsocketEvent } from "websocket-ts";
@@ -303,4 +303,151 @@ await test("NRelay1 closes when it receives a binary message", async () => {
   await using relay = new NRelay1(server.url);
 
   await rejects(() => relay.query([{ kinds: [1] }]));
+});
+
+await test("NRelay1 NIP-42 auth-required REQ retry", async () => {
+  const sk = generateSecretKey();
+  const testEvent = genEvent({ kind: 4, content: "secret DM" }, sk);
+
+  let reqCount = 0;
+
+  await using server = await TestRelayServer.create({
+    handleMessage(socket, msg: NostrClientMsg) {
+      if (msg[0] === "REQ") {
+        const [, subId] = msg;
+        reqCount++;
+        if (reqCount === 1) {
+          // First REQ: send AUTH challenge, then reject with auth-required
+          socket.send(JSON.stringify(["AUTH", "challenge123"]));
+          socket.send(JSON.stringify(["CLOSED", subId, "auth-required: authentication required"]));
+        } else {
+          // Second REQ (after auth): serve the events
+          socket.send(JSON.stringify(["EVENT", subId, testEvent]));
+          socket.send(JSON.stringify(["EOSE", subId]));
+        }
+      }
+      if (msg[0] === "AUTH") {
+        // Accept the AUTH event
+        socket.send(JSON.stringify(["OK", msg[1].id, true, ""]));
+      }
+    },
+  });
+
+  await using relay = new NRelay1(server.url, {
+    auth: async (challenge) => {
+      return genEvent({
+        kind: 22242,
+        tags: [["relay", server.url], ["challenge", challenge]],
+      }, sk);
+    },
+  });
+
+  const result = await relay.query([{ kinds: [4] }]);
+
+  deepStrictEqual(result.length, 1);
+  deepStrictEqual(result[0].id, testEvent.id);
+  deepStrictEqual(reqCount, 2);
+});
+
+await test("NRelay1 NIP-42 auth-required EVENT retry", async () => {
+  const sk = generateSecretKey();
+  const eventToPublish: NostrEvent = finalizeEvent({
+    kind: 1,
+    content: "Hello from authenticated user",
+    tags: [],
+    created_at: Math.floor(Date.now() / 1000),
+  }, sk);
+
+  let eventCount = 0;
+
+  await using server = await TestRelayServer.create({
+    handleMessage(socket, msg: NostrClientMsg) {
+      if (msg[0] === "EVENT") {
+        eventCount++;
+        if (eventCount === 1) {
+          // First EVENT: send AUTH challenge, then reject with auth-required
+          socket.send(JSON.stringify(["AUTH", "challenge456"]));
+          socket.send(JSON.stringify(["OK", msg[1].id, false, "auth-required: authentication required"]));
+        } else {
+          // Second EVENT (after auth): accept
+          socket.send(JSON.stringify(["OK", msg[1].id, true, ""]));
+        }
+      }
+      if (msg[0] === "AUTH") {
+        // Accept the AUTH event
+        socket.send(JSON.stringify(["OK", msg[1].id, true, ""]));
+      }
+    },
+  });
+
+  await using relay = new NRelay1(server.url, {
+    auth: async (challenge) => {
+      return genEvent({
+        kind: 22242,
+        tags: [["relay", server.url], ["challenge", challenge]],
+      }, sk);
+    },
+  });
+
+  // Should succeed after automatic auth + retry
+  await relay.event(eventToPublish);
+  deepStrictEqual(eventCount, 2);
+});
+
+await test("NRelay1 NIP-42 auth-required does not retry without auth callback", async () => {
+  let reqCount = 0;
+
+  await using server = await TestRelayServer.create({
+    handleMessage(socket, msg: NostrClientMsg) {
+      if (msg[0] === "REQ") {
+        reqCount++;
+        const [, subId] = msg;
+        socket.send(JSON.stringify(["CLOSED", subId, "auth-required: authentication required"]));
+      }
+    },
+  });
+
+  // No auth callback provided — CLOSED should pass through without retry
+  await using relay = new NRelay1(server.url);
+
+  const result = await relay.query([{ kinds: [4] }]);
+  deepStrictEqual(result, []);
+  deepStrictEqual(reqCount, 1);
+});
+
+await test("NRelay1 NIP-42 auth-required does not retry infinitely", async () => {
+  const sk = generateSecretKey();
+  let reqCount = 0;
+
+  await using server = await TestRelayServer.create({
+    handleMessage(socket, msg: NostrClientMsg) {
+      if (msg[0] === "REQ") {
+        const [, subId] = msg;
+        reqCount++;
+        // Send AUTH challenge on first REQ only
+        if (reqCount === 1) {
+          socket.send(JSON.stringify(["AUTH", "challenge789"]));
+        }
+        // Always reject with auth-required, even after auth
+        socket.send(JSON.stringify(["CLOSED", subId, "auth-required: still not allowed"]));
+      }
+      if (msg[0] === "AUTH") {
+        socket.send(JSON.stringify(["OK", msg[1].id, true, ""]));
+      }
+    },
+  });
+
+  await using relay = new NRelay1(server.url, {
+    auth: async (challenge) => {
+      return genEvent({
+        kind: 22242,
+        tags: [["relay", server.url], ["challenge", challenge]],
+      }, sk);
+    },
+  });
+
+  // Should stop after one retry (reqCount=2), not loop forever
+  const result = await relay.query([{ kinds: [4] }]);
+  deepStrictEqual(result, []);
+  deepStrictEqual(reqCount, 2);
 });

@@ -65,6 +65,15 @@ export class NRelay1 implements NRelay {
   private opts: NRelay1Opts;
   private relayInfoPromise?: Promise<NostrRelayInfo | undefined>;
 
+  /** Promise that resolves when the current AUTH flow completes. */
+  private authPromise?: Promise<void>;
+  /** Set of subscription IDs that have already been retried after auth, to prevent infinite loops. */
+  private authRetriedSubs = new Set<string>();
+  /** Set of event IDs that have already been retried after auth, to prevent infinite loops. */
+  private authRetriedEvents = new Set<string>();
+  /** Pending events waiting for AUTH, keyed by event ID. */
+  private pendingEvents = new Map<string, NostrEvent>();
+
   private ee = new EventTarget();
 
   get subscriptions(): readonly NostrClientREQ[] {
@@ -241,7 +250,12 @@ export class NRelay1 implements NRelay {
         );
         break;
       case 'CLOSED':
+        if (auth && msg[2].startsWith('auth-required:') && !this.authRetriedSubs.has(msg[1])) {
+          this.retrySubAfterAuth(msg[1]);
+          break;
+        }
         this.subs.delete(msg[1]);
+        this.authRetriedSubs.delete(msg[1]);
         this.maybeStartIdleTimer();
         this.ee.dispatchEvent(
           new CustomEvent(`sub:${msg[1]}`, { detail: msg }),
@@ -251,6 +265,12 @@ export class NRelay1 implements NRelay {
         );
         break;
       case 'OK':
+        if (auth && !msg[2] && msg[3].startsWith('auth-required:') && !this.authRetriedEvents.has(msg[1])) {
+          this.retryEventAfterAuth(msg[1]);
+          break;
+        }
+        this.pendingEvents.delete(msg[1]);
+        this.authRetriedEvents.delete(msg[1]);
         this.ee.dispatchEvent(new CustomEvent(`ok:${msg[1]}`, { detail: msg }));
         break;
       case 'NOTICE':
@@ -262,9 +282,62 @@ export class NRelay1 implements NRelay {
         );
         break;
       case 'AUTH':
-        auth?.(msg[1]).then((event) => this.send(['AUTH', event])).catch(
-          () => {},
-        );
+        if (auth) {
+          this.authPromise = this.doAuth(auth, msg[1]);
+        }
+    }
+  }
+
+  /** Perform NIP-42 authentication and wait for the relay's OK response. */
+  private async doAuth(auth: (challenge: string) => Promise<NostrEvent>, challenge: string): Promise<void> {
+    try {
+      const event = await auth(challenge);
+      const result = this.once(`ok:${event.id}`);
+      this.send(['AUTH', event]);
+      const [, , ok] = await result;
+      if (!ok) {
+        this.log({ level: 'warn', ns: 'relay.auth', message: 'AUTH failed' });
+      }
+    } catch {
+      // AUTH failed, nothing to do
+    }
+  }
+
+  /** Re-send a subscription after AUTH completes. */
+  private async retrySubAfterAuth(subscriptionId: string): Promise<void> {
+    const req = this.subs.get(subscriptionId);
+    if (!req) return;
+
+    this.authRetriedSubs.add(subscriptionId);
+
+    try {
+      await this.authPromise;
+    } catch {
+      // AUTH failed — fall through to let the CLOSED propagate
+    }
+
+    // Re-send the original REQ if the subscription is still active.
+    if (this.subs.has(subscriptionId)) {
+      this.send(req);
+    }
+  }
+
+  /** Re-send an event after AUTH completes. */
+  private async retryEventAfterAuth(eventId: string): Promise<void> {
+    const event = this.pendingEvents.get(eventId);
+    if (!event) return;
+
+    this.authRetriedEvents.add(eventId);
+
+    try {
+      await this.authPromise;
+    } catch {
+      // AUTH failed — fall through to let the failed OK propagate
+    }
+
+    // Re-send the event if it's still pending.
+    if (this.pendingEvents.has(eventId)) {
+      this.send(['EVENT', event]);
     }
   }
 
@@ -282,6 +355,8 @@ export class NRelay1 implements NRelay {
         this.maybeStartIdleTimer();
         break;
       case 'EVENT':
+        this.pendingEvents.set(msg[1].id, msg[1]);
+        return this.socket.send(JSON.stringify(msg));
       case 'COUNT':
         return this.socket.send(JSON.stringify(msg));
     }

@@ -1,5 +1,12 @@
 # @nostrify/react
 
+## 0.3.1
+
+### Patch Changes
+
+- Updated dependencies [a9dc610]
+  - @nostrify/nostrify@0.51.0
+
 ## 0.3.0
 
 ### Minor Changes

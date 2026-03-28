@@ -1,5 +1,11 @@
 # @nostrify/react
 
+## 0.4.0
+
+### Minor Changes
+
+- Move react, react-dom, @tanstack/react-query, and nostr-tools from dependencies to peerDependencies to prevent duplicate React instances and support React 19
+
 ## 0.3.1
 
 ### Patch Changes

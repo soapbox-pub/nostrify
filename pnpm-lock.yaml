@@ -154,10 +154,10 @@ importers:
         specifier: ^2.13.0
         version: 2.15.2(typescript@5.9.2)
       react:
-        specifier: ^18.0.0
+        specifier: ^18.0.0 || ^19.0.0
         version: 18.3.1
       react-dom:
-        specifier: ^18.0.0
+        specifier: ^18.0.0 || ^19.0.0
         version: 18.3.1(react@18.3.1)
     devDependencies:
       '@deno/vite-plugin':
@@ -167,7 +167,7 @@ importers:
         specifier: ^24.1.0
         version: 24.1.0
       '@types/react':
-        specifier: ^18.0.0
+        specifier: ^18.0.0 || ^19.0.0
         version: 18.3.23
       '@vitejs/plugin-react':
         specifier: ^4.3.4

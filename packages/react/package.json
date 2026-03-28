@@ -1,6 +1,6 @@
 {
   "name": "@nostrify/react",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "exports": {
     ".": "./dist/mod.js",
     "./login": "./dist/login/mod.js"
@@ -14,7 +14,7 @@
     "test": "node --test \"**/*.test.ts\""
   },
   "devDependencies": {
-    "@types/react": "^18.0.0",
+    "@types/react": "^18.0.0 || ^19.0.0",
     "@types/node": "^24.1.0",
     "@vitejs/plugin-react": "^4.3.4",
     "@deno/vite-plugin": "^1.0.4",
@@ -22,11 +22,13 @@
   },
   "dependencies": {
     "@nostrify/types": "workspace:*",
-    "@nostrify/nostrify": "workspace:*",
+    "@nostrify/nostrify": "workspace:*"
+  },
+  "peerDependencies": {
     "@tanstack/react-query": "^5.69.0",
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0",
-    "nostr-tools": "^2.13.0"
+    "nostr-tools": "^2.13.0",
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
   },
   "publishConfig": {
     "access": "public"

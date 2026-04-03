@@ -148,3 +148,8 @@ Nostr is a decentralized social network protocol. Nostrify is a framework that m
 ## Project Links
 - Documentation Site: https://nostrify.dev
 - API Reference: https://jsr.io/@nostrify/nostrify
+
+## Agent Guidelines
+
+- **Always commit at the end of your turn.** Never leave uncommitted changes when finishing a task.
+- To perform a release, load the release skill from `.agents/release/SKILL.md`.

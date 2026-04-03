@@ -10,6 +10,7 @@ Nostrify is a comprehensive Nostr framework for web browsers and Deno, designed 
 - **Build System**: Turbo (monorepo build orchestration), esbuild, TypeScript
 - **License**: MIT
 - **Documentation**: Built with VitePress, a Vue-powered static site generator in the `docs/` directory. You can test and develop the documentation locally using `npm run docs:dev`
+- **Registry**: Packages are published to npm
 
 ### Documentation Structure
 - Documentation source files are Markdown (.md) files organized into directories representing different components/features
@@ -29,23 +30,19 @@ Nostrify is a comprehensive Nostr framework for web browsers and Deno, designed 
 ::: code-group
 
 ```sh [npm]
-npx jsr add @nostrify/package-name
-```
-
-```sh [Deno]
-deno add jsr:@nostrify/package-name
+npm install @nostrify/package-name
 ```
 
 ```sh [yarn]
-yarn add jsr:@nostrify/package-name
+yarn add @nostrify/package-name
 ```
 
 ```sh [pnpm]
-pnpm add jsr:@nostrify/package-name
+pnpm add @nostrify/package-name
 ```
 
 ```sh [Bun]
-bunx jsr add @nostrify/package-name
+bun add @nostrify/package-name
 ```
 
 :::
@@ -69,17 +66,13 @@ bunx jsr add @nostrify/package-name
    - NDatabase: General-purpose SQL implementation for SQLite, MySQL, etc.
    - Built on Kysely ORM
 
-4. **@nostrify/denokv**: Deno KV implementation for Nostr storage
+4. **@nostrify/ndk**: Integration with NDK (Nostr Development Kit)
 
-5. **@nostrify/ndk**: Integration with NDK (Nostr Development Kit)
+5. **@nostrify/policies**: Content filtering policies for Nostr
 
-6. **@nostrify/policies**: Content filtering policies for Nostr
+6. **@nostrify/strfry**: Integration with strfry relay
 
-7. **@nostrify/strfry**: Integration with strfry relay
-
-8. **@nostrify/welshman**: Integration with Welshman
-
-9. **@nostrify/react**: React integration components and hooks
+7. **@nostrify/react**: React integration components and hooks
 
 ## Core Concepts
 
@@ -147,7 +140,7 @@ Nostr is a decentralized social network protocol. Nostrify is a framework that m
 
 ## Project Links
 - Documentation Site: https://nostrify.dev
-- API Reference: https://jsr.io/@nostrify/nostrify
+- API Reference: https://www.npmjs.com/org/nostrify
 
 ## Agent Guidelines
 

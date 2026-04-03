@@ -1,6 +1,6 @@
 # Nostrify
 
-Nostrify is a comprehensive Nostr framework for web browsers and Deno, designed to be modular, interoperable, and easy to adopt.
+Nostrify is a comprehensive Nostr framework for every JavaScript runtime, designed to be modular, interoperable, and easy to adopt.
 
 ## Project Structure
 

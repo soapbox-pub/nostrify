@@ -64,7 +64,7 @@ pnpm build:all
 
 All 8 packages must build with no errors before committing.
 
-### 5. Commit
+### 5. Commit, tag, and push
 
 ```sh
 git add -A
@@ -73,13 +73,29 @@ git commit -m "Version packages"
 
 This matches the project's existing commit message convention for release commits.
 
+Then create a tag based on the `@nostrify/nostrify` version (the primary package) and push both the commit and the tag:
+
+```sh
+git tag v<version>
+git push origin main
+git push origin v<version>
+```
+
+For example, if `@nostrify/nostrify` was bumped to `0.51.1`:
+
+```sh
+git tag v0.51.1
+git push origin main
+git push origin v0.51.1
+```
+
 ### 6. Publish (when ready)
 
 ```sh
 pnpm pkgs:publish
 ```
 
-This runs `changeset publish` and publishes all packages with updated versions to the registry.
+This runs `changeset publish` and publishes all packages with updated versions to npm.
 
 ## Package Scripts Reference
 

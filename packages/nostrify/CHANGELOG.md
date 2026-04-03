@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.51.1
+
+### Patch Changes
+
+- Fix NPool.group() to propagate eoseTimeout from parent pool
+
 ## 0.51.0
 
 ### Minor Changes

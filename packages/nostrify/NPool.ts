@@ -83,6 +83,7 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
       open: (url) => this.relay(url),
       reqRouter: (filters) => new Map(urls.map((url) => [url, filters])),
       eventRouter: () => urls,
+      eoseTimeout: this.opts.eoseTimeout,
     });
   }
 

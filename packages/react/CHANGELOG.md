@@ -1,5 +1,11 @@
 # @nostrify/react
 
+## 0.5.0
+
+### Minor Changes
+
+- Add pluggable async storage to NostrLoginProvider via the NLoginStorage interface, supporting both sync (localStorage) and async (eg. Capacitor Secure Storage) backends.
+
 ## 0.4.1
 
 ### Patch Changes

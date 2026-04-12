@@ -27,12 +27,7 @@ export interface NostrConnectURIOptions {
 export function generateNostrConnectParams(relays: string[]): NostrConnectParams {
   const clientSecretKey = generateSecretKey();
   const clientPubkey = getPublicKey(clientSecretKey);
-
-  const randomBytes = new Uint8Array(4);
-  crypto.getRandomValues(randomBytes);
-  const secret = Array.from(randomBytes)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
+  const secret = crypto.randomUUID();
 
   return {
     clientSecretKey,
@@ -168,7 +163,7 @@ export class NLogin<T extends string, D> implements NLoginBase<T, D> {
     const signal = opts?.signal ?? AbortSignal.timeout(120_000);
 
     const sub = relayGroup.req(
-      [{ kinds: [24133], '#p': [params.clientPubkey], limit: 1 }],
+      [{ kinds: [24133], '#p': [params.clientPubkey] }],
       { signal },
     );
 

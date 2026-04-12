@@ -1,5 +1,11 @@
 # @nostrify/react
 
+## 0.5.1
+
+### Patch Changes
+
+- Improve nostrconnect:// reliability: remove `limit: 1` from the NIP-46 subscription filter and use `crypto.randomUUID()` for secret generation.
+
 ## 0.5.0
 
 ### Minor Changes

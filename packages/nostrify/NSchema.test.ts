@@ -119,28 +119,52 @@ await test("n.event", () => {
   ok(n.event().safeParse({ ...nostrEvent, kind: 65535 }).success);
 });
 
-await test("n.relayInfo - malformed nested entries degrade gracefully", () => {
+await test("n.relayInfo - accepts NIP-11 spec fields", () => {
+  // Based on the canonical NIP-11 nostr.wine example document.
+  const info = n.relayInfo().parse({
+    contact: "wino@nostr.wine",
+    description: "A paid nostr relay for wine enthusiasts and everyone else.",
+    banner: "https://example.com/banner.png",
+    self: "4918eb332a41b71ba9a74b1dc64276cfff592e55107b93baae38af3520e55975",
+    terms_of_service: "https://nostr.wine/terms",
+    fees: {
+      admission: [{ amount: 18888000, unit: "msats" }],
+    },
+    limitation: {
+      default_limit: 500,
+      max_limit: 1000,
+    },
+  });
+
+  deepStrictEqual(info.banner, "https://example.com/banner.png");
+  deepStrictEqual(
+    info.self,
+    "4918eb332a41b71ba9a74b1dc64276cfff592e55107b93baae38af3520e55975",
+  );
+  deepStrictEqual(info.terms_of_service, "https://nostr.wine/terms");
+  deepStrictEqual(info.limitation?.default_limit, 500);
+});
+
+await test("n.relayInfo - malformed retention/fees drops to undefined", () => {
+  // A malformed inner entry invalidates the whole list, which then falls
+  // back to undefined via the outer .catch(undefined). This preserves the
+  // rest of the document instead of rejecting the entire NIP-11 doc.
   const info = n.relayInfo().parse({
     name: "Example",
     retention: [
       { time: 3600 },
-      { time: "not a number" }, // malformed, should fall back to { time: null }
-      { time: null, count: 100 },
+      { time: "not a number" },
     ],
     fees: {
       admission: [
-        { amount: 1000, unit: "sats" },
-        { amount: "nope", unit: "sats" }, // malformed, should fall back
+        { amount: "nope", unit: "sats" },
       ],
     },
   });
 
   ok(info.name === "Example");
-  ok(Array.isArray(info.retention));
-  ok(info.retention!.length === 3);
-  ok(info.fees !== undefined);
-  ok(Array.isArray(info.fees!.admission));
-  ok(info.fees!.admission.length === 2);
+  ok(info.retention === undefined);
+  ok(info.fees === undefined);
 });
 
 await test("n.metadata", () => {

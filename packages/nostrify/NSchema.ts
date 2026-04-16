@@ -228,11 +228,15 @@ class NSchema {
     return z.looseObject({
       name: z.string().optional().catch(undefined),
       description: z.string().optional().catch(undefined),
+      banner: z.string().optional().catch(undefined),
+      icon: z.string().optional().catch(undefined),
       pubkey: NSchema.id().optional().catch(undefined),
+      self: NSchema.id().optional().catch(undefined),
       contact: z.string().optional().catch(undefined),
       supported_nips: z.number().int().nonnegative().array().optional().catch(undefined),
       software: z.string().optional().catch(undefined),
       version: z.string().optional().catch(undefined),
+      terms_of_service: z.string().optional().catch(undefined),
       limitation: z.looseObject({
         max_message_length: z.number().int().nonnegative().optional().catch(undefined),
         max_subscriptions: z.number().int().nonnegative().optional().catch(undefined),
@@ -247,12 +251,13 @@ class NSchema {
         restricted_writes: z.boolean().optional().catch(undefined),
         created_at_lower_limit: z.number().int().nonnegative().optional().catch(undefined),
         created_at_upper_limit: z.number().int().nonnegative().optional().catch(undefined),
+        default_limit: z.number().int().nonnegative().optional().catch(undefined),
       }).optional().catch(undefined),
       retention: z.array(z.object({
-        time: z.number().int().nullable().catch(null),
-        count: z.number().int().nonnegative().optional().catch(undefined),
-        kinds: z.number().int().nonnegative().array().optional().catch(undefined),
-      }).catch({ time: null })).optional().catch(undefined),
+        time: z.number().int().nullable(),
+        count: z.number().int().nonnegative().optional(),
+        kinds: z.number().int().nonnegative().array().optional(),
+      })).optional().catch(undefined),
       relay_countries: z.string().array().optional().catch(undefined),
       language_tags: z.string().array().optional().catch(undefined),
       tags: z.string().array().optional().catch(undefined),
@@ -261,13 +266,12 @@ class NSchema {
       fees: z.record(
         z.string(),
         z.array(z.object({
-          amount: z.number().catch(0),
-          unit: z.string().catch(""),
-          period: z.number().int().nonnegative().optional().catch(undefined),
-          kinds: z.number().int().nonnegative().array().optional().catch(undefined),
-        }).catch({ amount: 0, unit: "" })),
+          amount: z.number(),
+          unit: z.string(),
+          period: z.number().int().nonnegative().optional(),
+          kinds: z.number().int().nonnegative().array().optional(),
+        })),
       ).optional().catch(undefined),
-      icon: z.string().optional().catch(undefined),
     });
   }
 

@@ -12,6 +12,11 @@ export interface NostrRelayInfo {
    */
   description?: string;
   /**
+   * A link to an image (e.g. in .jpg, or .png format) representing the relay's brand.
+   * Should aim to visually communicate the brand of the relay, complementing the `description` text.
+   */
+  banner?: string;
+  /**
    * An administrative contact may be listed with a `pubkey`, in the same format as Nostr events (32-byte hex for a `secp256k1` public key).
    * If a contact is listed, this provides clients with a recommended address to send encrypted direct messages (See [NIP-17](https://github.com/nostr-protocol/nips/blob/master/17.md)) to a system administrator.
    * Expected uses of this address are to report abuse or illegal content, file bug reports, or request other technical assistance.
@@ -19,6 +24,11 @@ export interface NostrRelayInfo {
    * Relay operators have no obligation to respond to direct messages.
    */
   pubkey?: string;
+  /**
+   * A relay MAY maintain an identity independent from its administrator using the `self` field, which MUST be a 32-byte hex public key.
+   * This allows relays to respond to requests with events published either in advance or on demand by their own key.
+   */
+  self?: string;
   /**
    * An alternative contact may be listed under the `contact` field as well, with the same purpose as `pubkey`.
    * Use of a Nostr public key and direct message SHOULD be preferred over this.
@@ -43,6 +53,8 @@ export interface NostrRelayInfo {
    * It is recommended this be a version number or commit identifier.
    */
   version?: string;
+  /** A link to a text file describing the relay's terms of service. */
+  terms_of_service?: string;
   /**
    * These are limitations imposed by the relay on clients.
    * Your client should expect that requests which exceed these *practical* limitations are rejected or fail immediately.
@@ -98,6 +110,8 @@ export interface NostrRelayInfo {
     created_at_lower_limit?: number;
     /** `created_at` upper limit. */
     created_at_upper_limit?: number;
+    /** The maximum returned events if you send a filter without a `limit`. */
+    default_limit?: number;
     [key: string]: unknown;
   };
   /** Event Retention. */

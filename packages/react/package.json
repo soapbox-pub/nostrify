@@ -1,6 +1,6 @@
 {
   "name": "@nostrify/react",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "exports": {
     ".": "./dist/mod.js",
     "./login": "./dist/login/mod.js"

@@ -1,6 +1,6 @@
 {
   "name": "@nostrify/types",
-  "version": "0.36.9",
+  "version": "0.37.0",
   "exports": {
     ".": "./dist/mod.js"
   },

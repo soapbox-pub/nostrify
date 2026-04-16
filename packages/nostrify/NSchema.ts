@@ -24,27 +24,36 @@ class NSchema {
   static event() {
     return z.object({
       id: NSchema.id(),
-      kind: z.number().int().nonnegative(),
+      kind: z.number().int().nonnegative().max(65535),
       pubkey: NSchema.id(),
       tags: z.string().array().array(),
       content: z.string(),
       created_at: z.number().int().nonnegative(),
       sig: z.string(),
-    }).required({
-      id: true,
-      kind: true,
-      pubkey: true,
-      tags: true,
-      content: true,
-      created_at: true,
-      sig: true,
     });
   }
 
-  /** Nostr filter schema. */
+  /**
+   * Nostr filter schema.
+   *
+   * Only NIP-01 keys (`ids`, `authors`, `kinds`, `since`, `until`, `limit`,
+   * `search`) and `#`-prefixed tag filters are accepted. Any other keys will
+   * cause parsing to fail; callers should strip application-specific fields
+   * (e.g. `seenOn`) before validating.
+   */
   static filter() {
-    return z.looseObject({
-      kinds: z.number().int().nonnegative().array().optional(),
+    const knownKeys = [
+      "ids",
+      "authors",
+      "kinds",
+      "since",
+      "until",
+      "limit",
+      "search",
+    ] as const;
+
+    return z.object({
+      kinds: z.number().int().nonnegative().max(65535).array().optional(),
       ids: NSchema.id().array().optional(),
       authors: NSchema.id().array().optional(),
       since: z.number().int().nonnegative().optional(),
@@ -52,23 +61,19 @@ class NSchema {
       limit: z.number().int().nonnegative().optional(),
       search: z.string().optional(),
     })
-      .transform((value) => {
-        const keys = [
-          "kinds",
-          "ids",
-          "authors",
-          "since",
-          "until",
-          "limit",
-          "search",
-        ];
-        return Object.entries(value).reduce((acc, [key, val]) => {
-          if (keys.includes(key) || key.startsWith("#")) {
-            acc[key] = val;
-          }
-          return acc;
-        }, {} as Record<string, unknown>) as NostrFilter;
-      });
+      .catchall(z.string().array())
+      .superRefine((value, ctx) => {
+        for (const key of Object.keys(value)) {
+          if ((knownKeys as readonly string[]).includes(key)) continue;
+          if (key.startsWith("#") && key.length >= 2) continue;
+          ctx.addIssue({
+            code: "custom",
+            message: `Unrecognized filter key: "${key}"`,
+            path: [key],
+          });
+        }
+      })
+      .transform((value) => value as NostrFilter);
   }
 
   /**
@@ -79,8 +84,9 @@ class NSchema {
     return z
       .string()
       .regex(/^[\x21-\x7E]{1,83}1[023456789acdefghjklmnpqrstuvwxyz]{6,}$/)
-      .refine((value) =>
-        prefix ? value.startsWith(`${prefix}1`) : true
+      .refine(
+        (value) => prefix ? value.startsWith(`${prefix}1`) : true,
+        prefix ? { message: `Expected bech32 prefix "${prefix}1"` } : undefined,
       );
   }
 
@@ -243,21 +249,24 @@ class NSchema {
         created_at_upper_limit: z.number().int().nonnegative().optional().catch(undefined),
       }).optional().catch(undefined),
       retention: z.array(z.object({
-        time: z.number().int().nullable(),
-        count: z.number().int().nonnegative().optional(),
-        kinds: z.number().int().nonnegative().array().optional(),
-      })).optional().catch(undefined),
+        time: z.number().int().nullable().catch(null),
+        count: z.number().int().nonnegative().optional().catch(undefined),
+        kinds: z.number().int().nonnegative().array().optional().catch(undefined),
+      }).catch({ time: null })).optional().catch(undefined),
       relay_countries: z.string().array().optional().catch(undefined),
       language_tags: z.string().array().optional().catch(undefined),
       tags: z.string().array().optional().catch(undefined),
       posting_policy: z.string().optional().catch(undefined),
       payments_url: z.string().optional().catch(undefined),
-      fees: z.record(z.string(), z.array(z.object({
-        amount: z.number(),
-        unit: z.string(),
-        period: z.number().int().nonnegative().optional(),
-        kinds: z.number().int().nonnegative().array().optional(),
-      }))).optional().catch(undefined),
+      fees: z.record(
+        z.string(),
+        z.array(z.object({
+          amount: z.number().catch(0),
+          unit: z.string().catch(""),
+          period: z.number().int().nonnegative().optional().catch(undefined),
+          kinds: z.number().int().nonnegative().array().optional().catch(undefined),
+        }).catch({ amount: 0, unit: "" })),
+      ).optional().catch(undefined),
       icon: z.string().optional().catch(undefined),
     });
   }

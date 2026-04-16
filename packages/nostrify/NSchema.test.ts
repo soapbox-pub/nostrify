@@ -33,6 +33,18 @@ await test("n.bech32", () => {
         "_",
     ).success,
   );
+
+  // Prefix mismatch surfaces a helpful error message.
+  const mismatch = n.bech32("npub").safeParse(
+    "nsec1vl029mgpspedva04g90vltkh6fvh240zqtv9k0t9af8935ke9laqsnlfe5",
+  );
+  ok(!mismatch.success);
+  ok(
+    mismatch.error!.issues.some((issue) =>
+      typeof issue.message === "string" &&
+      issue.message.includes('Expected bech32 prefix "npub1"')
+    ),
+  );
 });
 
 await test("n.filter", () => {
@@ -43,18 +55,38 @@ await test("n.filter", () => {
   ok(n.filter().safeParse({ kinds: [1], "#t": ["nostrasia"] }).success);
   ok(n.filter().safeParse({ "#t": ["yolo"] }).success);
 
+  // Known keys and tag filters pass through unchanged.
   deepStrictEqual(
     n.filter().parse({
       kinds: [1],
       "#t": ["nostrasia"],
-      seenOn: ["wss://relay.mostr.pub/"],
     }),
     { kinds: [1], "#t": ["nostrasia"] },
   );
 
+  // Unknown top-level keys are rejected (strict behavior).
+  ok(
+    !n.filter().safeParse({
+      kinds: [1],
+      "#t": ["nostrasia"],
+      seenOn: ["wss://relay.mostr.pub/"],
+    }).success,
+  );
+  ok(!n.filter().safeParse({ foo: "bar" }).success);
+
+  // Multi-character "#"-prefixed tag filters (e.g. "#unique") are allowed
+  // because custom tag names are used in practice.
+  ok(n.filter().safeParse({ "#unique": ["x"] }).success);
+  // A bare "#" alone is not a valid tag filter.
+  ok(!n.filter().safeParse({ "#": ["x"] }).success);
+
   ok(!n.filter().safeParse({ kinds: [0.5] }).success);
   ok(!n.filter().safeParse({ ids: ["abc"] }).success);
   ok(!n.filter().safeParse({ authors: ["abc"] }).success);
+
+  // Kind upper bound (0–65535 per NostrEvent.kind docs).
+  ok(!n.filter().safeParse({ kinds: [65536] }).success);
+  ok(n.filter().safeParse({ kinds: [65535] }).success);
 });
 
 await test("n.event", () => {
@@ -81,6 +113,34 @@ await test("n.event", () => {
   ok(!n.event().safeParse({ content: 1 }).success);
   ok(!n.event().safeParse({ created_at: -1 }).success);
   ok(!n.event().safeParse({ sig: "abc" }).success);
+
+  // Kind upper bound (0–65535).
+  ok(!n.event().safeParse({ ...nostrEvent, kind: 65536 }).success);
+  ok(n.event().safeParse({ ...nostrEvent, kind: 65535 }).success);
+});
+
+await test("n.relayInfo - malformed nested entries degrade gracefully", () => {
+  const info = n.relayInfo().parse({
+    name: "Example",
+    retention: [
+      { time: 3600 },
+      { time: "not a number" }, // malformed, should fall back to { time: null }
+      { time: null, count: 100 },
+    ],
+    fees: {
+      admission: [
+        { amount: 1000, unit: "sats" },
+        { amount: "nope", unit: "sats" }, // malformed, should fall back
+      ],
+    },
+  });
+
+  ok(info.name === "Example");
+  ok(Array.isArray(info.retention));
+  ok(info.retention!.length === 3);
+  ok(info.fees !== undefined);
+  ok(Array.isArray(info.fees!.admission));
+  ok(info.fees!.admission.length === 2);
 });
 
 await test("n.metadata", () => {

@@ -2,6 +2,7 @@ export {
   NLogin,
   type NLoginType,
   type NostrConnectParams,
+  type NostrConnectStatus,
   type NostrConnectURIOptions,
   generateNostrConnectParams,
   generateNostrConnectURI,

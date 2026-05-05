@@ -15,6 +15,20 @@ export interface NostrConnectParams {
   relays: string[];
 }
 
+/**
+ * Progress phases emitted by {@link NLogin.fromNostrConnect} as the handshake
+ * advances. Surfacing these lets the UI show live feedback to the user —
+ * particularly important on mobile, where the browser is backgrounded while
+ * the signer app runs and a frozen dialog is indistinguishable from a hang.
+ *
+ * - `'awaiting-connect'`: The subscription is open; we're waiting for the
+ *   remote signer to publish its kind-24133 connect-ack event.
+ * - `'getting-public-key'`: The connect-ack arrived. We're now issuing the
+ *   NIP-46 `get_public_key` RPC so the login can be registered against a
+ *   known user pubkey.
+ */
+export type NostrConnectStatus = 'awaiting-connect' | 'getting-public-key';
+
 /** Options for generating a nostrconnect:// URI. */
 export interface NostrConnectURIOptions {
   /** Application name to include in the URI. */
@@ -155,12 +169,22 @@ export class NLogin<T extends string, D> implements NLoginBase<T, D> {
    * The client displays a QR code or deep link containing the `nostrconnect://` URI,
    * then waits for the remote signer to respond over the relay. Once the signer responds,
    * the connection is validated and an `NLoginBunker` is returned.
+   *
+   * `opts.onStatus` is invoked synchronously as the handshake progresses, so the caller
+   * can render "waiting for signer..." → "getting public key..." feedback in the UI.
+   * See {@link NostrConnectStatus} for the phases.
    */
-  static async fromNostrConnect(params: NostrConnectParams, pool: NPool, opts?: { signal?: AbortSignal }): Promise<NLoginBunker> {
+  static async fromNostrConnect(
+    params: NostrConnectParams,
+    pool: NPool,
+    opts?: { signal?: AbortSignal; onStatus?: (status: NostrConnectStatus) => void },
+  ): Promise<NLoginBunker> {
     const clientSigner = new NSecSigner(params.clientSecretKey);
     const relayGroup = pool.group(params.relays);
 
     const signal = opts?.signal ?? AbortSignal.timeout(120_000);
+
+    opts?.onStatus?.('awaiting-connect');
 
     const sub = relayGroup.req(
       [{ kinds: [24133], '#p': [params.clientPubkey] }],
@@ -180,6 +204,8 @@ export class NLogin<T extends string, D> implements NLoginBase<T, D> {
         if (response.result !== params.secret && response.result !== 'ack') {
           continue;
         }
+
+        opts?.onStatus?.('getting-public-key');
 
         const bunkerPubkey = event.pubkey;
 

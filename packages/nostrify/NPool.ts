@@ -23,7 +23,7 @@ export interface NPoolOpts<T extends NRelay> {
     | Promise<ReadonlyMap<string, NostrFilter[]>>;
   /** Determines the relays to use for publishing the given event. To support the Outbox model, it should analyze the `pubkey` field of the event. */
   eventRouter(event: NostrEvent): string[] | Promise<string[]>;
-  /** Maximum time in milliseconds to wait for remaining relays after the first EOSE is received in query(). Defaults to 1000ms. Set to 0 to disable timeout. */
+  /** Maximum time in milliseconds to wait for remaining relays after at least one event has been received and a relay sends EOSE in query(). Defaults to 1000ms. Set to 0 to disable timeout. */
   eoseTimeout?: number;
 }
 
@@ -126,7 +126,39 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
 
     const eoseTimeout = opts?.eoseTimeout;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
-    let firstEoseAt: number | undefined;
+    let timeoutStartedAt: number | undefined;
+    let gotEose = false;
+    let gotEvent = false;
+
+    // Start the eoseTimeout timer, but only once at least one event AND one
+    // EOSE have been received. A relay returning EOSE with no events (e.g. a
+    // relay that has nothing) should not start the countdown.
+    const maybeStartTimeout = (): void => {
+      if (
+        eoseTimeout !== undefined && eoseTimeout > 0 &&
+        gotEose && gotEvent && timeoutStartedAt === undefined
+      ) {
+        // Record when the timer started for synchronous checks.
+        timeoutStartedAt = performance.now();
+        // Also set a setTimeout as a fallback for when slow relays go
+        // silent (no messages to trigger the synchronous check).
+        timeoutId = setTimeout(() => {
+          controller.abort();
+        }, eoseTimeout);
+      }
+    };
+
+    // Synchronous time check: abort if eoseTimeout has elapsed since the timer
+    // started. This catches the case where the event loop is saturated with
+    // WebSocket messages and setTimeout is delayed.
+    const maybeAbort = (): void => {
+      if (
+        timeoutStartedAt !== undefined && eoseTimeout !== undefined && eoseTimeout > 0 &&
+        performance.now() - timeoutStartedAt >= eoseTimeout
+      ) {
+        controller.abort();
+      }
+    };
 
     const relayPromises: Promise<void>[] = [];
 
@@ -137,23 +169,9 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
           for await (const msg of relay.req(filters, { signal })) {
             if (msg[0] === 'EOSE') {
               eoses.add(url);
-              if (eoses.size === 1 && eoseTimeout !== undefined && eoseTimeout > 0) {
-                // Record when the first EOSE arrived for synchronous checks.
-                firstEoseAt = performance.now();
-                // Also set a setTimeout as a fallback for when slow relays go
-                // silent (no messages to trigger the synchronous check).
-                if (timeoutId === undefined) {
-                  timeoutId = setTimeout(() => {
-                    controller.abort();
-                  }, eoseTimeout);
-                }
-              }
-              // Synchronous time check: abort if eoseTimeout has elapsed since
-              // first EOSE. This catches the case where the event loop is
-              // saturated with WebSocket messages and setTimeout is delayed.
-              if (firstEoseAt !== undefined && eoseTimeout !== undefined && eoseTimeout > 0 && performance.now() - firstEoseAt >= eoseTimeout) {
-                controller.abort();
-              }
+              gotEose = true;
+              maybeStartTimeout();
+              maybeAbort();
               if (eoses.size === routes.size) {
                 machina.push(msg);
               }
@@ -165,10 +183,9 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
               }
             }
             if (msg[0] === 'EVENT') {
-              // Synchronous time check on every event
-              if (firstEoseAt !== undefined && eoseTimeout !== undefined && eoseTimeout > 0 && performance.now() - firstEoseAt >= eoseTimeout) {
-                controller.abort();
-              }
+              gotEvent = true;
+              maybeStartTimeout();
+              maybeAbort();
               const [, , event] = msg;
               if (!events.has(event.id)) {
                 events.add(event.id);

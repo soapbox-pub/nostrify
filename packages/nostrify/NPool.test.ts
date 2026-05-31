@@ -179,6 +179,55 @@ await test("NPool.query with eoseTimeout", async () => {
   clearTimeout(tid);
 });
 
+await test("NPool.query eoseTimeout does not start until an event is received", async () => {
+  const controller = new AbortController();
+  const tid = setTimeout(() => controller.abort(), 5000);
+
+  // Fast relay that immediately sends EOSE with no events.
+  await using server1 = await TestRelayServer.create({
+    handleMessage(socket, msg) {
+      if (msg[0] === 'REQ') {
+        const [_, subId] = msg;
+        socket.send(JSON.stringify(['EOSE', subId]));
+      }
+    },
+  });
+
+  // Slow relay that sends events and EOSE after 1 second.
+  await using server2 = await TestRelayServer.create({
+    async handleMessage(socket, msg) {
+      if (msg[0] === 'REQ') {
+        const [_, subId] = msg;
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        for (const event of event1s) {
+          socket.send(JSON.stringify(['EVENT', subId, event]));
+        }
+        socket.send(JSON.stringify(['EOSE', subId]));
+      }
+    },
+  });
+
+  const pool = new NPool({
+    open: (url) => new NRelay1(url),
+    reqRouter: (filters) =>
+      new Map([
+        [server1.url, filters],
+        [server2.url, filters],
+      ]),
+    eventRouter: () => [server1.url],
+    eoseTimeout: 500,
+  });
+
+  const events = await pool.query([{ kinds: [1], limit: 15 }]);
+
+  // Even though the fast relay sent EOSE immediately, the timeout should not
+  // have started (no events yet), so the slow relay's events are received.
+  deepStrictEqual(events.length, 10);
+
+  await pool.close();
+  clearTimeout(tid);
+});
+
 await test("NPool.query with eoseTimeout disabled", async () => {
   const controller = new AbortController();
   const tid = setTimeout(() => controller.abort(), 5000);

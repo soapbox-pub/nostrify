@@ -45,11 +45,11 @@ for await (const msg of pool.req([{ kinds: [1] }])) {
 
 - `eventRouter` - A function like `(event: NostrEvent) => string[] | Promise<string[]>`. Returns an array of relay URLs to use for publishing an EVENT. To support the Outbox model, it should analyze the `pubkey` field of the event.
 
-- `eoseTimeout` - Maximum time in milliseconds to wait for remaining relays after the first EOSE is received in `query()`. Defaults to `1000`ms. Set to `0` to disable timeout and wait for all relays.
+- `eoseTimeout` - Maximum time in milliseconds to wait for remaining relays after at least one event has been received and a relay has sent EOSE in `query()`. Defaults to `1000`ms. Set to `0` to disable timeout and wait for all relays.
 
 > [!TIP]
 > The `url` parameter is a unique relay identifier (string), and doesn't technically _have_ to be a URL, as long as you handle it correctly in your `open` function.
 
 ## Performance
 
-By default, `pool.query()` will wait up to 1 second after the first relay sends EOSE before canceling slow relays. This prevents slow relays from degrading the performance of queries. You can customize this timeout using the `eoseTimeout` option, or disable it by setting it to `0`. This timeout does not affect `pool.req()`, which will always wait for all relays.
+By default, `pool.query()` will wait up to 1 second after at least one event has been received and a relay sends EOSE before canceling slow relays. This prevents slow relays from degrading the performance of queries, while still ensuring that relays which have results aren't cut off prematurely by empty relays. You can customize this timeout using the `eoseTimeout` option, or disable it by setting it to `0`. This timeout does not affect `pool.req()`, which will always wait for all relays.

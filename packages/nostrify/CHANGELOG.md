@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.52.2
+
+### Patch Changes
+
+- Revert the change to NPool `eoseTimeout` that only started the timer after at least one event and an EOSE were received. This restores the previous behavior where the timer starts as soon as a relay sends EOSE.
+
 ## 0.52.1
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.53.0
+
+### Minor Changes
+
+- Add `dim` tag to `BlossomUploader` output when the Blossom blob descriptor includes valid image dimensions.
+
 ## 0.52.2
 
 ### Patch Changes

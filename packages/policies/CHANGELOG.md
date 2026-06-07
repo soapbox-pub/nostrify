@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.36.30
+
+### Patch Changes
+
+- Updated dependencies
+  - @nostrify/nostrify@0.53.0
+
 ## 0.36.29
 
 ### Patch Changes

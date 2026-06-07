@@ -95,6 +95,10 @@ export class BlossomUploader implements NUploader {
           ["size", data.size.toString()],
         ];
 
+        if (data.dim) {
+          tags.push(["dim", data.dim]);
+        }
+
         if (data.type) {
           tags.push(["m", data.type]);
         }
@@ -111,6 +115,7 @@ export class BlossomUploader implements NUploader {
       sha256: z.string(),
       size: z.number(),
       type: z.string().optional(),
+      dim: z.string().regex(/^\d+x\d+$/).optional().catch(undefined),
     });
   }
 }

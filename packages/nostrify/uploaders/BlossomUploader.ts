@@ -58,14 +58,15 @@ export class BlossomUploader implements NUploader {
     opts?: { signal?: AbortSignal },
   ): Promise<UploadTags> {
     const x = await BlossomUploader.sha256(file);
+    const authorize = await this.authorizer({
+      verb: "upload",
+      content: `Upload ${file.name}`,
+      x,
+    });
 
     return Promise.any(
       this.servers.map(async (server) => {
-        const authorization = await this.authorize(server, {
-          verb: "upload",
-          content: `Upload ${file.name}`,
-          x,
-        });
+        const authorization = await authorize(server);
 
         const response = await this.fetch(new URL("/upload", server), {
           method: "PUT",
@@ -89,14 +90,15 @@ export class BlossomUploader implements NUploader {
     opts?: { signal?: AbortSignal },
   ): Promise<UploadTags> {
     const x = await BlossomUploader.sha256(file);
+    const authorize = await this.authorizer({
+      verb: "media",
+      content: `Optimize ${file.name}`,
+      x,
+    });
 
     return Promise.any(
       this.servers.map(async (server) => {
-        const authorization = await this.authorize(server, {
-          verb: "media",
-          content: `Optimize ${file.name}`,
-          x,
-        });
+        const authorization = await authorize(server);
 
         const response = await this.fetch(new URL("/media", server), {
           method: "PUT",
@@ -126,14 +128,15 @@ export class BlossomUploader implements NUploader {
     opts?: { sha256?: string; signal?: AbortSignal },
   ): Promise<UploadTags> {
     const x = opts?.sha256 ?? BlossomUploader.hashFromUrl(blobUrl);
+    const authorize = await this.authorizer({
+      verb: "upload",
+      content: `Mirror ${blobUrl}`,
+      x,
+    });
 
     return Promise.any(
       this.servers.map(async (server) => {
-        const authorization = await this.authorize(server, {
-          verb: "upload",
-          content: `Mirror ${blobUrl}`,
-          x,
-        });
+        const authorization = await authorize(server);
 
         const response = await this.fetch(new URL("/mirror", server), {
           method: "PUT",
@@ -150,10 +153,28 @@ export class BlossomUploader implements NUploader {
     );
   }
 
+  /**
+   * Build a function that returns a `Nostr` authorization header for a given server.
+   *
+   * Authorization events without a `server` tag can be reused across every server, so the event is signed once
+   * up front when `scopeToServer` is disabled. When `scopeToServer` is enabled, a distinct event is signed per
+   * server so the `server` tag can scope the token to that server's domain (BUD-11).
+   */
+  private async authorizer(
+    opts: { verb: BlossomVerb; content: string; x?: string },
+  ): Promise<(server: Request["url"]) => Promise<string>> {
+    if (this.scopeToServer) {
+      return (server) => this.authorize(opts, server);
+    }
+
+    const authorization = await this.authorize(opts);
+    return () => Promise.resolve(authorization);
+  }
+
   /** Build a `Nostr` authorization header value with a signed kind 24242 event (BUD-11). */
   private async authorize(
-    server: Request["url"],
     opts: { verb: BlossomVerb; content: string; x?: string },
+    server?: Request["url"],
   ): Promise<string> {
     const now = Date.now();
 
@@ -166,7 +187,7 @@ export class BlossomUploader implements NUploader {
       tags.push(["x", opts.x]);
     }
 
-    if (this.scopeToServer) {
+    if (server) {
       tags.push(["server", new URL(server).hostname]);
     }
 

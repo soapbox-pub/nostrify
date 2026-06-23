@@ -1,4 +1,5 @@
 packages:
+  - ./packages/indexeddb
   - ./packages/ndk
   - ./packages/nostrify
   - ./packages/policies

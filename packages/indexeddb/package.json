@@ -1,0 +1,27 @@
+{
+  "name": "@nostrify/indexeddb",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./dist/mod.js"
+  },
+  "types": "dist/mod.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "npx tsc -p tsconfig.json && node ../../esbuild.config.js --package ./",
+    "typecheck": "npx tsc --noEmit",
+    "setup": "pnpm i",
+    "test": "node --test \"**/*.test.ts\""
+  },
+  "dependencies": {
+    "@nostrify/nostrify": "workspace:*",
+    "@nostrify/types": "workspace:*",
+    "idb": "^8.0.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "^6.2.5",
+    "nostr-tools": "^2.13.0"
+  }
+}

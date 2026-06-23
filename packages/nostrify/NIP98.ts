@@ -64,15 +64,8 @@ export class NIP98 {
     let event: NostrEvent;
     try {
       event = N64.decodeEvent(token);
-    } catch (e) {
-      if (
-        e instanceof TypeError &&
-        e.message.includes("Incorrect padding on base64")
-      ) {
-        throw new Error("Invalid token");
-      } else {
-        throw e;
-      }
+    } catch {
+      throw new Error("Invalid token");
     }
 
     if (!verifyEvent(event)) {

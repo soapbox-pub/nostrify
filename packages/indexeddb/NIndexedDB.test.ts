@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, it } from 'node:test';
-import { deepStrictEqual, ok } from 'node:assert';
+import { deepStrictEqual, ok, rejects } from 'node:assert';
 
 import 'fake-indexeddb/auto';
 import type { NostrEvent } from '@nostrify/types';
@@ -88,6 +88,15 @@ await describe('NIndexedDB', () => {
       await add(makeEvent({ id: '1'.repeat(64) }));
       const result = await store.query([{ ids: [] }]);
       deepStrictEqual(result, []);
+    });
+
+    it('applies since/until to id lookups', async () => {
+      const early = makeEvent({ id: '1'.repeat(64), created_at: 100 });
+      const late = makeEvent({ id: '2'.repeat(64), created_at: 200 });
+      await add(early, late);
+
+      const result = await store.query([{ ids: [early.id, late.id], since: 150 }]);
+      deepStrictEqual(ids(result), [late.id]);
     });
   });
 
@@ -244,6 +253,35 @@ await describe('NIndexedDB', () => {
       const result = await store.query([{ authors: [PK1], limit: 2 }]);
       deepStrictEqual(result.map((e) => e.created_at), [104, 103]);
     });
+
+    it('applies the limit globally across cursors (multi-author merge)', async () => {
+      // Interleaved timestamps across two authors: the newest 3 span both.
+      const a1 = makeEvent({ id: '1'.repeat(64), pubkey: PK1, created_at: 100 });
+      const b1 = makeEvent({ id: '2'.repeat(64), pubkey: PK2, created_at: 200 });
+      const a2 = makeEvent({ id: '3'.repeat(64), pubkey: PK1, created_at: 300 });
+      const b2 = makeEvent({ id: '4'.repeat(64), pubkey: PK2, created_at: 400 });
+      await add(a1, b1, a2, b2);
+
+      const result = await store.query([{ authors: [PK1, PK2], limit: 3 }]);
+      deepStrictEqual(ids(result), [b2.id, a2.id, b1.id]);
+    });
+
+    it('does not double-count an event matching two tag values', async () => {
+      // `both` carries two of the sought #t values, so it appears in both
+      // index ranges; it must occupy only one slot of the limit.
+      const both = makeEvent({ id: '1'.repeat(64), created_at: 300, tags: [['t', 'a'], ['t', 'b']] });
+      const single = makeEvent({ id: '2'.repeat(64), created_at: 200, tags: [['t', 'a']] });
+      await add(both, single);
+
+      const result = await store.query([{ '#t': ['a', 'b'], limit: 2 }]);
+      deepStrictEqual(ids(result), [both.id, single.id]);
+    });
+
+    it('returns nothing for limit: 0', async () => {
+      await add(makeEvent({ id: '1'.repeat(64), pubkey: PK1 }));
+      const result = await store.query([{ authors: [PK1], limit: 0 }]);
+      deepStrictEqual(result, []);
+    });
   });
 
   describe('full scan fallback', () => {
@@ -335,6 +373,35 @@ await describe('NIndexedDB', () => {
       deepStrictEqual(count, 2);
     });
 
+    it('respects time bounds when counting (index fast path)', async () => {
+      await add(
+        makeEvent({ id: '1'.repeat(64), pubkey: PK1, created_at: 100 }),
+        makeEvent({ id: '2'.repeat(64), pubkey: PK1, created_at: 200 }),
+        makeEvent({ id: '3'.repeat(64), pubkey: PK1, created_at: 300 }),
+      );
+      const { count } = await store.count([{ authors: [PK1], since: 150, until: 250 }]);
+      deepStrictEqual(count, 1);
+    });
+
+    it('does not double-count an event matching two tag values', async () => {
+      // Overlapping multiEntry ranges: `both` is reachable via 'a' AND 'b'.
+      await add(
+        makeEvent({ id: '1'.repeat(64), tags: [['t', 'a'], ['t', 'b']] }),
+        makeEvent({ id: '2'.repeat(64), tags: [['t', 'a']] }),
+      );
+      const { count } = await store.count([{ '#t': ['a', 'b'] }]);
+      deepStrictEqual(count, 2);
+    });
+
+    it('respects limit when counting', async () => {
+      await add(
+        makeEvent({ id: '1'.repeat(64), pubkey: PK1 }),
+        makeEvent({ id: '2'.repeat(64), pubkey: PK1 }),
+      );
+      const { count } = await store.count([{ authors: [PK1], limit: 1 }]);
+      deepStrictEqual(count, 1);
+    });
+
     it('removes matching events', async () => {
       const a = makeEvent({ id: '1'.repeat(64), pubkey: PK1 });
       const b = makeEvent({ id: '2'.repeat(64), pubkey: PK2 });
@@ -352,6 +419,16 @@ await describe('NIndexedDB', () => {
       await add(makeEvent({ id: '1'.repeat(64), kind: 20000 }));
       const result = await store.query([{ kinds: [20000] }]);
       deepStrictEqual(result, []);
+    });
+  });
+
+  describe('abort', () => {
+    it('propagates an aborted signal instead of returning []', async () => {
+      await add(makeEvent({ id: '1'.repeat(64) }));
+      await rejects(
+        store.query([{ kinds: [1] }], { signal: AbortSignal.abort() }),
+        (error: Error) => error.name === 'AbortError',
+      );
     });
   });
 

@@ -88,3 +88,19 @@ Deno.bench('NIndexedDB.query by author and kind', async () => {
     limit: 20,
   }]);
 });
+
+// Feed-style query: every distinct author in the fixture set (~470) × 2 kinds,
+// stressing the multi-cursor merge with a small limit.
+const authors = [...new Set(events.map((e) => e.pubkey))];
+
+Deno.bench('NIndexedDB.query feed (many authors + kinds, limit 20)', async () => {
+  await db.query([{ authors, kinds: [1, 6], limit: 20 }]);
+});
+
+Deno.bench('NIndexedDB.query by kind without limit', async () => {
+  await db.query([{ kinds: [7] }]);
+});
+
+Deno.bench('NIndexedDB.count by kind', async () => {
+  await db.count([{ kinds: [1] }]);
+});

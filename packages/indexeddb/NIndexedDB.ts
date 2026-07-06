@@ -39,8 +39,19 @@ import type { NostrEvent, NostrFilter, NostrRelayCOUNT, NStore } from '@nostrify
 // Query planning (the `DBScan` priority cascade):
 //   ids → most-selective #tag → pubkey+kind (<1000 combos) → pubkey → kind →
 //   full created_at scan. One index is chosen; one cursor per discrete value.
-//   Cursors are merged newest-first; non-index-only scans re-check each
-//   candidate against the full filter in memory.
+//   Non-index-only scans re-check each candidate against the full filter in
+//   memory.
+//
+// Scan execution:
+//   - `ids` plans skip cursors entirely and issue pipelined primary-key
+//     `get()`s — one round-trip per id, no cursor machinery.
+//   - Unlimited scans fetch each cursor's whole range with a single `getAll()`
+//     per range (all in flight at once). Cursor stepping in IndexedDB costs a
+//     round-trip per record; `getAll` fetches the same rows in one.
+//   - Limited scans open all cursors in parallel and k-way merge them
+//     newest-first, so the scan stops after touching ~`limit` records *total*
+//     (plus one open per cursor) instead of walking up to `limit` records in
+//     every cursor.
 //
 // Replaceable/addressable supersession: on write, older versions at the same
 // (kind, pubkey, d) coordinate are deleted, so queries never surface a stale
@@ -468,13 +479,21 @@ export class NIndexedDB implements NStore {
       const tx = db.transaction(EVENTS_STORE, 'readonly');
       const store = tx.objectStore(EVENTS_STORE);
 
-      for (const filter of filters) {
-        const events = await this.queryFilter(store, new ParsedFilter(filter), opts?.signal);
+      // Filters are independent (OR'd), so run them all concurrently within
+      // the one transaction; IndexedDB pipelines the requests.
+      const results = await Promise.all(
+        filters.map((filter) => this.queryFilter(store, new ParsedFilter(filter), opts?.signal)),
+      );
+
+      for (const events of results) {
         for (const event of events) {
           byId.set(event.id, NIndexedDB.fromStored(event));
         }
       }
-    } catch {
+    } catch (error) {
+      // An abort is the caller's doing — propagate it. Anything else (a
+      // browser storage failure) degrades to an empty result.
+      if (opts?.signal?.aborted) throw error;
       return [];
     }
 
@@ -485,6 +504,12 @@ export class NIndexedDB implements NStore {
   /**
    * Run a single parsed filter against the store using the strfry planner
    * cascade, returning matching events newest-first up to the filter's limit.
+   *
+   * Execution picks the cheapest fetch strategy for the plan:
+   *   - `ids` plans issue pipelined primary-key `get()`s.
+   *   - Unlimited scans `getAll()` each cursor's range in one round-trip each.
+   *   - Limited scans k-way merge all cursors newest-first, stopping after
+   *     ~`limit` records total.
    */
   private async queryFilter(
     store: EventsStore<'readonly'>,
@@ -493,52 +518,93 @@ export class NIndexedDB implements NStore {
   ): Promise<StoredEvent[]> {
     if (filter.neverMatch) return [];
 
-    const plan = NIndexedDB.planScan(filter);
     const limit = filter.limit ?? Infinity;
+    if (limit <= 0) return [];
 
-    // Each cursor contributes candidates newest-first; we k-way merge them.
-    const collected: StoredEvent[] = [];
-    const seen = new Set<string>();
+    signal?.throwIfAborted();
 
-    for (const cursor of plan.cursors) {
+    const plan = NIndexedDB.planScan(filter);
+
+    // For index-only scans the index guarantees a structural match, so only
+    // the time window needs re-checking (and for cursor plans even that is
+    // folded into the key range — `matchesTime` is then a cheap no-op).
+    // Otherwise re-run the full filter.
+    const matches = (row: StoredEvent): boolean => plan.indexOnly ? filter.matchesTime(row.created_at) : filter.matches(row);
+
+    // ids plans: direct primary-key lookups, all in flight at once.
+    if (plan.ids) {
+      const rows = await Promise.all(plan.ids.map((id) => store.get(id)));
+      const collected = rows.filter((row): row is StoredEvent => row !== undefined && matches(row));
+      collected.sort(NIndexedDB.compareNewest);
+      return collected.length > limit ? collected.slice(0, limit) : collected;
+    }
+
+    // Unlimited scans: every row in range is needed anyway, so fetch each
+    // range with a single getAll() instead of paying a round-trip per record.
+    if (limit === Infinity) {
+      const perCursor = await Promise.all(
+        plan.cursors.map(({ indexName, range }) =>
+          (indexName ? store.index(indexName) : store).getAll(range) as Promise<StoredEvent[]>
+        ),
+      );
+
       signal?.throwIfAborted();
 
-      const index = cursor.indexName ? store.index(cursor.indexName) : store;
-      let idbCursor = await index.openCursor(cursor.range, 'prev');
-
-      // Each cursor walks its prefix newest-first, so its first `limit` matches
-      // are its `limit` best candidates — anything older can't beat them in the
-      // cross-cursor merge below. Stop early once we have that many; without
-      // this, a single prefix (e.g. one prolific author in a feed query) is
-      // walked to exhaustion no matter how small the limit, so scan cost grows
-      // with the cache instead of with the limit.
-      let matched = 0;
-
-      while (idbCursor) {
-        signal?.throwIfAborted();
-        const value = idbCursor.value as StoredEvent;
-
-        if (seen.has(value.id)) {
-          idbCursor = await idbCursor.continue();
-          continue;
+      // Only overlapping ranges (multi-value tag scans) can yield duplicates.
+      const seen = plan.disjoint ? undefined : new Set<string>();
+      const collected: StoredEvent[] = [];
+      for (const rows of perCursor) {
+        for (const row of rows) {
+          if (seen) {
+            if (seen.has(row.id)) continue;
+            seen.add(row.id);
+          }
+          if (matches(row)) collected.push(row);
         }
+      }
+      collected.sort(NIndexedDB.compareNewest);
+      return collected;
+    }
 
-        // For index-only scans the index guarantees a structural match, so we
-        // only re-check the time window. Otherwise re-run the full filter.
-        const ok = plan.indexOnly ? filter.matchesTime(value.created_at) : filter.matches(value);
-        if (ok) {
-          seen.add(value.id);
-          collected.push(value);
-          if (++matched >= limit) break;
-        }
+    // Limited scans: open every cursor in parallel and k-way merge them.
+    // Each cursor walks its range newest-first, so repeatedly consuming the
+    // globally-newest head yields matches newest-first across all cursors —
+    // the first `limit` of them are exactly the query result, and the scan
+    // touches ~`limit` records total instead of `limit` per cursor.
+    const opened = await Promise.all(
+      plan.cursors.map(({ indexName, range }) => (indexName ? store.index(indexName) : store).openCursor(range, 'prev')),
+    );
+    const cursors: MergeCursor[] = opened.filter((cursor) => cursor !== null);
 
-        idbCursor = await idbCursor.continue();
+    const seen = plan.disjoint ? undefined : new Set<string>();
+    const collected: StoredEvent[] = [];
+
+    while (cursors.length > 0 && collected.length < limit) {
+      signal?.throwIfAborted();
+
+      // The cursor whose head row is globally newest. (Linear scan: cursor
+      // counts are small and bounded, so a heap isn't worth it.)
+      let best = 0;
+      for (let i = 1; i < cursors.length; i++) {
+        if (cursors[i].value.created_at > cursors[best].value.created_at) best = i;
+      }
+
+      const cursor = cursors[best];
+      const row = cursor.value;
+
+      if (!seen?.has(row.id) && matches(row)) {
+        seen?.add(row.id);
+        collected.push(row);
+      }
+
+      if (await cursor.continue() === null) {
+        cursors.splice(best, 1);
       }
     }
 
-    // Merge across cursors: sort newest-first and truncate to the limit.
+    // Already newest-first except among created_at ties; normalize those.
     collected.sort(NIndexedDB.compareNewest);
-    return Number.isFinite(limit) ? collected.slice(0, limit) : collected;
+    return collected;
   }
 
   /**
@@ -553,25 +619,27 @@ export class NIndexedDB implements NStore {
     const since = filter.since ?? 0;
     const until = filter.until ?? Infinity;
 
-    // 1. ids — primary key. The events store's keyPath is `id`, so we range
-    //    each id directly (no created_at component on the primary key).
+    // 1. ids — primary key. The events store's keyPath is `id`, so each id is
+    //    fetched directly with `get()` (no cursor, no created_at component).
     if (filter.ids) {
       return {
         indexOnly: filter.indexOnly,
-        cursors: filter.ids.map((id) => ({
-          indexName: undefined,
-          range: IDBKeyRange.only(id),
-        })),
+        disjoint: true,
+        ids: filter.ids,
+        cursors: [],
       };
     }
 
     // 2. tags — pick the most selective tag filter (fewest values). The tag
     //    name and value are separate key elements, so multi-letter names and
-    //    name/value boundaries are unambiguous.
+    //    name/value boundaries are unambiguous. An event carrying several of
+    //    the sought values appears under each of them (multiEntry), so ranges
+    //    for different values of one tag name can overlap.
     if (filter.tags.length > 0) {
       const tag = filter.tags.reduce((a, b) => (b.values.length < a.values.length ? b : a));
       return {
         indexOnly: filter.indexOnly,
+        disjoint: tag.values.length === 1,
         cursors: tag.values.map((value) => ({
           indexName: INDEX.tag,
           range: IDBKeyRange.bound([tag.name, value, since], [tag.name, value, until]),
@@ -590,7 +658,7 @@ export class NIndexedDB implements NStore {
           });
         }
       }
-      return { indexOnly: filter.indexOnly, cursors };
+      return { indexOnly: filter.indexOnly, disjoint: true, cursors };
     }
 
     // 4. authors — pubkey index. If kinds is also present (product too large),
@@ -598,6 +666,7 @@ export class NIndexedDB implements NStore {
     if (filter.authors) {
       return {
         indexOnly: filter.indexOnly && !filter.kinds,
+        disjoint: true,
         cursors: filter.authors.map((author) => ({
           indexName: INDEX.pubkey,
           range: IDBKeyRange.bound([author, since], [author, until]),
@@ -609,6 +678,7 @@ export class NIndexedDB implements NStore {
     if (filter.kinds) {
       return {
         indexOnly: filter.indexOnly,
+        disjoint: true,
         cursors: filter.kinds.map((kind) => ({
           indexName: INDEX.kind,
           range: IDBKeyRange.bound([kind, since], [kind, until]),
@@ -619,6 +689,7 @@ export class NIndexedDB implements NStore {
     // 6. fallback — full created_at scan over the whole store.
     return {
       indexOnly: filter.indexOnly,
+      disjoint: true,
       cursors: [{
         indexName: INDEX.createdAt,
         range: IDBKeyRange.bound(since, until),
@@ -628,6 +699,34 @@ export class NIndexedDB implements NStore {
 
   /** COUNT support: number of matching events. */
   async count(filters: NostrFilter[], opts?: { signal?: AbortSignal }): Promise<NostrRelayCOUNT[2]> {
+    const db = await this.getDB();
+    if (!db) return { count: 0, approximate: false };
+
+    // Fast path: a single unlimited filter whose plan is index-only over
+    // disjoint ranges can be counted entirely inside the index — one
+    // `count(range)` per cursor, no rows deserialized. (ids plans are
+    // excluded: their lookups carry no created_at bound in the key.)
+    if (filters.length === 1) {
+      const filter = new ParsedFilter(filters[0]);
+      if (filter.neverMatch) return { count: 0, approximate: false };
+
+      if (filter.limit === undefined && filter.indexOnly) {
+        const plan = NIndexedDB.planScan(filter);
+        if (plan.disjoint && !plan.ids) {
+          try {
+            const tx = db.transaction(EVENTS_STORE, 'readonly');
+            const store = tx.objectStore(EVENTS_STORE);
+            const counts = await Promise.all(
+              plan.cursors.map(({ indexName, range }) => (indexName ? store.index(indexName) : store).count(range)),
+            );
+            return { count: counts.reduce((sum, n) => sum + n, 0), approximate: false };
+          } catch {
+            // Fall through to the query-based path.
+          }
+        }
+      }
+    }
+
     const events = await this.query(filters, opts);
     return { count: events.length, approximate: false };
   }
@@ -715,10 +814,30 @@ interface ScanCursor {
   range: IDBKeyRange;
 }
 
-/** A planned scan: the chosen cursors and whether the index alone suffices. */
+/** A planned scan: how to fetch a single filter's candidate events. */
 interface ScanPlan {
+  /** Whether the chosen index alone structurally satisfies the filter. */
   indexOnly: boolean;
+  /**
+   * Whether the plan's ranges are pairwise disjoint (no event can surface
+   * twice). Only multi-value tag scans overlap, via multiEntry. Disjoint
+   * plans skip dedupe bookkeeping, and disjoint index-only plans can be
+   * counted with `index.count()` alone.
+   */
+  disjoint: boolean;
+  /** For ids plans: fetch these primary keys directly instead of cursors. */
+  ids?: string[];
   cursors: ScanCursor[];
+}
+
+/**
+ * The structural slice of an idb cursor used by the k-way merge: the current
+ * row and advancement. (`continue()` resolves with the cursor itself, or
+ * `null` when the range is exhausted.)
+ */
+interface MergeCursor {
+  readonly value: StoredEvent;
+  continue(): Promise<MergeCursor | null>;
 }
 
 // ============================================================================
@@ -741,8 +860,10 @@ interface ScanPlan {
 interface TagFilter {
   /** The tag name without the leading `#` (single- or multi-letter). */
   name: string;
-  /** Sorted, de-duplicated set of acceptable values. */
+  /** Sorted, de-duplicated set of acceptable values (drives the planner). */
   values: string[];
+  /** The same values as a Set, for O(1) membership in the matcher. */
+  valueSet: Set<string>;
 }
 
 class ParsedFilter {
@@ -756,6 +877,13 @@ class ParsedFilter {
   readonly since?: number;
   readonly until?: number;
   readonly limit?: number;
+
+  /** Set views of the array constraints, for O(1) membership in `matches`. */
+  private readonly idSet?: Set<string>;
+  private readonly authorSet?: Set<string>;
+  private readonly kindSet?: Set<number>;
+  /** Pre-lowercased `search`, so `matches` doesn't re-lowercase per event. */
+  private readonly searchLower?: string;
 
   /**
    * True when this filter can never match anything (an empty array was given
@@ -808,7 +936,8 @@ class ParsedFilter {
         // the `#` (single- OR multi-letter, e.g. `#e`, `#proxy`). Whether such
         // a tag is actually queryable depends on the store's `indexTags`
         // policy — a filter on a non-indexed tag simply matches nothing.
-        tags.push({ name: key.slice(1), values: sortUnique(value as string[]) });
+        const values = sortUnique(value as string[]);
+        tags.push({ name: key.slice(1), values, valueSet: new Set(values) });
         numMajorFields++;
       }
       // Unrecognised keys are ignored (treated as no constraint),
@@ -817,6 +946,11 @@ class ParsedFilter {
 
     this.tags = tags;
     this.neverMatch = neverMatch;
+
+    this.idSet = this.ids && new Set(this.ids);
+    this.authorSet = this.authors && new Set(this.authors);
+    this.kindSet = this.kinds && new Set(this.kinds);
+    this.searchLower = this.search?.toLowerCase();
 
     // A search term can't be satisfied by any index, so it always needs a
     // post-filter regardless of the major-field count.
@@ -837,17 +971,17 @@ class ParsedFilter {
     if (this.neverMatch) return false;
     if (!this.matchesTime(event.created_at)) return false;
 
-    if (this.ids && !this.ids.includes(event.id)) return false;
-    if (this.authors && !this.authors.includes(event.pubkey)) return false;
-    if (this.kinds && !this.kinds.includes(event.kind)) return false;
+    if (this.idSet && !this.idSet.has(event.id)) return false;
+    if (this.authorSet && !this.authorSet.has(event.pubkey)) return false;
+    if (this.kindSet && !this.kindSet.has(event.kind)) return false;
 
-    for (const { name, values } of this.tags) {
-      const found = event.tags.some(([n, v]) => n === name && values.includes(v));
+    for (const { name, valueSet } of this.tags) {
+      const found = event.tags.some(([n, v]) => n === name && valueSet.has(v));
       if (!found) return false;
     }
 
-    if (this.search !== undefined) {
-      if (!event.content.toLowerCase().includes(this.search.toLowerCase())) return false;
+    if (this.searchLower !== undefined) {
+      if (!event.content.toLowerCase().includes(this.searchLower)) return false;
     }
 
     return true;

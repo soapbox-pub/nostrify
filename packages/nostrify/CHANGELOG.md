@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.54.0
+
+### Minor Changes
+
+- 9ab9e73: Upgrade BlossomUploader to the latest Blossom spec
+
+### Patch Changes
+
+- Treat any token decode failure as "Invalid token" in `NIP98.verify`.
+
 ## 0.53.0
 
 ### Minor Changes

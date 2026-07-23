@@ -1,7 +1,7 @@
 // deno-lint-ignore-file require-await
 
 import { type DBSchema, type IDBPDatabase, type IDBPObjectStore, openDB } from 'idb';
-import { NKinds } from '@nostrify/nostrify';
+import { NIP50, NKinds } from '@nostrify/nostrify';
 import type { NostrEvent, NostrFilter, NostrRelayCOUNT, NStore } from '@nostrify/types';
 
 // ============================================================================
@@ -52,6 +52,17 @@ import type { NostrEvent, NostrFilter, NostrRelayCOUNT, NStore } from '@nostrify
 //     newest-first, so the scan stops after touching ~`limit` records *total*
 //     (plus one open per cursor) instead of walking up to `limit` records in
 //     every cursor.
+//   - Search scans (filters with NIP-50 keywords) page each cursor's range
+//     newest-first in fixed-size chunks and match candidates in memory until
+//     the limit (if any) is reached, so memory stays bounded by the chunk
+//     size even when the plan is a full-store scan.
+//
+// NIP-50 `search` (basic full-text): the search input is parsed per NIP-50 —
+// extension tokens (`key:value`) are parsed out and removed, since no
+// extensions are supported and the NIP says unsupported extensions are
+// ignored — and every remaining keyword must appear in the event's `content`,
+// case-insensitively. A `-keyword` token means the content must NOT contain
+// the keyword. There is no FTS index; search always post-filters a scan.
 //
 // Replaceable/addressable supersession: on write, older versions at the same
 // (kind, pubkey, d) coordinate are deleted, so queries never surface a stale
@@ -75,6 +86,14 @@ const EVENTS_STORE = 'events';
 
 /** The schema version installed by {@link NIndexedDB}. */
 const DB_VERSION = 1;
+
+/**
+ * How many distinct index keys a search scan covers per `getAll` chunk.
+ * NIP-50 keyword matching happens in memory, so candidates are paged in
+ * chunks of this size (newest-first, stopping at the filter's limit) rather
+ * than fetched all at once or walked one round-trip per record.
+ */
+const SEARCH_CHUNK = 256;
 
 /** Index names on the events store. */
 const INDEX = {
@@ -507,6 +526,8 @@ export class NIndexedDB implements NStore {
    *
    * Execution picks the cheapest fetch strategy for the plan:
    *   - `ids` plans issue pipelined primary-key `get()`s.
+   *   - Search scans page each cursor's range newest-first in fixed-size
+   *     chunks, matching keywords until the limit is reached.
    *   - Unlimited scans `getAll()` each cursor's range in one round-trip each.
    *   - Limited scans k-way merge all cursors newest-first, stopping after
    *     ~`limit` records total.
@@ -537,6 +558,15 @@ export class NIndexedDB implements NStore {
       const collected = rows.filter((row): row is StoredEvent => row !== undefined && matches(row));
       collected.sort(NIndexedDB.compareNewest);
       return collected.length > limit ? collected.slice(0, limit) : collected;
+    }
+
+    // Search scans: no index covers NIP-50 keywords, so every candidate's
+    // content must be checked in memory. Page each cursor's range newest-first
+    // in fixed-size chunks and match until the limit is reached — memory stays
+    // bounded by the chunk size on unlimited scans, and limited scans avoid a
+    // round-trip per record.
+    if (filter.searchKeywords) {
+      return NIndexedDB.searchScan(store, plan, matches, limit, signal);
     }
 
     // Unlimited scans: every row in range is needed anyway, so fetch each
@@ -604,6 +634,99 @@ export class NIndexedDB implements NStore {
 
     // Already newest-first except among created_at ties; normalize those.
     collected.sort(NIndexedDB.compareNewest);
+    return collected;
+  }
+
+  /**
+   * Execute a plan for a filter carrying NIP-50 search keywords.
+   *
+   * Each cursor's range is scanned newest-first in fixed-size chunks (see
+   * {@link searchScanCursor}), collecting at most `limit` matches per cursor —
+   * once a cursor has contributed `limit` newer matches, an older match from
+   * the same cursor can never rank inside the final top-`limit`. The
+   * per-cursor results are then merged, de-duplicated, sorted newest-first,
+   * and truncated to `limit`.
+   */
+  private static async searchScan(
+    store: EventsStore<'readonly'>,
+    plan: ScanPlan,
+    matches: (row: StoredEvent) => boolean,
+    limit: number,
+    signal?: AbortSignal,
+  ): Promise<StoredEvent[]> {
+    const perCursor = await Promise.all(
+      plan.cursors.map((cursor) => NIndexedDB.searchScanCursor(store, cursor, matches, limit, signal)),
+    );
+
+    // Only overlapping ranges (multi-value tag scans) can yield duplicates.
+    const seen = plan.disjoint ? undefined : new Set<string>();
+    const collected: StoredEvent[] = [];
+    for (const rows of perCursor) {
+      for (const row of rows) {
+        if (seen) {
+          if (seen.has(row.id)) continue;
+          seen.add(row.id);
+        }
+        collected.push(row);
+      }
+    }
+
+    collected.sort(NIndexedDB.compareNewest);
+    return collected.length > limit ? collected.slice(0, limit) : collected;
+  }
+
+  /**
+   * Chunked newest-first scan of one cursor's range, collecting up to `limit`
+   * rows that satisfy `matches`.
+   *
+   * A key cursor walks the range newest-first, one *distinct* key per step
+   * (`prevunique`), and is only used to find chunk boundaries — it never
+   * materializes event bodies. Each chunk (spanning {@link SEARCH_CHUNK}
+   * distinct keys) is then fetched with a single `getAll` over its boundary
+   * key range and matched in memory, stopping as soon as `limit` matches are
+   * found. Memory is bounded by one chunk of rows, not the range size.
+   *
+   * Chunks are aligned to distinct keys, so rows sharing a key (a `created_at`
+   * tie — within one range only the trailing `created_at` varies) always land
+   * in the same chunk and are never fetched twice.
+   */
+  private static async searchScanCursor(
+    store: EventsStore<'readonly'>,
+    { indexName, range }: ScanCursor,
+    matches: (row: StoredEvent) => boolean,
+    limit: number,
+    signal?: AbortSignal,
+  ): Promise<StoredEvent[]> {
+    const source = indexName ? store.index(indexName) : store;
+    const collected: StoredEvent[] = [];
+
+    // The boundary cursor, positioned at the newest distinct key not yet
+    // fetched. `null` once the range is exhausted.
+    let boundary = await source.openKeyCursor(range, 'prevunique');
+
+    while (boundary !== null && collected.length < limit) {
+      signal?.throwIfAborted();
+
+      // This chunk covers SEARCH_CHUNK distinct keys: from the boundary
+      // cursor's current key (newest, inclusive) back to wherever the cursor
+      // lands after advancing — or the start of the range if it exhausts.
+      const upper = boundary.key;
+      boundary = await boundary.advance(SEARCH_CHUNK - 1);
+      const chunk = boundary !== null
+        ? IDBKeyRange.bound(boundary.key, upper)
+        : IDBKeyRange.bound(range.lower, upper, range.lowerOpen);
+
+      const rows = await source.getAll(chunk) as StoredEvent[];
+
+      // Rows come back oldest-first; walk them in reverse for newest-first.
+      for (let i = rows.length - 1; i >= 0 && collected.length < limit; i--) {
+        if (matches(rows[i])) collected.push(rows[i]);
+      }
+
+      // Step past the chunk's oldest key onto the next chunk's newest.
+      boundary = boundary && await boundary.continue();
+    }
+
     return collected;
   }
 
@@ -874,6 +997,16 @@ class ParsedFilter {
   readonly tags: TagFilter[];
   readonly search?: string;
 
+  /**
+   * The NIP-50 keywords parsed out of `search`, pre-lowercased: `required`
+   * keywords must all appear in an event's content, `negated` ones
+   * (`-keyword` tokens) must not. Extension tokens (`key:value`) are parsed
+   * and removed — no extensions are supported, and per NIP-50 unsupported
+   * extensions are ignored. `undefined` when the filter has no `search`, or
+   * when it parses to no keywords (in which case it imposes no constraint).
+   */
+  readonly searchKeywords?: { required: string[]; negated: string[] };
+
   readonly since?: number;
   readonly until?: number;
   readonly limit?: number;
@@ -882,8 +1015,6 @@ class ParsedFilter {
   private readonly idSet?: Set<string>;
   private readonly authorSet?: Set<string>;
   private readonly kindSet?: Set<number>;
-  /** Pre-lowercased `search`, so `matches` doesn't re-lowercase per event. */
-  private readonly searchLower?: string;
 
   /**
    * True when this filter can never match anything (an empty array was given
@@ -897,7 +1028,7 @@ class ParsedFilter {
    * event body. Mirrors strfry's `indexOnlyScans`:
    *   numMajorFields <= 1, OR (numMajorFields === 2 && authors && kinds).
    *
-   * NOTE: a `search` term always forces a post-filter (no index covers it).
+   * NOTE: `search` keywords always force a post-filter (no index covers them).
    */
   readonly indexOnly: boolean;
 
@@ -950,12 +1081,35 @@ class ParsedFilter {
     this.idSet = this.ids && new Set(this.ids);
     this.authorSet = this.authors && new Set(this.authors);
     this.kindSet = this.kinds && new Set(this.kinds);
-    this.searchLower = this.search?.toLowerCase();
 
-    // A search term can't be satisfied by any index, so it always needs a
-    // post-filter regardless of the major-field count.
-    const hasSearch = typeof this.search === 'string';
-    this.indexOnly = !hasSearch &&
+    // NIP-50: parse the search input into tokens. Extension tokens
+    // (`key:value`) are parsed and removed — no extensions are supported, and
+    // per NIP-50 unsupported extensions are ignored. The remaining keywords
+    // (a leading `-` negates) drive a case-insensitive match on content.
+    if (this.search !== undefined) {
+      const required: string[] = [];
+      const negated: string[] = [];
+
+      for (const token of NIP50.parseInput(this.search)) {
+        if (typeof token !== 'string') continue; // extension token: removed
+        const keyword = token.toLowerCase();
+        if (keyword.startsWith('-')) {
+          if (keyword.length > 1) negated.push(keyword.slice(1));
+        } else if (keyword.length > 0) {
+          required.push(keyword);
+        }
+      }
+
+      if (required.length > 0 || negated.length > 0) {
+        this.searchKeywords = { required, negated };
+      }
+    }
+
+    // Search keywords can't be satisfied by any index, so they always need a
+    // post-filter regardless of the major-field count. (A search that parses
+    // to no keywords — empty, or extension tokens only — imposes no
+    // constraint at all.)
+    this.indexOnly = !this.searchKeywords &&
       (numMajorFields <= 1 || (numMajorFields === 2 && !!this.authors && !!this.kinds));
   }
 
@@ -980,8 +1134,14 @@ class ParsedFilter {
       if (!found) return false;
     }
 
-    if (this.searchLower !== undefined) {
-      if (!event.content.toLowerCase().includes(this.searchLower)) return false;
+    if (this.searchKeywords) {
+      const content = event.content.toLowerCase();
+      for (const keyword of this.searchKeywords.required) {
+        if (!content.includes(keyword)) return false;
+      }
+      for (const keyword of this.searchKeywords.negated) {
+        if (content.includes(keyword)) return false;
+      }
     }
 
     return true;

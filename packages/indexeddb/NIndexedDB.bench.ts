@@ -104,3 +104,31 @@ Deno.bench('NIndexedDB.query by kind without limit', async () => {
 Deno.bench('NIndexedDB.count by kind', async () => {
   await db.count([{ kinds: [1] }]);
 });
+
+// NIP-50 search: no index covers keywords, so every candidate's content is
+// matched in memory. The limited variants exercise the chunked early-out; the
+// unlimited variant pages the whole store one chunk at a time.
+
+Deno.bench('NIndexedDB.query by search (limit 20)', async () => {
+  await db.query([{ search: 'temperature', limit: 20 }]);
+});
+
+Deno.bench('NIndexedDB.query by search without limit', async () => {
+  await db.query([{ search: 'temperature' }]);
+});
+
+Deno.bench('NIndexedDB.query by search with multiple keywords (AND)', async () => {
+  await db.query([{ search: 'minimum maximum temperature', limit: 20 }]);
+});
+
+Deno.bench('NIndexedDB.query by search with negation', async () => {
+  await db.query([{ search: 'temperature -wind', limit: 20 }]);
+});
+
+Deno.bench('NIndexedDB.query by search and kind (limit 20)', async () => {
+  await db.query([{ kinds: [1], search: 'temperature', limit: 20 }]);
+});
+
+Deno.bench('NIndexedDB.query by search (rare/no match)', async () => {
+  await db.query([{ search: 'zzzznonexistentzzzz', limit: 20 }]);
+});

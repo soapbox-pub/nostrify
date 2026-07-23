@@ -432,6 +432,155 @@ await describe('NIndexedDB', () => {
     });
   });
 
+  describe('NIP-50 search', () => {
+    it('matches keywords in content case-insensitively', async () => {
+      const match = makeEvent({ id: '1'.repeat(64), content: 'Hello Nostr world' });
+      const miss = makeEvent({ id: '2'.repeat(64), content: 'something else' });
+      await add(match, miss);
+
+      const result = await store.query([{ search: 'NOSTR' }]);
+      deepStrictEqual(ids(result), [match.id]);
+    });
+
+    it('requires every keyword to match (AND semantics)', async () => {
+      const both = makeEvent({ id: '1'.repeat(64), content: 'apples and oranges' });
+      const one = makeEvent({ id: '2'.repeat(64), content: 'apples only' });
+      await add(both, one);
+
+      const result = await store.query([{ search: 'apples oranges' }]);
+      deepStrictEqual(ids(result), [both.id]);
+    });
+
+    it('matches quoted phrases as a unit', async () => {
+      const phrase = makeEvent({ id: '1'.repeat(64), content: 'the quick brown fox' });
+      const scattered = makeEvent({ id: '2'.repeat(64), content: 'brown bread, quick snack' });
+      await add(phrase, scattered);
+
+      const result = await store.query([{ search: '"quick brown"' }]);
+      deepStrictEqual(ids(result), [phrase.id]);
+    });
+
+    it('excludes content matching a negated keyword', async () => {
+      const clean = makeEvent({ id: '1'.repeat(64), content: 'nostr is fun' });
+      const spammy = makeEvent({ id: '2'.repeat(64), content: 'nostr spam here' });
+      await add(clean, spammy);
+
+      const result = await store.query([{ search: 'nostr -spam' }]);
+      deepStrictEqual(ids(result), [clean.id]);
+    });
+
+    it('parses and removes NIP-50 extension tokens', async () => {
+      const match = makeEvent({ id: '1'.repeat(64), content: 'hello world' });
+      const miss = makeEvent({ id: '2'.repeat(64), content: 'goodbye world' });
+      await add(match, miss);
+
+      // The `domain:` and `-language:` extensions are unsupported, so they are
+      // removed; only the plain keyword constrains the result.
+      const result = await store.query([{ search: 'domain:example.com -language:en hello' }]);
+      deepStrictEqual(ids(result), [match.id]);
+    });
+
+    it('imposes no constraint when the search is extension tokens only', async () => {
+      const a = makeEvent({ id: '1'.repeat(64), content: 'anything', created_at: 200 });
+      const b = makeEvent({ id: '2'.repeat(64), content: 'at all', created_at: 100 });
+      await add(a, b);
+
+      const result = await store.query([{ search: 'domain:example.com' }]);
+      deepStrictEqual(ids(result), [a.id, b.id]);
+    });
+
+    it('combines search with other filter conditions', async () => {
+      const match = makeEvent({ id: '1'.repeat(64), pubkey: PK1, kind: 1, content: 'nostr note' });
+      const wrongKind = makeEvent({ id: '2'.repeat(64), pubkey: PK1, kind: 7, content: 'nostr reaction' });
+      const wrongContent = makeEvent({ id: '3'.repeat(64), pubkey: PK1, kind: 1, content: 'other note' });
+      await add(match, wrongKind, wrongContent);
+
+      const result = await store.query([{ authors: [PK1], kinds: [1], search: 'nostr' }]);
+      deepStrictEqual(ids(result), [match.id]);
+    });
+
+    it('returns the newest matches when a limit is given', async () => {
+      const events = Array.from({ length: 6 }, (_, i) =>
+        makeEvent({
+          id: `${i}`.repeat(64),
+          created_at: 100 + i,
+          content: i % 2 === 0 ? `note ${i} apple` : `note ${i} banana`,
+        }));
+      await add(...events);
+
+      const result = await store.query([{ search: 'apple', limit: 2 }]);
+      deepStrictEqual(result.map((e) => e.created_at), [104, 102]);
+    });
+
+    it('applies the limit globally across cursors (multi-kind search)', async () => {
+      const k1old = makeEvent({ id: '1'.repeat(64), kind: 1, created_at: 100, content: 'apple pie' });
+      const k7 = makeEvent({ id: '2'.repeat(64), kind: 7, created_at: 200, content: 'apple sauce' });
+      const k1new = makeEvent({ id: '3'.repeat(64), kind: 1, created_at: 300, content: 'apple cake' });
+      await add(k1old, k7, k1new);
+
+      const result = await store.query([{ kinds: [1, 7], search: 'apple', limit: 2 }]);
+      deepStrictEqual(ids(result), [k1new.id, k7.id]);
+    });
+
+    it('does not double-count an event matching two tag values', async () => {
+      const both = makeEvent({ id: '1'.repeat(64), created_at: 300, tags: [['t', 'a'], ['t', 'b']], content: 'apple' });
+      const single = makeEvent({ id: '2'.repeat(64), created_at: 200, tags: [['t', 'a']], content: 'apple' });
+      await add(both, single);
+
+      const result = await store.query([{ '#t': ['a', 'b'], search: 'apple', limit: 2 }]);
+      deepStrictEqual(ids(result), [both.id, single.id]);
+    });
+
+    it('applies id lookups with search post-filtering', async () => {
+      const match = makeEvent({ id: '1'.repeat(64), content: 'find me' });
+      const miss = makeEvent({ id: '2'.repeat(64), content: 'not me' });
+      await add(match, miss);
+
+      const result = await store.query([{ ids: [match.id, miss.id], search: 'find' }]);
+      deepStrictEqual(ids(result), [match.id]);
+    });
+
+    it('counts events matching a search', async () => {
+      await add(
+        makeEvent({ id: '1'.repeat(64), content: 'apple' }),
+        makeEvent({ id: '2'.repeat(64), content: 'apple' }),
+        makeEvent({ id: '3'.repeat(64), content: 'banana' }),
+      );
+      const { count } = await store.count([{ search: 'apple' }]);
+      deepStrictEqual(count, 2);
+    });
+
+    it('paginates large data sets in chunks without dropping or duplicating', async () => {
+      // Enough events to span several search chunks (256 rows each), with
+      // created_at ties in runs of 7 so tie runs land on chunk boundaries.
+      const total = 600;
+      const events = Array.from({ length: total }, (_, i) =>
+        makeEvent({
+          id: i.toString(16).padStart(64, '0'),
+          created_at: 1000 + Math.floor(i / 7),
+          content: i % 2 === 0 ? `note ${i} apple` : `note ${i} banana`,
+        }));
+      await add(...events);
+
+      // Unlimited: every 'apple' event exactly once.
+      const all = await store.query([{ search: 'apple' }]);
+      deepStrictEqual(all.length, total / 2);
+      deepStrictEqual(new Set(ids(all)).size, total / 2);
+      ok(all.every((e) => e.content.includes('apple')));
+
+      // Limited: the 50 newest 'apple' events. (Which event of a created_at
+      // tie survives the cutoff is unspecified, so assert on timestamps.)
+      const limited = await store.query([{ search: 'apple', limit: 50 }]);
+      const expected = events
+        .filter((e) => e.content.includes('apple'))
+        .sort((a, b) => b.created_at - a.created_at)
+        .slice(0, 50);
+      deepStrictEqual(limited.map((e) => e.created_at), expected.map((e) => e.created_at));
+      deepStrictEqual(new Set(ids(limited)).size, 50);
+      ok(limited.every((e) => e.content.includes('apple')));
+    });
+  });
+
   describe('NIP-09 deletions (kind 5)', () => {
     it('deletes own event referenced by an e tag', async () => {
       const note = makeEvent({ id: '1'.repeat(64), pubkey: PK1, kind: 1 });

@@ -17,6 +17,7 @@ The `NStore` interface defines the following methods:
 
 - [Memory](/store/memory)
 - [Postgres](/store/postgres)
+- [SQLite](/store/sqlite)
 - [SQL Databases](/store/sql)
 - [Deno KV](/store/denokv)
 - [Relays](/relay/)

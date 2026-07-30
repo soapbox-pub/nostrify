@@ -1,0 +1,27 @@
+{
+  "name": "@nostrify/sqlite",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./dist/mod.js"
+  },
+  "types": "dist/mod.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "npx tsc -p tsconfig.json && node ../../esbuild.config.js --package ./",
+    "typecheck": "npx tsc --noEmit",
+    "setup": "pnpm i",
+    "test": "node --test \"**/*.test.ts\""
+  },
+  "dependencies": {
+    "@nostrify/nostrify": "workspace:*",
+    "@nostrify/types": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "better-sqlite3": "^13.0.2",
+    "nostr-tools": "^2.13.0"
+  }
+}

@@ -5,11 +5,13 @@ packages:
   - ./packages/policies
   - ./packages/react
   - ./packages/seed
+  - ./packages/sqlite
   - ./packages/strfry
   - ./packages/types
   - ./packages/db
   # TODO
   # - ./packages/welshman
 onlyBuiltDependencies:
+  - better-sqlite3
   - esbuild
   - nx

@@ -44,6 +44,7 @@ export default defineConfig({
         items: [
           { text: 'Memory', link: '/store/memory' },
           { text: 'Postgres', link: '/store/postgres' },
+          { text: 'SQLite', link: '/store/sqlite' },
           { text: 'SQL Databases', link: '/store/sql' },
           { text: 'Deno KV', link: '/store/denokv' },
         ],

@@ -6,6 +6,16 @@ A high-performance `NStore` backed by SQLite, for any SQLite library.
 npm install @nostrify/sqlite
 ```
 
+Two implementations are provided. They share an interface, a driver, and their
+semantics, and differ only in how they store and query events:
+
+- **`NSQLite`** treats SQLite as a key/value store with hand-picked indexes and
+  no joins. This is the default choice.
+- **`NSQLiteJoin`** uses the conventional relational schema — an events table
+  and a tags table, joined, planned by SQLite.
+
+See [Which one?](#which-one) for the measured differences.
+
 ## Usage
 
 `NSQLite` doesn't depend on a SQLite library. Give it an object with `run` and
@@ -85,7 +95,17 @@ const store = new NSQLite(db, {
 A filter on a tag the policy doesn't index simply matches nothing. Changing the
 policy only affects events written afterwards.
 
-## How it works
+## Benchmarks
+
+```sh
+# NSQLite vs NSQLiteJoin on the 1000-event fixture
+deno bench -A --no-check NSQLite.bench.ts
+
+# ...and on a synthetic dataset of any size
+deno run -A --no-check scale.bench.ts 200000
+```
+
+## How NSQLite works
 
 SQLite is used as a key/value store plus a set of hand-maintained indexes, and
 the query planner in this package — not SQLite's — decides which index a filter
@@ -114,6 +134,55 @@ values by primary key. Conditions the index can't express become part of the
 scan's `WHERE` clause where SQLite can evaluate them; anything left over —
 extra tag terms, NIP-50 keywords — is matched in memory, with the scan paged by
 keyset so memory stays bounded.
+
+## How NSQLiteJoin works
+
+The conventional relational design, for comparison and for workloads that
+intersect several tags. An events table and a tags table
+(`(name, value, event_id)`, plus a secondary index on `event_id` so an event's
+tags can be deleted without a scan), with one statement per filter: each `#tag`
+term becomes an `INNER JOIN` against the tag table and everything else becomes a
+`WHERE` clause. `DISTINCT` is added only when a join can actually duplicate a
+row. There's no `INDEXED BY` — choosing the join order and the driving index is
+what SQLite's planner is for.
+
+## Which one?
+
+Use `NSQLite` unless your workload is dominated by filters that intersect two
+or more tags. It's faster on nearly every query shape, and its lead on tag
+queries widens as the database grows, because the relational design's cost
+scales with how many rows a tag matches while `NSQLite`'s stays flat.
+
+Measured with better-sqlite3 on a synthetic dataset (`deno run -A --no-check
+scale.bench.ts <count>`). Ratios are `NSQLiteJoin ÷ NSQLite`, so above 1.0
+means `NSQLite` is faster:
+
+| Query                       | 50k events | 200k events |
+| --------------------------- | ---------: | ----------: |
+| by kind, limit 20           |      1.1x  |       1.2x  |
+| by author, limit 20         |      1.2x  |       1.3x  |
+| by author + kind, limit 20  |      1.1x  |       1.5x  |
+| **by tag, limit 20**        |    **2.5x**|   **10.3x** |
+| **by tag + kind, limit 20** |    **5.6x**|    **5.6x** |
+| **count by tag**            |    **3.7x**|    **8.3x** |
+| feed (500 authors × 2 kinds)|      1.0x  |       0.9x  |
+| count by kind               |      1.0x  |       0.9x  |
+| search, limit 20            |      0.9x  |       0.9x  |
+| **by two tags, limit 20**   |    **0.3x**|    **0.2x** |
+| insert (whole dataset)      |      1.0x  |       1.0x  |
+
+On a database of a few thousand events the two are within noise of each other
+on most shapes, since deserializing the events dominates. The differences above
+are what you get once the store is large enough for the query strategy to
+matter.
+
+The one shape `NSQLiteJoin` wins decisively is intersecting two tag terms
+(`{"#t": [...], "#p": [...]}`), by 3–4x. That difference is structural rather
+than incidental: only one tag index can drive the scan, so `NSQLite` resolves
+the remaining terms to id sets and intersects them in memory, which costs a row
+handed across the driver boundary for every event matching *either* term. A
+join lets SQLite intersect internally and apply the `LIMIT` before any row is
+materialized. Writes are within a couple of percent either way.
 
 ## Behavior
 

@@ -6,6 +6,8 @@ outline: deep
 
 `NSQLite` is a high-performance `NStore` backed by SQLite. It works with any SQLite library, and treats SQLite as a key/value store with hand-maintained indexes rather than a relational schema — there are no joins.
 
+The package also ships `NSQLiteJoin`, the conventional relational implementation — an events table and a tags table, joined, planned by SQLite. The two share an interface, a driver, and their semantics, so they're interchangeable. See [Choosing between them](#choosing-between-them).
+
 ## Installation
 
 Install `@nostrify/sqlite`:
@@ -187,6 +189,37 @@ SQLite is used as a key/value store plus a set of hand-maintained indexes, and t
 Every index ends in `(created_at DESC, id ASC)`, so scanning any index prefix yields it newest-first with no sorter — the same trick [strfry](https://github.com/hoytech/strfry) uses by packing `created_at` into the trailing bytes of an LMDB key.
 
 A filter is planned with strfry's `DBScan` priority cascade — ids, then the most selective `#tag`, then pubkey+kind, pubkey, kind, and finally a full `created_at` scan — and the chosen index is forced with `INDEXED BY`, so the plan never depends on SQLite's cost estimates or on how stale `ANALYZE` is. Execution is two-phase: scan the index for candidate keys, then fetch those values by primary key. Conditions the index can't express become part of the scan's `WHERE` clause where SQLite can evaluate them; anything left over — extra tag terms, NIP-50 keywords — is matched in memory, with the scan paged by keyset so memory stays bounded.
+
+## Choosing between them
+
+Use `NSQLite` unless your workload is dominated by filters that intersect two or more tags. It's faster on nearly every query shape, and its lead on tag queries widens as the database grows, because the relational design's cost scales with how many rows a tag matches while `NSQLite`'s stays flat.
+
+Measured with better-sqlite3 on a synthetic dataset. Ratios are `NSQLiteJoin ÷ NSQLite`, so above 1.0 means `NSQLite` is faster:
+
+| Query                        | 50k events | 200k events |
+| ---------------------------- | ---------: | ----------: |
+| by kind, limit 20            |       1.1x |        1.2x |
+| by author, limit 20          |       1.2x |        1.3x |
+| by author + kind, limit 20   |       1.1x |        1.5x |
+| **by tag, limit 20**         |   **2.5x** |   **10.3x** |
+| **by tag + kind, limit 20**  |   **5.6x** |    **5.6x** |
+| **count by tag**             |   **3.7x** |    **8.3x** |
+| feed (500 authors × 2 kinds) |       1.0x |        0.9x |
+| count by kind                |       1.0x |        0.9x |
+| search, limit 20             |       0.9x |        0.9x |
+| **by two tags, limit 20**    |   **0.3x** |    **0.2x** |
+| insert (whole dataset)       |       1.0x |        1.0x |
+
+On a database of a few thousand events the two are within noise of each other on most shapes, since deserializing the events dominates. The differences above are what you get once the store is large enough for the query strategy to matter.
+
+The one shape `NSQLiteJoin` wins decisively is intersecting two tag terms (`{"#t": [...], "#p": [...]}`), by 3–4x. That difference is structural rather than incidental: only one tag index can drive the scan, so `NSQLite` resolves the remaining terms to id sets and intersects them in memory, which costs a row handed across the driver boundary for every event matching _either_ term. A join lets SQLite intersect internally and apply the `LIMIT` before any row is materialized. Writes are within a couple of percent either way.
+
+Both benchmarks live in the package:
+
+```sh
+deno bench -A --no-check NSQLite.bench.ts     # on the 1000-event fixture
+deno run -A --no-check scale.bench.ts 200000  # on a synthetic dataset
+```
 
 ## Behavior
 

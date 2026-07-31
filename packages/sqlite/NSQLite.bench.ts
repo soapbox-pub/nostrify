@@ -1,21 +1,33 @@
 import BetterSQLite3 from 'better-sqlite3';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
-import { NSQLite, type NSQLiteDatabase, type NSQLiteRow, type NSQLiteValue } from './NSQLite.ts';
+import { NSQLite } from './NSQLite.ts';
+import { NSQLiteJoin } from './NSQLiteJoin.ts';
+import type { NSQLiteDatabase, NSQLiteRow, NSQLiteValue } from './types.ts';
 
 import events from '../../fixtures/events.json' with { type: 'json' };
 
-/**
- * A better-sqlite3 driver that caches prepared statements by SQL text.
- *
- * The store issues a small set of statement shapes with bound parameters
- * precisely so a driver can do this; without the cache every query re-parses
- * its SQL.
- */
-function betterSQLite3(path: string): NSQLiteDatabase {
-  const sqlite = new BetterSQLite3(path);
+// ============================================================================
+// NSQLite (key/value + hand-picked indexes, no joins) vs. NSQLiteJoin (events
+// and tags tables, joined, planned by SQLite).
+//
+// Both stores implement the same interface with the same semantics and run on
+// the same driver, so each group below isolates the schema and query strategy.
+//
+// Read and write benchmarks use separate store instances: the write benchmarks
+// insert an event per iteration, and letting that grow the store the read
+// benchmarks query would make the read numbers depend on how many iterations
+// the runner happened to choose.
+//
+//   deno bench -A --no-check NSQLite.bench.ts
+// ============================================================================
 
-  // Recommended pragmas for a write-heavy event store.
+type Store = NSQLite | NSQLiteJoin;
+
+/** A better-sqlite3 driver that caches prepared statements by SQL text. */
+function betterSQLite3(): NSQLiteDatabase {
+  const sqlite = new BetterSQLite3(':memory:');
+
   sqlite.pragma('journal_mode = WAL');
   sqlite.pragma('synchronous = NORMAL');
 
@@ -33,149 +45,167 @@ function betterSQLite3(path: string): NSQLiteDatabase {
   return {
     run: (sql, params = []) => void prepare(sql).run(...params as NSQLiteValue[]),
     all: (sql, params = []) => prepare(sql).all(...params as NSQLiteValue[]) as NSQLiteRow[],
-    close: () => sqlite.close(),
+    close: () => void sqlite.close(),
   };
 }
 
-const db = new NSQLite(betterSQLite3(':memory:'));
-await db.migrate();
-
-// Seed the store with 1000 events.
-for (const event of events) {
-  await db.event(event);
+/** A migrated store seeded with the fixture events. */
+async function seeded(Store: new (db: NSQLiteDatabase) => Store): Promise<Store> {
+  const store = new Store(betterSQLite3());
+  await store.migrate();
+  for (const event of events) {
+    await store.event(event);
+  }
+  return store;
 }
 
-Deno.bench('NSQLite.event', async (b) => {
-  const secretKey = generateSecretKey();
-  const event = finalizeEvent({
-    kind: 1,
-    content: 'hello world!',
-    created_at: Math.floor(Date.now() / 1000),
-    tags: [['t', 'test']],
-  }, secretKey);
+/** A migrated, empty store, for the write benchmarks. */
+async function empty(Store: new (db: NSQLiteDatabase) => Store): Promise<Store> {
+  const store = new Store(betterSQLite3());
+  await store.migrate();
+  return store;
+}
 
-  b.start();
+const read = {
+  NSQLite: await seeded(NSQLite),
+  NSQLiteJoin: await seeded(NSQLiteJoin),
+};
 
-  await db.event(event);
-});
+const write = {
+  NSQLite: await empty(NSQLite),
+  NSQLiteJoin: await empty(NSQLiteJoin),
+};
 
-Deno.bench('NSQLite.event with many tags', async (b) => {
-  const secretKey = generateSecretKey();
+/**
+ * Register the same benchmark against both stores, as a comparison group.
+ *
+ * The result is deliberately discarded rather than returned: the runner holds
+ * on to whatever a benchmark returns, and these queries return whole events, so
+ * returning them accumulates every iteration's result set until the heap runs
+ * out.
+ */
+function compare(group: string, fn: (store: Store) => Promise<unknown>): void {
+  Deno.bench({
+    name: 'NSQLite',
+    group,
+    baseline: true,
+    fn: async () => {
+      await fn(read.NSQLite);
+    },
+  });
+  Deno.bench({
+    name: 'NSQLiteJoin',
+    group,
+    fn: async () => {
+      await fn(read.NSQLiteJoin);
+    },
+  });
+}
 
-  const tags: string[][] = new Array(300)
-    .fill('')
-    .map(() => ['p', '570a9c85c7dd56eca0d8c7f258d7fc178f1b2bb3aab4136ba674dc4879eee88a']);
+/** Register a write benchmark, whose event is generated outside the timed section. */
+function compareWrite(group: string, make: () => NostrEventInit): void {
+  const bench = (store: Store) => async (b: Deno.BenchContext) => {
+    const event = finalizeEvent(make(), generateSecretKey());
+    b.start();
+    await store.event(event);
+  };
 
-  const event = finalizeEvent({
-    kind: 1,
-    content: 'hello world!',
-    created_at: Math.floor(Date.now() / 1000),
-    tags,
-  }, secretKey);
+  Deno.bench({ name: 'NSQLite', group, baseline: true, fn: bench(write.NSQLite) });
+  Deno.bench({ name: 'NSQLiteJoin', group, fn: bench(write.NSQLiteJoin) });
+}
 
-  b.start();
+interface NostrEventInit {
+  kind: number;
+  content: string;
+  created_at: number;
+  tags: string[][];
+}
 
-  await db.event(event);
-});
+// ── Writes ──────────────────────────────────────────────────────────────────
 
-Deno.bench('NSQLite.query by id', async () => {
-  await db.query([{ ids: ['1dd49619b558cc202b00c982922526d4bbb6dab09d5debbc2be3d3fd49b1db3b'], limit: 1 }]);
-});
+compareWrite('event', () => ({
+  kind: 1,
+  content: 'hello world!',
+  created_at: Math.floor(Date.now() / 1000),
+  tags: [['t', 'test']],
+}));
 
-Deno.bench('NSQLite.query by multiple ids', async () => {
-  await db.query([{
+compareWrite('event with many tags', () => ({
+  kind: 1,
+  content: 'hello world!',
+  created_at: Math.floor(Date.now() / 1000),
+  tags: new Array(300).fill('').map(() => ['p', '570a9c85c7dd56eca0d8c7f258d7fc178f1b2bb3aab4136ba674dc4879eee88a']),
+}));
+
+// ── Reads ───────────────────────────────────────────────────────────────────
+
+compare('query by id', (db) =>
+  db.query([{ ids: ['1dd49619b558cc202b00c982922526d4bbb6dab09d5debbc2be3d3fd49b1db3b'], limit: 1 }]));
+
+compare('query by multiple ids', (db) =>
+  db.query([{
     ids: [
       '1dd49619b558cc202b00c982922526d4bbb6dab09d5debbc2be3d3fd49b1db3b',
       'a9d877196e64eec8645c9c28a1051f3cdde94b6272c0769517f47cfae518ea0c',
     ],
     limit: 20,
-  }]);
-});
+  }]));
 
-Deno.bench('NSQLite.query by kind', async () => {
-  await db.query([{ kinds: [1], limit: 20 }]);
-});
+compare('query by kind', (db) => db.query([{ kinds: [1], limit: 20 }]));
 
-Deno.bench('NSQLite.query by multiple kinds', async () => {
-  await db.query([{ kinds: [6, 7], limit: 20 }]);
-});
+compare('query by multiple kinds', (db) => db.query([{ kinds: [6, 7], limit: 20 }]));
 
-Deno.bench('NSQLite.query by author', async () => {
-  await db.query([{ authors: ['753d025936c8c3238b1b2b2f748be6df92743c2201e5198946e9d6a29156793f'], limit: 20 }]);
-});
+compare('query by author', (db) =>
+  db.query([{ authors: ['753d025936c8c3238b1b2b2f748be6df92743c2201e5198946e9d6a29156793f'], limit: 20 }]));
 
-Deno.bench('NSQLite.query by multiple authors', async () => {
-  await db.query([{
+compare('query by multiple authors', (db) =>
+  db.query([{
     authors: [
       '753d025936c8c3238b1b2b2f748be6df92743c2201e5198946e9d6a29156793f',
       '79c2cae114ea28a981e7559b4fe7854a473521a8d22a66bbab9fa248eb820ff6',
     ],
     limit: 20,
-  }]);
-});
+  }]));
 
-Deno.bench('NSQLite.query by author and kind', async () => {
-  await db.query([{
+compare('query by author and kind', (db) =>
+  db.query([{
     authors: ['753d025936c8c3238b1b2b2f748be6df92743c2201e5198946e9d6a29156793f'],
     kinds: [1],
     limit: 20,
-  }]);
-});
+  }]));
 
-// Feed-style query: every distinct author in the fixture set (~470) × 2 kinds,
-// stressing the multi-cursor merge with a small limit.
+// Feed-style query: every distinct author in the fixture set (~470) × 2 kinds.
 const authors = [...new Set(events.map((e) => e.pubkey))];
 
-Deno.bench('NSQLite.query feed (many authors + kinds, limit 20)', async () => {
-  await db.query([{ authors, kinds: [1, 6], limit: 20 }]);
-});
+compare('query feed (many authors + kinds, limit 20)', (db) => db.query([{ authors, kinds: [1, 6], limit: 20 }]));
 
-Deno.bench('NSQLite.query by kind without limit', async () => {
-  await db.query([{ kinds: [7] }]);
-});
+compare('query by kind without limit', (db) => db.query([{ kinds: [7] }]));
 
-// Tag queries: the tag index is scanned for keys, then the bodies are fetched.
-// The `kinds` variant is answered from the tag index alone, since `kind` is
-// denormalized onto it.
+// Tag queries: the sharpest difference between the two designs. NSQLite scans
+// one tag b-tree; NSQLiteJoin joins the tag table against the events table.
 const tagged = events.find((e) => e.tags.some(([name]) => name === 'p'))!;
 const pubkeyTag = tagged.tags.find(([name]) => name === 'p')![1];
+const eventTag = events.flatMap((e) => e.tags).find(([name]) => name === 'e')![1];
 
-Deno.bench('NSQLite.query by tag', async () => {
-  await db.query([{ '#p': [pubkeyTag], limit: 20 }]);
-});
+compare('query by tag', (db) => db.query([{ '#p': [pubkeyTag], limit: 20 }]));
 
-Deno.bench('NSQLite.query by tag and kind', async () => {
-  await db.query([{ '#p': [pubkeyTag], kinds: [1], limit: 20 }]);
-});
+compare('query by tag and kind', (db) => db.query([{ '#p': [pubkeyTag], kinds: [1], limit: 20 }]));
 
-Deno.bench('NSQLite.count by kind', async () => {
-  await db.count([{ kinds: [1] }]);
-});
+compare('query by tag with multiple values', (db) => db.query([{ '#e': [eventTag, pubkeyTag], limit: 20 }]));
 
-// NIP-50 search: no index covers keywords, so every candidate's content is
-// matched in memory. The limited variants exercise the paged early-out; the
-// unlimited variant pages the whole store one chunk at a time.
+compare('query by two tags', (db) => db.query([{ '#p': [pubkeyTag], '#e': [eventTag], limit: 20 }]));
 
-Deno.bench('NSQLite.query by search (limit 20)', async () => {
-  await db.query([{ search: 'temperature', limit: 20 }]);
-});
+compare('count by kind', (db) => db.count([{ kinds: [1] }]));
 
-Deno.bench('NSQLite.query by search without limit', async () => {
-  await db.query([{ search: 'temperature' }]);
-});
+compare('count by tag', (db) => db.count([{ '#p': [pubkeyTag] }]));
 
-Deno.bench('NSQLite.query by search with multiple keywords (AND)', async () => {
-  await db.query([{ search: 'minimum maximum temperature', limit: 20 }]);
-});
+// NIP-50 search: no index covers keywords, so both stores page a scan and match
+// content in memory.
 
-Deno.bench('NSQLite.query by search with negation', async () => {
-  await db.query([{ search: 'temperature -wind', limit: 20 }]);
-});
+compare('query by search (limit 20)', (db) => db.query([{ search: 'temperature', limit: 20 }]));
 
-Deno.bench('NSQLite.query by search and kind (limit 20)', async () => {
-  await db.query([{ kinds: [1], search: 'temperature', limit: 20 }]);
-});
+compare('query by search without limit', (db) => db.query([{ search: 'temperature' }]));
 
-Deno.bench('NSQLite.query by search (rare/no match)', async () => {
-  await db.query([{ search: 'zzzznonexistentzzzz', limit: 20 }]);
-});
+compare('query by search and kind (limit 20)', (db) => db.query([{ kinds: [1], search: 'temperature', limit: 20 }]));
+
+compare('query by search (rare/no match)', (db) => db.query([{ search: 'zzzznonexistentzzzz', limit: 20 }]));

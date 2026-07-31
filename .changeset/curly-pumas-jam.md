@@ -9,3 +9,5 @@ It accepts any SQLite library through a two-method driver interface (`run` and `
 SQLite is treated as a key/value store with hand-maintained indexes rather than a relational schema — there are no joins. Filters are planned with strfry's `DBScan` priority cascade and the chosen index is forced with `INDEXED BY`, so query plans never depend on SQLite's cost estimates. Every index ends in `(created_at DESC, id ASC)`, so scans come back newest-first without a sorter.
 
 Supports replaceable and addressable supersession, NIP-09 deletions (including refusing to re-admit a deleted event), NIP-50 search, `count()`, and `remove()`.
+
+Also adds `NSQLiteJoin`, the conventional relational implementation — an events table and a tags table, joined, planned by SQLite. It has the same interface and semantics as `NSQLite`, and the two are benchmarked against each other in the package. `NSQLite` is faster on nearly every query shape (2.5–10x on tag queries, widening with database size); `NSQLiteJoin` is 3–4x faster at intersecting two or more tag terms.

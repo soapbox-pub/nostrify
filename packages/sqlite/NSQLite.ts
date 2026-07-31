@@ -1,5 +1,9 @@
-import { NIP50, NKinds, RelayError } from '@nostrify/nostrify';
+import { NKinds, RelayError } from '@nostrify/nostrify';
 import type { NostrEvent, NostrFilter, NostrRelayCOUNT, NStore } from '@nostrify/types';
+
+import type { NSQLiteDatabase, NSQLiteOpts, NSQLiteRow, NSQLiteValue } from './types.ts';
+import { ParsedFilter, type TagFilter } from './ParsedFilter.ts';
+import { batch, memberOf, qs, where } from './sql.ts';
 
 // ============================================================================
 // NSQLite — a general-purpose `NStore` backed by SQLite.
@@ -82,45 +86,6 @@ import type { NostrEvent, NostrFilter, NostrRelayCOUNT, NStore } from '@nostrify
 // NIP-40 expiration is NOT handled, and nothing is pruned automatically.
 // ============================================================================
 
-/** A value SQLite can bind or return. */
-export type NSQLiteValue = string | number | bigint | Uint8Array | null;
-
-/** A row returned by a query, as a plain column-name → value object. */
-export type NSQLiteRow = Record<string, NSQLiteValue>;
-
-/**
- * The minimum surface {@link NSQLite} needs from a SQLite library.
- *
- * Both methods may be synchronous or return a promise, so this fits
- * `node:sqlite`, `better-sqlite3`, `bun:sqlite`, `@db/sqlite`, wa-sqlite, and
- * remote/WASM drivers alike. Statements are issued as SQL text plus bound
- * parameters; a driver is free (and encouraged) to cache prepared statements
- * keyed by the SQL string, which is why this class reuses statement shapes.
- */
-export interface NSQLiteDatabase {
-  /** Execute a statement that returns no rows. */
-  run(sql: string, params?: NSQLiteValue[]): void | Promise<void>;
-  /** Execute a statement and return every row it produces. */
-  all(sql: string, params?: NSQLiteValue[]): NSQLiteRow[] | Promise<NSQLiteRow[]>;
-  /** Release the underlying connection, if the driver has one to release. */
-  close?(): void | Promise<void>;
-}
-
-export interface NSQLiteOpts {
-  /**
-   * Returns which tags to index, as `[name, value]` pairs, so tag queries like
-   * `{ "#p": [...] }` work. Defaults to all single-letter tags with a non-empty
-   * value under 200 chars (see {@link NSQLite.indexTags}). Only the tags
-   * returned here are queryable; a filter on any other tag matches nothing.
-   *
-   * Changing this policy only affects events written afterwards.
-   */
-  indexTags?(event: NostrEvent): string[][];
-  /** Prefix for the table names this store creates. Default `nostr`. */
-  tablePrefix?: string;
-  /** Called with every statement executed, for debugging. */
-  onQuery?(sql: string, params: NSQLiteValue[]): void;
-}
 
 /**
  * How many candidate keys a paged scan fetches per round trip. Only scans that
@@ -147,6 +112,12 @@ const MAX_IN = 500;
  * memory instead, which keeps the statement's parameter count bounded.
  */
 const MAX_PUSHDOWN = 100;
+
+/**
+ * Most ids a secondary tag term is materialized into before it's left to the
+ * in-memory match instead.
+ */
+const MAX_TAG_SET = 100_000;
 
 /**
  * A general-purpose `NStore` backed by SQLite, suitable for relays, desktop
@@ -586,17 +557,38 @@ export class NSQLite implements NStore {
     // scans (where each part over-reads by up to a page).
     const inline = plan.cursors.length === 1 && plan.cursors[0].source === 'events';
 
+    // Tag terms the scan doesn't drive on, resolved to id sets so candidates
+    // failing them are dropped before their bodies are ever read.
+    const tagSets = await this.tagIdSets(plan, filter);
+
+    // Each set is a necessary condition, so a candidate must appear in all of
+    // them. Collapsing them up front turns the per-candidate check into one
+    // lookup, and an empty intersection settles the whole filter.
+    let required: Set<string> | undefined;
+
+    if (tagSets.length > 0) {
+      required = tagSets[0];
+      for (const set of tagSets.slice(1)) {
+        required = new Set([...required].filter((id) => set.has(id)));
+      }
+      if (required.size === 0) return [];
+    }
+
     let after: Keyset | undefined;
 
     while (collected.length < limit) {
       signal?.throwIfAborted();
 
-      const candidates = await this.scanCandidates(plan, after, pageSize, inline);
-      if (candidates.length === 0) break;
+      const page = await this.scanCandidates(plan, after, pageSize, inline);
+      if (page.length === 0) break;
 
-      after = candidates[candidates.length - 1];
+      after = page[page.length - 1];
 
-      const values = inline ? undefined : await this.fetchEvents(candidates.map(({ id }) => id));
+      const candidates = required ? page.filter(({ id }) => required.has(id)) : page;
+
+      const values = inline || candidates.length === 0
+        ? undefined
+        : await this.fetchEvents(candidates.map(({ id }) => id));
 
       for (const candidate of candidates) {
         if (collected.length >= limit) break;
@@ -612,7 +604,7 @@ export class NSQLite implements NStore {
       }
 
       // A short page means the scan is exhausted.
-      if (candidates.length < pageSize) break;
+      if (page.length < pageSize) break;
     }
 
     // Already newest-first, but merged pages can interleave `created_at` ties.
@@ -677,6 +669,63 @@ export class NSQLite implements NStore {
     return merged.slice(0, pageSize);
   }
 
+  /**
+   * Resolve the plan's non-driving tag terms to sets of matching event ids.
+   *
+   * A filter like `{"#t": [...], "#p": [...]}` can only be driven by one tag
+   * index. Reading each remaining term's ids — a covering scan of the tag
+   * index, no event bodies — turns the rest of the intersection into a Set
+   * lookup, so candidates that fail are discarded before anything is
+   * deserialized. Without this, a two-tag filter parses every event matching
+   * the first term just to check the second.
+   *
+   * A term matching more than {@link MAX_TAG_SET} events isn't worth
+   * materializing; it's left to the in-memory match instead.
+   */
+  private async tagIdSets(plan: ScanPlan, filter: ParsedFilter): Promise<Set<string>[]> {
+    if (!plan.extraTags?.length) return [];
+
+    const sets: Set<string>[] = [];
+
+    for (const tag of plan.extraTags) {
+      const ids = new Set<string>();
+      let overflowed = false;
+
+      for (const values of batch(tag.values, MAX_IN)) {
+        const conditions = ['name = ?', memberOf('value', values)];
+        const params: NSQLiteValue[] = [tag.name, ...values];
+
+        // The time bounds apply to every term, so they narrow this set too.
+        if (filter.since !== undefined) {
+          conditions.push('created_at >= ?');
+          params.push(filter.since);
+        }
+        if (filter.until !== undefined) {
+          conditions.push('created_at <= ?');
+          params.push(filter.until);
+        }
+
+        params.push(MAX_TAG_SET + 1);
+
+        const rows = await this.all(
+          `SELECT id FROM ${this.tags}${where(conditions)} LIMIT ?`,
+          params,
+        );
+
+        for (const row of rows) ids.add(row.id as string);
+
+        if (ids.size > MAX_TAG_SET) {
+          overflowed = true;
+          break;
+        }
+      }
+
+      if (!overflowed) sets.push(ids);
+    }
+
+    return sets;
+  }
+
   /** Fetch event bodies by id. */
   private async fetchEvents(ids: string[]): Promise<Map<string, NostrEvent>> {
     const events = new Map<string, NostrEvent>();
@@ -728,9 +777,10 @@ export class NSQLite implements NStore {
     if (filter.tags.length > 0) {
       const tag = filter.tags.reduce((a, b) => (b.values.length < a.values.length ? b : a));
       // `kind` is denormalized onto the tag index, so kinds can filter the
-      // scan; authors and extra tag terms can't, and fall to the in-memory
-      // match.
+      // scan; authors fall to the in-memory match. The remaining tag terms are
+      // intersected against the scan by id — see `tagIds`.
       const pushKinds = pushable(filter.kinds);
+      const extraTags = filter.tags.filter((other) => other !== tag);
 
       const cursors = [...batch(tag.values, MAX_IN)].map((values): ScanCursor => {
         const conditions = ['name = ?', memberOf('value', values)];
@@ -748,6 +798,7 @@ export class NSQLite implements NStore {
 
       return {
         cursors,
+        extraTags,
         sqlOnly: !filter.searchKeywords && !filter.authors && filter.tags.length === 1 &&
           (!filter.kinds || pushKinds),
       };
@@ -990,201 +1041,14 @@ interface ScanPlan {
    */
   cursors: ScanCursor[];
   /**
+   * Tag terms the scan doesn't drive on. Each is resolved to a set of ids and
+   * intersected with the candidates, so a candidate failing one never has its
+   * body read.
+   */
+  extraTags?: TagFilter[];
+  /**
    * Whether the scans' `WHERE` clauses express the filter completely, so
    * candidates need no in-memory re-check and the scan needs no paging.
    */
   sqlOnly: boolean;
-}
-
-/** `?, ?, ?` — a placeholder list of the given length. */
-function qs(length: number): string {
-  return new Array(length).fill('?').join(', ');
-}
-
-/**
- * A membership test on a column, as `= ?` for a single value and `IN (…)` for
- * several.
- *
- * The distinction matters: an equality on an index column keeps the scan
- * ordered by the columns after it, so `ORDER BY created_at DESC` comes free,
- * whereas `IN` makes SQLite loop over the values and sort the union. Writing a
- * one-element list as `IN (?)` measurably slowed tag scans.
- */
-function memberOf(column: string, values: readonly NSQLiteValue[]): string {
-  return values.length === 1 ? `${column} = ?` : `${column} IN (${qs(values.length)})`;
-}
-
-/** Join conditions into a `WHERE` clause, or nothing if there are none. */
-function where(conditions: string[]): string {
-  return conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : '';
-}
-
-/** Split values into chunks that fit within a statement's parameter budget. */
-function* batch<T>(values: T[], size: number): Generator<T[]> {
-  for (let i = 0; i < values.length; i += size) {
-    yield values.slice(i, i + size);
-  }
-}
-
-// ============================================================================
-// ParsedFilter — a parsed, normalized representation of a single Nostr filter,
-// plus an in-memory matcher. A port of strfry's `NostrFilter` (src/filters.h):
-// it pre-sorts/dedupes each value set (which drives the planner's selectivity
-// choice) and matches an event against every condition at once.
-//
-// Matching semantics are NIP-01's:
-//   - `ids`/`authors`/`kinds`: membership in the set.
-//   - `#x` tag filters: the event has at least one `x` tag whose value is in
-//     the set. The tag name may be single- or multi-letter (`#e`, `#proxy`).
-//   - `since`/`until`: inclusive created_at bounds.
-//   - multiple filters in a request are OR'd; conditions within a filter AND.
-// ============================================================================
-
-/** A tag filter, e.g. `{ name: 'e', values: [...] }` for `#e`. */
-interface TagFilter {
-  /** The tag name without the leading `#` (single- or multi-letter). */
-  name: string;
-  /** Sorted, de-duplicated set of acceptable values (drives the planner). */
-  values: string[];
-  /** The same values as a Set, for O(1) membership in the matcher. */
-  valueSet: Set<string>;
-}
-
-class ParsedFilter {
-  readonly ids?: string[];
-  readonly authors?: string[];
-  readonly kinds?: number[];
-  /** Tag filters (`#x`), each holding a single- or multi-letter name. */
-  readonly tags: TagFilter[];
-  readonly search?: string;
-
-  /**
-   * The NIP-50 keywords parsed out of `search`, pre-lowercased: `required`
-   * keywords must all appear in an event's content, `negated` ones
-   * (`-keyword` tokens) must not. Extension tokens (`key:value`) are parsed
-   * and removed — no extensions are supported, and per NIP-50 unsupported
-   * extensions are ignored. `undefined` when the filter has no `search`, or
-   * when it parses to no keywords (in which case it imposes no constraint).
-   */
-  readonly searchKeywords?: { required: string[]; negated: string[] };
-
-  readonly since?: number;
-  readonly until?: number;
-  readonly limit?: number;
-
-  /** Set views of the array constraints, for O(1) membership in `matches`. */
-  private readonly idSet?: Set<string>;
-  private readonly authorSet?: Set<string>;
-  private readonly kindSet?: Set<number>;
-
-  /**
-   * True when this filter can never match anything (an empty array was given
-   * for a constraint, e.g. `{ ids: [] }`). The planner short-circuits these.
-   */
-  readonly neverMatch: boolean;
-
-  constructor(filter: NostrFilter) {
-    let neverMatch = false;
-    const tags: TagFilter[] = [];
-
-    for (const [key, value] of Object.entries(filter)) {
-      // Empty array constraints can never match (NIP-01).
-      if (Array.isArray(value) && value.length === 0) {
-        neverMatch = true;
-        continue;
-      }
-
-      if (key === 'ids') {
-        this.ids = sortUnique(value as string[]);
-      } else if (key === 'authors') {
-        this.authors = sortUnique(value as string[]);
-      } else if (key === 'kinds') {
-        this.kinds = sortUniqueNums(value as number[]);
-      } else if (key === 'since') {
-        this.since = value as number;
-      } else if (key === 'until') {
-        this.until = value as number;
-      } else if (key === 'limit') {
-        this.limit = value as number;
-      } else if (key === 'search') {
-        // There's no full-text index; this drives the in-memory match only.
-        this.search = value as string;
-      } else if (key.startsWith('#') && key.length >= 2) {
-        // Any `#`-prefixed key is a tag filter; the name is everything after
-        // the `#` (single- OR multi-letter, e.g. `#e`, `#proxy`). Whether such
-        // a tag is actually queryable depends on the store's `indexTags`
-        // policy — a filter on a non-indexed tag simply matches nothing.
-        const values = sortUnique(value as string[]);
-        tags.push({ name: key.slice(1), values, valueSet: new Set(values) });
-      }
-      // Unrecognised keys are ignored (treated as no constraint).
-    }
-
-    this.tags = tags;
-    this.neverMatch = neverMatch;
-
-    this.idSet = this.ids && new Set(this.ids);
-    this.authorSet = this.authors && new Set(this.authors);
-    this.kindSet = this.kinds && new Set(this.kinds);
-
-    // NIP-50: parse the search input into tokens. Extension tokens
-    // (`key:value`) are parsed and removed — no extensions are supported, and
-    // per NIP-50 unsupported extensions are ignored. The remaining keywords
-    // (a leading `-` negates) drive a case-insensitive match on content.
-    if (this.search !== undefined) {
-      const required: string[] = [];
-      const negated: string[] = [];
-
-      for (const token of NIP50.parseInput(this.search)) {
-        if (typeof token !== 'string') continue; // extension token: removed
-        const keyword = token.toLowerCase();
-        if (keyword.startsWith('-')) {
-          if (keyword.length > 1) negated.push(keyword.slice(1));
-        } else if (keyword.length > 0) {
-          required.push(keyword);
-        }
-      }
-
-      if (required.length > 0 || negated.length > 0) {
-        this.searchKeywords = { required, negated };
-      }
-    }
-  }
-
-  /** Full NIP-01 match of an event against every condition in this filter. */
-  matches(event: NostrEvent): boolean {
-    if (this.neverMatch) return false;
-
-    if (this.since !== undefined && event.created_at < this.since) return false;
-    if (this.until !== undefined && event.created_at > this.until) return false;
-
-    if (this.idSet && !this.idSet.has(event.id)) return false;
-    if (this.authorSet && !this.authorSet.has(event.pubkey)) return false;
-    if (this.kindSet && !this.kindSet.has(event.kind)) return false;
-
-    for (const { name, valueSet } of this.tags) {
-      const found = event.tags.some(([n, v]) => n === name && valueSet.has(v));
-      if (!found) return false;
-    }
-
-    if (this.searchKeywords) {
-      const content = event.content.toLowerCase();
-      for (const keyword of this.searchKeywords.required) {
-        if (!content.includes(keyword)) return false;
-      }
-      for (const keyword of this.searchKeywords.negated) {
-        if (content.includes(keyword)) return false;
-      }
-    }
-
-    return true;
-  }
-}
-
-function sortUnique(values: string[]): string[] {
-  return [...new Set(values)].sort();
-}
-
-function sortUniqueNums(values: number[]): number[] {
-  return [...new Set(values)].sort((a, b) => a - b);
 }

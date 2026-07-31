@@ -5,6 +5,7 @@ import { DatabaseSync } from 'node:sqlite';
 import type { NostrEvent } from '@nostrify/types';
 
 import { NSQLite } from './NSQLite.ts';
+import { NSQLiteFTS } from './NSQLiteFTS.ts';
 import { NSQLiteJoin } from './NSQLiteJoin.ts';
 import type { NSQLiteDatabase, NSQLiteOpts, NSQLiteRow, NSQLiteValue } from './types.ts';
 
@@ -21,10 +22,10 @@ function nodeSQLite(sqlite: DatabaseSync): NSQLiteDatabase {
 }
 
 /**
- * The two implementations share an interface and their semantics, so they
- * share a test suite. Anything either one gets wrong shows up here.
+ * The implementations share an interface and their semantics, so they share a
+ * test suite. Anything any one of them gets wrong shows up here.
  */
-type Store = NSQLite | NSQLiteJoin;
+type Store = NSQLite | NSQLiteFTS | NSQLiteJoin;
 
 interface StoreClass {
   new (db: NSQLiteDatabase, opts?: NSQLiteOpts): Store;
@@ -68,7 +69,7 @@ async function add(store: Store, ...events: NostrEvent[]): Promise<void> {
   }
 }
 
-for (const Store of [NSQLite, NSQLiteJoin] as StoreClass[]) {
+for (const Store of [NSQLite, NSQLiteFTS, NSQLiteJoin] as StoreClass[]) {
   /** Open a store backed by a fresh in-memory database. */
   const openStore = async (opts: NSQLiteOpts = {}): Promise<Store> => {
     const store = new Store(nodeSQLite(new DatabaseSync(':memory:')), opts);
@@ -922,5 +923,156 @@ await describe('NSQLite full-text search with a common keyword', () => {
 
     deepStrictEqual(found.length, 5);
     ok(found.every((event) => event.content.includes('common')));
+  });
+});
+
+await describe('NSQLiteFTS token encoding', () => {
+  const openStore = async (): Promise<NSQLiteFTS> => {
+    const store = new NSQLiteFTS(nodeSQLite(new DatabaseSync(':memory:')));
+    openStores.push(store);
+    await store.migrate();
+    return store;
+  };
+
+  /** Tag values that don't survive a tokenizer unescaped, and must still match exactly. */
+  const awkward = [
+    'Uppercase',
+    'MiXeD-CaSe',
+    'with spaces',
+    'punctuation!?',
+    'a:b:c',
+    'under_score',
+    'naïve',
+    '🔥',
+    '30023:aaaa:my-article',
+    'https://example.com/path?x=1',
+    '',
+  ];
+
+  for (const value of awkward) {
+    it(`round-trips a tag value: ${JSON.stringify(value)}`, async () => {
+      // The default policy skips empty values and long ones, so index everything.
+      const store = new NSQLiteFTS(nodeSQLite(new DatabaseSync(':memory:')), {
+        indexTags: (event) => event.tags,
+      });
+      openStores.push(store);
+      await store.migrate();
+
+      const wanted = makeEvent({ tags: [['t', value]] });
+      // A value the wanted one is a prefix of, which a tokenizer that split or
+      // truncated the token would confuse it with.
+      const other = makeEvent({ tags: [['t', `${value}x`]] });
+      await add(store, wanted, other);
+
+      deepStrictEqual(ids(await store.query([{ '#t': [value] }])), [wanted.id]);
+    });
+  }
+
+  it('does not confuse a value with the escaped form of another', async () => {
+    const store = await openStore();
+    // 'x' escapes to `_78`, so a literal value of `_78` must not collide.
+    const escaped = makeEvent({ tags: [['t', 'X']] });
+    const literal = makeEvent({ tags: [['t', '_58']] });
+    await add(store, escaped, literal);
+
+    deepStrictEqual(ids(await store.query([{ '#t': ['X'] }])), [escaped.id]);
+    deepStrictEqual(ids(await store.query([{ '#t': ['_58'] }])), [literal.id]);
+  });
+
+  it('does not confuse a tag name with another name and value', async () => {
+    const store = await openStore();
+    const a = makeEvent({ tags: [['e', 'ab']] });
+    const b = makeEvent({ tags: [['e', 'b']] });
+    await add(store, a, b);
+
+    deepStrictEqual(ids(await store.query([{ '#e': ['ab'] }])), [a.id]);
+    deepStrictEqual(ids(await store.query([{ '#e': ['b'] }])), [b.id]);
+  });
+
+  it('does not match a tag filter against words in the content', async () => {
+    const store = await openStore();
+    const id = '1'.repeat(64);
+    // The token for this filter is `e:1111…`, which this event's text contains.
+    await add(store, makeEvent({ content: `see e:${id} and p:${'a'.repeat(64)}` }));
+
+    deepStrictEqual(await store.query([{ '#e': [id] }]), []);
+    deepStrictEqual(await store.query([{ '#p': ['a'.repeat(64)] }]), []);
+  });
+
+  it('does not match a tag filter against a reserved token', async () => {
+    const store = await openStore();
+    const event = makeEvent({ kind: 7, pubkey: PK1 });
+    await add(store, event);
+
+    // `_p:<pubkey>` is how the author is indexed; a tag named `_p` must not
+    // reach it, and neither must a tag whose name escapes near it.
+    deepStrictEqual(await store.query([{ '#_p': [PK1] }]), []);
+    deepStrictEqual(await store.query([{ '#_d': [event.id] }]), []);
+  });
+
+  it('orders events sharing a timestamp, and pages through them', async () => {
+    const store = await openStore();
+    const events = Array.from({ length: 50 }, () => makeEvent({ created_at: 1000, tags: [['t', 'x']] }));
+    await add(store, ...events);
+
+    const found = await store.query([{ '#t': ['x'] }]);
+    deepStrictEqual(found.length, 50);
+    // Ties break on id, ascending.
+    deepStrictEqual(ids(found), ids([...events].sort((a, b) => (a.id < b.id ? -1 : 1))));
+  });
+
+  it('keeps ordering when events arrive out of order', async () => {
+    const store = await openStore();
+    const newest = makeEvent({ created_at: 3000, tags: [['t', 'x']] });
+    const oldest = makeEvent({ created_at: 1000, tags: [['t', 'x']] });
+    const middle = makeEvent({ created_at: 2000, tags: [['t', 'x']] });
+    // Written newest-first, so the older two land behind the newest rowid.
+    await add(store, newest, oldest, middle);
+
+    deepStrictEqual(ids(await store.query([{ '#t': ['x'] }])), [newest.id, middle.id, oldest.id]);
+    deepStrictEqual(ids(await store.query([{ '#t': ['x'], limit: 2 }])), [newest.id, middle.id]);
+    deepStrictEqual(ids(await store.query([{ '#t': ['x'], since: 1500, until: 2500 }])), [middle.id]);
+  });
+
+  it('fills a limit even when most matches are filtered out', async () => {
+    const store = await openStore();
+    // 300 events on the tag, only every tenth of the wanted kind, so the scan
+    // has to page well past its first read to find twenty.
+    const events: NostrEvent[] = [];
+    for (let i = 0; i < 300; i++) {
+      events.push(makeEvent({ kind: i % 10 === 0 ? 1 : 7, created_at: 1000 + i, tags: [['t', 'x']] }));
+    }
+    await add(store, ...events);
+
+    const found = await store.query([{ '#t': ['x'], kinds: [1], limit: 20 }]);
+
+    deepStrictEqual(found.length, 20);
+    ok(found.every((event) => event.kind === 1));
+    // Newest-first: the last kind 1 written is the first returned.
+    deepStrictEqual(found[0].created_at, 1290);
+  });
+
+  it('counts a filter whose conditions are not all in the index', async () => {
+    const store = await openStore();
+    await add(
+      store,
+      makeEvent({ kind: 1, tags: [['t', 'x']] }),
+      makeEvent({ kind: 7, tags: [['t', 'x']] }),
+      makeEvent({ kind: 1, tags: [['t', 'y']] }),
+    );
+
+    deepStrictEqual(await store.count([{ '#t': ['x'] }]), { count: 2, approximate: false });
+    deepStrictEqual(await store.count([{ '#t': ['x'], kinds: [1] }]), { count: 1, approximate: false });
+  });
+
+  it('handles a timestamp beyond the rowid encoding', async () => {
+    const store = await openStore();
+    const huge = makeEvent({ created_at: 2 ** 40, tags: [['t', 'x']] });
+    const normal = makeEvent({ created_at: 1000, tags: [['t', 'x']] });
+    await add(store, huge, normal);
+
+    deepStrictEqual(ids(await store.query([{ '#t': ['x'] }])), [huge.id, normal.id]);
+    deepStrictEqual(ids(await store.query([{ '#t': ['x'], since: 2 ** 39 }])), [huge.id]);
+    deepStrictEqual(ids(await store.query([{ '#t': ['x'], until: 2 ** 39 }])), [normal.id]);
   });
 });

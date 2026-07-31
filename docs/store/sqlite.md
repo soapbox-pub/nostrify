@@ -6,7 +6,12 @@ outline: deep
 
 `NSQLite` is a high-performance `NStore` backed by SQLite. It works with any SQLite library, and treats SQLite as a key/value store with hand-maintained indexes rather than a relational schema — there are no joins.
 
-The package also ships `NSQLiteJoin`, the conventional relational implementation — an events table and a tags table, joined, planned by SQLite. The two share an interface, a driver, and their semantics, so they're interchangeable. See [Choosing between them](#choosing-between-them).
+The package ships two alternative implementations with the same interface, driver and semantics, so all three are interchangeable:
+
+- **`NSQLiteFTS`** indexes tags as full-text tokens instead of b-tree rows, and keys every table by time. Faster than `NSQLite` on tag and search queries — by an order of magnitude on the harder ones — at the same write cost.
+- **`NSQLiteJoin`** is the conventional relational implementation: an events table and a tags table, joined, planned by SQLite.
+
+See [Choosing between them](#choosing-between-them).
 
 ## Installation
 
@@ -191,30 +196,62 @@ Every index ends in `(created_at DESC, id ASC)`, so scanning any index prefix yi
 
 A filter is planned with strfry's `DBScan` priority cascade — ids, then the most selective `#tag`, then pubkey+kind, pubkey, kind, and finally a full `created_at` scan — and the chosen index is forced with `INDEXED BY`, so the plan never depends on SQLite's cost estimates or on how stale `ANALYZE` is. Execution is two-phase: scan the index for candidate keys, then fetch those values by primary key. Conditions the index can't express become part of the scan's `WHERE` clause where SQLite can evaluate them; anything left over — extra tag terms, NIP-50 keywords — is matched in memory, with the scan paged by keyset so memory stays bounded.
 
+## How NSQLiteFTS works
+
+Same idea as `NSQLite` — one chosen index, no joins, plans that don't depend on SQLite's cost estimates — but the tag index is an FTS5 inverted index rather than a b-tree, and there is no tags table at all.
+
+An event's tags become a string of opaque tokens (`e:<id>`, `p:<pubkey>`, `t:nostr`), and FTS5's tokenizer is configured so each one is a single indivisible token. `{"#e": [id]}` is then a full-text match for the word `e:<id>`, and `{"#t": [a, b], "#p": [c]}` is one MATCH — `(t:a OR t:b) AND p:c` — that FTS5 answers by merging sorted posting lists in C. That's the whole advantage: intersecting tag terms is what an inverted index does, while a b-tree can only ever drive on one of them and has to intersect the rest by hand.
+
+The problem with using FTS5 this way is ordering: Nostr wants newest-first with a small limit, and FTS5 only yields rows in rowid order. So rowid _is_ time:
+
+```
+rowid = created_at × 2²⁰ + a per-second sequence number
+```
+
+`ORDER BY rowid DESC` is then `ORDER BY created_at DESC`, which FTS5 satisfies by walking its posting lists backwards with no sorter, and `since`/`until` become a rowid range it pushes down into that walk. A tag query is one statement that stops as soon as it has enough rows.
+
+The encoding pays off outside the index too. The events table is clustered by time, so the `created_at DESC` index the other designs need _is the table_; `(kind)` and `(pubkey)` are implicitly `(kind, created_at)` and `(pubkey, created_at)`, with narrower keys; and a candidate key is one integer whose event is a seek into the table b-tree rather than into a 64-character text index.
+
+What the index doesn't carry matters as much. A posting list is only worth intersecting when it's short, and read backwards FTS5 walks a term's list in full — so a term matching a large share of the store costs its whole length however small the answer. Kinds are exactly that: there are only a handful in use. So kinds (and authors, unless a tag is already driving) are tested on the event rows the index finds, which is a column read on a row that was going to be fetched anyway, and measured 2–3x faster than intersecting a `_k:` posting list.
+
+Tag values are encoded rather than stored raw: tokenizers split on punctuation and fold case, so a value is embedded verbatim only when it's lowercase alphanumeric — which ids, pubkeys and most topics are — and anything else is hex-escaped, keeping matches exact for values with spaces, capitals, emoji or URLs in them.
+
+`NSQLiteFTS` requires an FTS5-enabled SQLite of at least 3.43 (2023), for contentless full-text tables that support deletion. `node:sqlite`, `better-sqlite3` and `bun:sqlite` all ship something newer.
+
 ## Choosing between them
 
-Use `NSQLite` unless your workload is dominated by filters that intersect two or more tags. It's faster on nearly every query shape, and its lead on tag queries widens as the database grows, because the relational design's cost scales with how many rows a tag matches while `NSQLite`'s stays flat.
+**`NSQLiteFTS` if your workload leans on tag or search queries; `NSQLite` otherwise.** `NSQLiteFTS` is at parity on writes and on plain kind/author queries, and ahead everywhere tags or keywords are involved — by 10–60x on the shapes that combine several terms. `NSQLite` is the more conservative choice: it needs nothing of SQLite beyond ordinary b-trees, and its performance is flatter and easier to reason about.
 
-Measured with better-sqlite3 on a synthetic dataset. Ratios are `NSQLiteJoin ÷ NSQLite`, so above 1.0 means `NSQLite` is faster:
+Measured with better-sqlite3 on a synthetic dataset; the 50k column is the median of three runs. Ratios are the other store ÷ `NSQLite`, so **below 1.0 is faster than `NSQLite`**:
 
-| Query                        | 50k events | 200k events |
-| ---------------------------- | ---------: | ----------: |
-| by kind, limit 20            |       1.1x |        1.2x |
-| by author, limit 20          |       1.2x |        1.3x |
-| by author + kind, limit 20   |       1.1x |        1.5x |
-| **by tag, limit 20**         |   **2.5x** |   **10.3x** |
-| **by tag + kind, limit 20**  |   **5.6x** |    **5.6x** |
-| **count by tag**             |   **3.7x** |    **8.3x** |
-| feed (500 authors × 2 kinds) |       1.0x |        1.0x |
-| count by kind                |       1.0x |        1.0x |
-| **by two tags, limit 20**    |   **0.3x** |    **0.3x** |
-| insert (whole dataset)       |      0.75x |        0.7x |
+| Query                         | FTS @50k  | FTS @200k | Join @50k | Join @200k |
+| ----------------------------- | --------: | --------: | --------: | ---------: |
+| insert (whole dataset)        |     0.99x |     1.07x |     0.75x |      0.70x |
+| by kind, limit 20             |     0.98x |     1.17x |     1.15x |      1.20x |
+| by author, limit 20           |     0.91x |     0.79x |     1.16x |      1.02x |
+| by author + kind, limit 20    |     0.97x |     1.06x |     1.15x |      1.08x |
+| feed (500 authors × 2 kinds)  |     0.79x |     0.96x |     1.07x |      1.18x |
+| by tag, limit 20              | **0.63x** | **0.71x** |     2.39x |     11.70x |
+| by tag + kind, limit 20       | **0.78x** | **0.70x** |     5.01x |      4.60x |
+| by tag, no limit              | **0.36x** | **0.46x** |     0.49x |      0.66x |
+| **by two tags, limit 20**     | **0.11x** | **0.05x** |     0.33x |      0.27x |
+| **by tag + author + kind**    | **0.04x** | **0.02x** |     0.02x |      0.01x |
+| **by tag, 100 values**        | **0.20x** | **0.08x** |    17.83x |     38.80x |
+| count by kind                 | **0.70x** | **0.45x** |     1.01x |      0.96x |
+| count by tag                  |     1.06x |     1.11x |     3.67x |      8.86x |
+| **by search, limit 20**       | **0.12x** | **0.03x** |     1.42x |      0.36x |
+| **by search + tag, limit 20** | **0.15x** | **0.06x** |     0.79x |      0.93x |
 
-Search is absent from the table because the two no longer answer it the same way — `NSQLite` uses a full-text index and `NSQLiteJoin` scans — so comparing them would measure the index rather than the schema. Writes are the one place `NSQLiteJoin` is reliably ahead, by about a third, which is what maintaining that index costs.
+The `NSQLiteJoin` search column measures the absence of a full-text index rather than the schema, since it scans and matches in memory.
 
-On a database of a few thousand events the two are within noise of each other on most shapes, since deserializing the events dominates. The differences above are what you get once the store is large enough for the query strategy to matter.
+A few things worth reading out of that table:
 
-The one shape `NSQLiteJoin` wins decisively is intersecting two tag terms (`{"#t": [...], "#p": [...]}`), by 3–4x. That difference is structural rather than incidental: only one tag index can drive the scan, so `NSQLite` resolves the remaining terms to id sets and intersects them in memory, which costs a row handed across the driver boundary for every event matching _either_ term. A join lets SQLite intersect internally and apply the `LIMIT` before any row is materialized. Writes are within a couple of percent either way.
+- **`NSQLiteFTS`'s lead grows with the database.** Intersecting two tags goes from 9x to 20x between 50k and 200k events, and a 100-value tag filter from 5x to 12x, because merging posting lists costs the size of the _answer_ while intersecting id sets in the application costs the size of the _terms_.
+- **Writes are a wash.** Not obviously so, given `NSQLiteFTS` maintains two full-text indexes: it gets there by writing one index row per event instead of one per tag.
+- **`NSQLiteJoin` still wins one shape outright**, tag + author + kind, where SQLite's planner correctly drives from the author index. `NSQLiteFTS` is within 3x of it there and 25–60x ahead of `NSQLite`.
+- **On a small store all three are within noise** on most shapes, since deserializing events dominates. The differences above are what you get once the store is large enough for the query strategy to matter.
+
+The one shape `NSQLiteJoin` beats `NSQLite` on is intersecting two tag terms (`{"#t": [...], "#p": [...]}`), by 3–4x. That difference is structural: only one tag index can drive the scan, so `NSQLite` resolves the remaining terms to id sets and intersects them in memory, which costs a row handed across the driver boundary for every event matching _either_ term. A join lets SQLite intersect internally and apply the `LIMIT` before any row is materialized — and an inverted index does the same thing faster still.
 
 Both benchmarks live in the package:
 
@@ -229,7 +266,9 @@ NIP-50 `search` is answered from an FTS5 index that triggers keep in step with t
 
 Keywords match whole words, case- and accent-insensitively, so `nostr` matches "nostr" but not "nostrich", and `cafe` matches "café". Whatever a user types is passed as a literal phrase, so a keyword like `OR` or `(` searches for that word rather than being read as query syntax.
 
-How the keywords are applied depends on how many events they match, which the store measures before deciding: selective terms drive the query so it reads only matching rows, while common terms filter an ordinary indexed scan, since matches are dense enough that the scan runs into one almost immediately.
+In `NSQLite`, how the keywords are applied depends on how many events they match, which the store measures before deciding: selective terms drive the query so it reads only matching rows, while common terms filter an ordinary indexed scan, since matches are dense enough that the scan runs into one almost immediately.
+
+`NSQLiteFTS` needs no such choice. Its rowids are timestamps, so the index yields a keyword's matches newest-first and the scan simply stops at the limit, whether the keyword matches ten events or a million.
 
 Measured against the previous scan-and-match implementation, 200k events, better-sqlite3:
 

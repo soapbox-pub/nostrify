@@ -2,16 +2,20 @@ import BetterSQLite3 from 'better-sqlite3';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
 import { NSQLite } from './NSQLite.ts';
+import { NSQLiteFTS } from './NSQLiteFTS.ts';
 import { NSQLiteJoin } from './NSQLiteJoin.ts';
 import type { NSQLiteDatabase, NSQLiteRow, NSQLiteValue } from './types.ts';
 
 import events from '../../fixtures/events.json' with { type: 'json' };
 
 // ============================================================================
-// NSQLite (key/value + hand-picked indexes, no joins) vs. NSQLiteJoin (events
-// and tags tables, joined, planned by SQLite).
+// Three schemas, one interface:
 //
-// Both stores implement the same interface with the same semantics and run on
+//   NSQLite      key/value + hand-picked b-tree indexes, no joins
+//   NSQLiteFTS   every index term — tags included — in one FTS5 table
+//   NSQLiteJoin  events and tags tables, joined, planned by SQLite
+//
+// All three implement the same interface with the same semantics and run on
 // the same driver, so each group below isolates the schema and query strategy.
 //
 // Read and write benchmarks use separate store instances: the write benchmarks
@@ -22,7 +26,7 @@ import events from '../../fixtures/events.json' with { type: 'json' };
 //   deno bench -A --no-check NSQLite.bench.ts
 // ============================================================================
 
-type Store = NSQLite | NSQLiteJoin;
+type Store = NSQLite | NSQLiteFTS | NSQLiteJoin;
 
 /** A better-sqlite3 driver that caches prepared statements by SQL text. */
 function betterSQLite3(): NSQLiteDatabase {
@@ -68,11 +72,13 @@ async function empty(Store: new (db: NSQLiteDatabase) => Store): Promise<Store> 
 
 const read = {
   NSQLite: await seeded(NSQLite),
+  NSQLiteFTS: await seeded(NSQLiteFTS),
   NSQLiteJoin: await seeded(NSQLiteJoin),
 };
 
 const write = {
   NSQLite: await empty(NSQLite),
+  NSQLiteFTS: await empty(NSQLiteFTS),
   NSQLiteJoin: await empty(NSQLiteJoin),
 };
 
@@ -94,6 +100,13 @@ function compare(group: string, fn: (store: Store) => Promise<unknown>): void {
     },
   });
   Deno.bench({
+    name: 'NSQLiteFTS',
+    group,
+    fn: async () => {
+      await fn(read.NSQLiteFTS);
+    },
+  });
+  Deno.bench({
     name: 'NSQLiteJoin',
     group,
     fn: async () => {
@@ -111,6 +124,7 @@ function compareWrite(group: string, make: () => NostrEventInit): void {
   };
 
   Deno.bench({ name: 'NSQLite', group, baseline: true, fn: bench(write.NSQLite) });
+  Deno.bench({ name: 'NSQLiteFTS', group, fn: bench(write.NSQLiteFTS) });
   Deno.bench({ name: 'NSQLiteJoin', group, fn: bench(write.NSQLiteJoin) });
 }
 

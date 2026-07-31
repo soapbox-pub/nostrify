@@ -158,8 +158,16 @@ export class NSQLite implements NStore {
   private readonly idxKind: string;
   private readonly idxPubkeyKind: string;
 
-  /** Whether a transaction opened by this store is currently in progress. */
-  private inTransaction = false;
+  /** Events queued by {@link event}, awaiting the next batched commit. */
+  private pending: PendingWrite[] = [];
+  /** Whether a flush is already scheduled for the current burst. */
+  private flushScheduled = false;
+  /**
+   * Tail of the write chain. Transactions queue behind it rather than
+   * interleaving, since SQLite has no nested transactions and two overlapping
+   * writers would otherwise share — and roll back — each other's work.
+   */
+  private writeLock: Promise<unknown> = Promise.resolve();
 
   constructor(db: NSQLiteDatabase, opts: NSQLiteOpts = {}) {
     const prefix = opts.tablePrefix ?? 'nostr';
@@ -254,11 +262,88 @@ export class NSQLite implements NStore {
    * ignored if a newer version is already stored. Kind 5 deletion requests
    * delete the events they target. An event that a stored deletion request has
    * already deleted is rejected with a `RelayError`.
+   *
+   * Events handed over without awaiting each one — a relay feeding several
+   * connections, or a `Promise.all` over a page of results — are collected and
+   * committed together in a single transaction. The returned promise still
+   * resolves only once the event is durably committed, so nothing about the
+   * contract changes; a caller that awaits each `event()` in turn simply gets
+   * batches of one, exactly as before.
    */
-  async event(event: NostrEvent, _opts?: { signal?: AbortSignal }): Promise<void> {
-    if (NKinds.ephemeral(event.kind)) return;
+  event(event: NostrEvent, _opts?: { signal?: AbortSignal }): Promise<void> {
+    if (NKinds.ephemeral(event.kind)) return Promise.resolve();
 
-    await this.transaction(async () => {
+    return new Promise<void>((resolve, reject) => {
+      this.pending.push({ event, resolve, reject });
+      this.scheduleFlush();
+    });
+  }
+
+  /**
+   * Schedule a flush for the events queued so far.
+   *
+   * A microtask is the tightest window that still catches a whole burst: every
+   * `event()` call made before the caller next awaits lands in the same batch,
+   * and no latency is added for callers that don't batch. A timer would widen
+   * the window at the cost of delaying every write.
+   */
+  private scheduleFlush(): void {
+    if (this.flushScheduled) return;
+    this.flushScheduled = true;
+
+    queueMicrotask(() => {
+      this.flushScheduled = false;
+      void this.flushWrites();
+    });
+  }
+
+  /**
+   * Commit every queued event in one transaction, then settle their callers.
+   *
+   * An event the store rejects on its own terms — one a deletion request has
+   * already removed — only fails that caller; it's checked before anything is
+   * written, so the rest of the batch is unaffected. Any other failure means
+   * the transaction itself is in doubt, so the batch rolls back together and
+   * every caller sees the error.
+   */
+  private async flushWrites(): Promise<void> {
+    const batch = this.pending;
+    if (batch.length === 0) return;
+
+    this.pending = [];
+
+    const rejections = new Map<PendingWrite, unknown>();
+
+    try {
+      await this.transaction(async () => {
+        for (const item of batch) {
+          try {
+            await this.writeEvent(item.event);
+          } catch (error) {
+            if (error instanceof RelayError) {
+              rejections.set(item, error);
+              continue;
+            }
+            throw error;
+          }
+        }
+      });
+    } catch (error) {
+      for (const item of batch) item.reject(error);
+      return;
+    }
+
+    // Settled only after the commit, so resolving means durable.
+    for (const item of batch) {
+      const rejection = rejections.get(item);
+      if (rejection) item.reject(rejection);
+      else item.resolve();
+    }
+  }
+
+  /** Apply a single event's writes. Runs inside the batch transaction. */
+  private async writeEvent(event: NostrEvent): Promise<void> {
+    {
       if (await this.isDeleted(event)) {
         throw new RelayError('invalid', 'event deleted');
       }
@@ -295,7 +380,7 @@ export class NSQLite implements NStore {
       if (event.kind === 5) {
         await this.applyDeletion(event);
       }
-    });
+    }
   }
 
   /** Write the event row and its tag index rows. */
@@ -956,26 +1041,29 @@ export class NSQLite implements NStore {
   }
 
   /**
-   * Run `fn` inside a transaction. Nested calls join the outer transaction —
-   * SQLite has no nested transactions, and every writer here is small enough
-   * that a savepoint would only add round trips.
+   * Run `fn` inside a transaction, queued behind any transaction already in
+   * flight. Serializing them keeps a write that starts mid-flush from being
+   * swept into that flush's transaction and rolled back with it.
    */
-  private async transaction<T>(fn: () => Promise<T>): Promise<T> {
-    if (this.inTransaction) return await fn();
+  private transaction<T>(fn: () => Promise<T>): Promise<T> {
+    const result = this.writeLock.then(async () => {
+      await this.run('BEGIN IMMEDIATE');
 
-    this.inTransaction = true;
-    await this.run('BEGIN IMMEDIATE');
+      try {
+        const value = await fn();
+        await this.run('COMMIT');
+        return value;
+      } catch (error) {
+        await this.run('ROLLBACK');
+        throw error;
+      }
+    });
 
-    try {
-      const result = await fn();
-      await this.run('COMMIT');
-      return result;
-    } catch (error) {
-      await this.run('ROLLBACK');
-      throw error;
-    } finally {
-      this.inTransaction = false;
-    }
+    // The chain must not break on failure, so successors wait on a settled
+    // promise rather than a rejected one.
+    this.writeLock = result.catch(() => {});
+
+    return result;
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -1009,6 +1097,13 @@ export class NSQLite implements NStore {
   }
 
   [Symbol.toStringTag] = 'NSQLite';
+}
+
+/** An event queued for the next batched commit, with its caller's settlers. */
+interface PendingWrite {
+  event: NostrEvent;
+  resolve(): void;
+  reject(error: unknown): void;
 }
 
 /** A candidate key produced by an index scan, and the keyset paging position. */

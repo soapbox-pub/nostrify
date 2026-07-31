@@ -417,6 +417,68 @@ for (const Store of [NSQLite, NSQLiteJoin] as StoreClass[]) {
       });
     });
 
+    describe('concurrent writes', () => {
+      it('stores every event issued without awaiting', async () => {
+        const store = await openStore();
+        const events = Array.from({ length: 50 }, (_, i) => makeEvent({ created_at: 1000 + i }));
+
+        await Promise.all(events.map((event) => store.event(event)));
+
+        deepStrictEqual((await store.query([{}])).length, events.length);
+      });
+
+      it('resolves only once the event is readable', async () => {
+        const store = await openStore();
+        const event = makeEvent();
+
+        await store.event(event);
+
+        deepStrictEqual(await store.query([{ ids: [event.id] }]), [event]);
+      });
+
+      it('fails only the rejected event, not the rest of the batch', async () => {
+        const store = await openStore();
+        const target = makeEvent({ pubkey: PK1, created_at: 1000 });
+        await add(store, target, makeEvent({ kind: 5, pubkey: PK1, created_at: 2000, tags: [['e', target.id]] }));
+
+        const good = makeEvent({ created_at: 3000 });
+        const alsoGood = makeEvent({ created_at: 4000 });
+
+        const results = await Promise.allSettled([
+          store.event(good),
+          store.event(target), // already deleted
+          store.event(alsoGood),
+        ]);
+
+        deepStrictEqual(results.map((r) => r.status), ['fulfilled', 'rejected', 'fulfilled']);
+        deepStrictEqual(ids(await store.query([{ ids: [good.id, alsoGood.id, target.id] }])), [
+          alsoGood.id,
+          good.id,
+        ]);
+      });
+
+      it('resolves supersession across a batch', async () => {
+        const store = await openStore();
+        const older = makeEvent({ kind: 0, pubkey: PK1, created_at: 1000 });
+        const newer = makeEvent({ kind: 0, pubkey: PK1, created_at: 2000 });
+
+        await Promise.all([store.event(older), store.event(newer)]);
+
+        deepStrictEqual(await store.query([{ kinds: [0] }]), [newer]);
+      });
+
+      it('does not let a concurrent remove disturb a write', async () => {
+        const store = await openStore();
+        const keep = makeEvent({ kind: 1, created_at: 1000 });
+        await add(store, keep);
+
+        const added = makeEvent({ kind: 7, created_at: 2000 });
+        await Promise.all([store.event(added), store.remove([{ kinds: [1] }])]);
+
+        deepStrictEqual(await store.query([{}]), [added]);
+      });
+    });
+
     describe('count', () => {
       it('counts matching events', async () => {
         const store = await openStore();

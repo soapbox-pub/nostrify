@@ -69,6 +69,31 @@ const store = new NSQLite({
 });
 ```
 
+### Write batching
+
+`NSQLite` collects events handed to it without an intervening `await` and
+commits them in a single transaction. Nothing about the contract changes — the
+promise from `event()` still resolves only once that event is durably committed
+— but per-event transaction overhead is amortized across the batch.
+
+```ts
+// One transaction, not 500.
+await Promise.all(events.map((event) => store.event(event)));
+```
+
+Measured on 20k events, disk-backed with WAL and `synchronous = NORMAL`:
+
+| Ingest pattern             | per event |          |
+| -------------------------- | --------: | -------- |
+| `await` each event in turn |  232.9 µs | baseline |
+| 10 concurrent              |   83.7 µs | 2.8x     |
+| 100 concurrent             |   55.7 µs | **4.2x** |
+| 1000 concurrent            |   62.8 µs | 3.7x     |
+
+Awaiting each event in turn gives batches of one, which is why that row is the
+baseline rather than an improvement: there's only ever one event in flight to
+batch. Feed events in concurrently to get the benefit.
+
 ### Recommended pragmas
 
 For a durable on-disk store:

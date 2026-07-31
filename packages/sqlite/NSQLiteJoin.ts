@@ -80,7 +80,12 @@ export class NSQLiteJoin implements NStore {
   private readonly events: string;
   private readonly tags: string;
 
-  private inTransaction = false;
+  /**
+   * Tail of the write chain. Transactions queue behind it rather than
+   * interleaving, since SQLite has no nested transactions and two overlapping
+   * writers would otherwise share — and roll back — each other's work.
+   */
+  private writeLock: Promise<unknown> = Promise.resolve();
 
   constructor(db: NSQLiteDatabase, opts: NSQLiteOpts = {}) {
     const prefix = opts.tablePrefix ?? 'nostr';
@@ -544,22 +549,24 @@ export class NSQLiteJoin implements NStore {
     await this.run(sql.trim().replace(/\s+/g, ' '));
   }
 
-  private async transaction<T>(fn: () => Promise<T>): Promise<T> {
-    if (this.inTransaction) return await fn();
+  /** Run `fn` inside a transaction, queued behind any already in flight. */
+  private transaction<T>(fn: () => Promise<T>): Promise<T> {
+    const result = this.writeLock.then(async () => {
+      await this.run('BEGIN IMMEDIATE');
 
-    this.inTransaction = true;
-    await this.run('BEGIN IMMEDIATE');
+      try {
+        const value = await fn();
+        await this.run('COMMIT');
+        return value;
+      } catch (error) {
+        await this.run('ROLLBACK');
+        throw error;
+      }
+    });
 
-    try {
-      const result = await fn();
-      await this.run('COMMIT');
-      return result;
-    } catch (error) {
-      await this.run('ROLLBACK');
-      throw error;
-    } finally {
-      this.inTransaction = false;
-    }
+    this.writeLock = result.catch(() => {});
+
+    return result;
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────

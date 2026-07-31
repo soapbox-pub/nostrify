@@ -199,8 +199,9 @@ compare('count by kind', (db) => db.count([{ kinds: [1] }]));
 
 compare('count by tag', (db) => db.count([{ '#p': [pubkeyTag] }]));
 
-// NIP-50 search: no index covers keywords, so both stores page a scan and match
-// content in memory.
+// NIP-50 search. These groups are not a schema comparison: NSQLite answers
+// keywords from an FTS5 index, NSQLiteJoin scans and matches in memory. The
+// gap is the index, not the joins.
 
 compare('query by search (limit 20)', (db) => db.query([{ search: 'temperature', limit: 20 }]));
 

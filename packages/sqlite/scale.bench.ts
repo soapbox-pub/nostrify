@@ -134,6 +134,8 @@ await compare(
 );
 await compare('count by kind', (db) => db.count([{ kinds: [1] }]), 10);
 await compare('count by tag #t', (db) => db.count([{ '#t': [topics[5]] }]), 10);
+// Not a schema comparison: NSQLite answers keywords from an FTS5 index, while
+// NSQLiteJoin scans and matches in memory.
 await compare('query by search (limit 20)', (db) => db.query([{ search: 'topic5 ', limit: 20 }]), 5);
 
 await a.store.close();

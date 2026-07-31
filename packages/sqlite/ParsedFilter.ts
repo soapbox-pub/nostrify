@@ -43,6 +43,14 @@ export class ParsedFilter {
    */
   readonly searchKeywords?: { required: string[]; negated: string[] };
 
+  /**
+   * The same keywords as an FTS5 `MATCH` expression, or `undefined` when they
+   * can't be expressed as one. FTS5 has no way to say "everything except X", so
+   * a search that is nothing but negations has no query; those fall back to
+   * matching in memory.
+   */
+  readonly searchQuery?: string;
+
   readonly since?: number;
   readonly until?: number;
   readonly limit?: number;
@@ -122,12 +130,20 @@ export class ParsedFilter {
 
       if (required.length > 0 || negated.length > 0) {
         this.searchKeywords = { required, negated };
+        this.searchQuery = toFtsQuery(required, negated);
       }
     }
   }
 
-  /** Full NIP-01 match of an event against every condition in this filter. */
-  matches(event: NostrEvent): boolean {
+  /**
+   * Full NIP-01 match of an event against every condition in this filter.
+   *
+   * Pass `skipSearch` when FTS5 has already applied the keywords. Re-checking
+   * them here would be worse than redundant: FTS5 matches whole words and this
+   * matches substrings, so a phrase FTS5 accepted could be rejected on
+   * whitespace alone.
+   */
+  matches(event: NostrEvent, skipSearch = false): boolean {
     if (this.neverMatch) return false;
 
     if (this.since !== undefined && event.created_at < this.since) return false;
@@ -142,7 +158,7 @@ export class ParsedFilter {
       if (!found) return false;
     }
 
-    if (this.searchKeywords) {
+    if (this.searchKeywords && !skipSearch) {
       const content = event.content.toLowerCase();
       for (const keyword of this.searchKeywords.required) {
         if (!content.includes(keyword)) return false;
@@ -154,6 +170,29 @@ export class ParsedFilter {
 
     return true;
   }
+}
+
+/**
+ * Build an FTS5 `MATCH` expression from NIP-50 keywords.
+ *
+ * Every keyword becomes a quoted phrase, which is FTS5's literal-string form,
+ * so nothing a user types is read as query syntax — a keyword of `OR` or `(`
+ * searches for that word rather than breaking the query. Embedded quotes are
+ * doubled, per FTS5's escaping.
+ *
+ * Returns `undefined` when there are no required keywords: FTS5 rejects an
+ * expression that is only negations, since there's nothing to subtract them
+ * from.
+ */
+function toFtsQuery(required: string[], negated: string[]): string | undefined {
+  if (required.length === 0) return undefined;
+
+  const phrase = (keyword: string) => `"${keyword.replace(/"/g, '""')}"`;
+
+  return [
+    required.map(phrase).join(' AND '),
+    ...negated.map((keyword) => `NOT ${phrase(keyword)}`),
+  ].join(' ');
 }
 
 function sortUnique(values: string[]): string[] {

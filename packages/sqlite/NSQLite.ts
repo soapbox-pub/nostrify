@@ -120,6 +120,21 @@ const MAX_PUSHDOWN = 100;
 const MAX_TAG_SET = 100_000;
 
 /**
+ * How many full-text matches are worth driving a query with. A term matching
+ * more than this is common enough that an ordinary indexed scan will run into
+ * matches quickly, so it filters the scan instead of driving it.
+ */
+const MAX_SEARCH_IDS = 1_000;
+
+/**
+ * The share of events a keyword must match before the scan tests rows against
+ * the index one at a time rather than collecting every match up front. Measured
+ * crossover: below this the two are within noise of each other, and either side
+ * of it the wrong choice costs an order of magnitude.
+ */
+const DENSE_SEARCH = 0.25;
+
+/**
  * A general-purpose `NStore` backed by SQLite, suitable for relays, desktop
  * apps, and anywhere else a durable local event store is wanted.
  *
@@ -151,6 +166,7 @@ export class NSQLite implements NStore {
   private readonly events: string;
   private readonly tags: string;
   private readonly coords: string;
+  private readonly fts: string;
 
   /** Index names, resolved from the `tablePrefix` option. */
   private readonly idxCreatedAt: string;
@@ -179,6 +195,7 @@ export class NSQLite implements NStore {
     this.events = `${prefix}_events`;
     this.tags = `${prefix}_tags`;
     this.coords = `${prefix}_coords`;
+    this.fts = `${prefix}_events_fts`;
 
     this.idxCreatedAt = `${this.events}_created_at`;
     this.idxPubkey = `${this.events}_pubkey`;
@@ -238,6 +255,29 @@ export class NSQLite implements NStore {
         kind INTEGER NOT NULL,
         PRIMARY KEY (name, value, created_at DESC, id ASC)
       ) WITHOUT ROWID
+    `);
+
+    // NIP-50 search. The index is keyed by the events table's rowid, and is
+    // kept in step by triggers rather than by this class, so there is no way
+    // for a write path to forget it. `unicode61` case-folds and strips
+    // diacritics, so matching is case- and accent-insensitive.
+    await this.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS ${this.fts}
+      USING fts5(content, tokenize='unicode61 remove_diacritics 2')
+    `);
+
+    // Events are only ever inserted or deleted, never updated, so those are the
+    // only two triggers needed. `content` is read back out of the stored JSON,
+    // which keeps the events table itself unchanged.
+    await this.exec(`
+      CREATE TRIGGER IF NOT EXISTS ${this.events}_fts_insert AFTER INSERT ON ${this.events} BEGIN
+        INSERT INTO ${this.fts} (rowid, content) VALUES (new.rowid, json_extract(new.json, '$.content'));
+      END
+    `);
+    await this.exec(`
+      CREATE TRIGGER IF NOT EXISTS ${this.events}_fts_delete AFTER DELETE ON ${this.events} BEGIN
+        DELETE FROM ${this.fts} WHERE rowid = old.rowid;
+      END
     `);
 
     // Replaceable/addressable coordinates. Only the current version of a
@@ -586,21 +626,62 @@ export class NSQLite implements NStore {
 
     signal?.throwIfAborted();
 
-    const plan = this.planScan(filter);
+    const search = await this.resolveSearch(filter);
+    if (search?.rowids?.length === 0) return [];
 
-    // ids plans are primary-key lookups: fetch the values directly and match
-    // whatever else the filter asks for in memory.
-    if (plan.ids) {
+    const plan = this.planScan(filter, search);
+    // FTS5 has applied the keywords already wherever the plan carries them.
+    const searched = plan.searchInSql;
+
+    // ids plans are primary-key lookups. Everything the events table can
+    // express goes into the query, so that when it expresses the whole filter
+    // the ordering and limit go in too — a selective search can resolve to
+    // thousands of ids, and deserializing all of them to return twenty would
+    // undo what the index just saved.
+    const keys: (string | number)[] | undefined = plan.ids ?? plan.rowids;
+
+    if (keys) {
+      const column = plan.ids ? 'id' : 'rowid';
+      const pushKinds = !filter.kinds || filter.kinds.length <= MAX_PUSHDOWN;
+      const pushAuthors = !filter.authors || filter.authors.length <= MAX_PUSHDOWN;
+      const complete = filter.tags.length === 0 && pushKinds && pushAuthors &&
+        (searched || !filter.searchKeywords);
+
       const events: NostrEvent[] = [];
 
-      for (const chunk of batch(plan.ids, MAX_PARAMS)) {
-        const rows = await this.all(
-          `SELECT json FROM ${this.events} WHERE id IN (${qs(chunk.length)})`,
-          chunk,
-        );
-        for (const row of rows) {
+      // Each part gets the full limit, so the merged result still holds the
+      // newest `limit` overall.
+      for (const chunk of batch(keys, MAX_PARAMS - 8)) {
+        const conditions = [memberOf(column, chunk)];
+        const params: NSQLiteValue[] = [...chunk];
+
+        if (filter.since !== undefined) {
+          conditions.push('created_at >= ?');
+          params.push(filter.since);
+        }
+        if (filter.until !== undefined) {
+          conditions.push('created_at <= ?');
+          params.push(filter.until);
+        }
+        if (filter.kinds && pushKinds) {
+          conditions.push(memberOf('kind', filter.kinds));
+          params.push(...filter.kinds);
+        }
+        if (filter.authors && pushAuthors) {
+          conditions.push(memberOf('pubkey', filter.authors));
+          params.push(...filter.authors);
+        }
+
+        let sql = `SELECT json FROM ${this.events}${where(conditions)}`;
+
+        if (complete && limit !== Infinity) {
+          sql += ' ORDER BY created_at DESC, id ASC LIMIT ?';
+          params.push(limit);
+        }
+
+        for (const row of await this.all(sql, params)) {
           const event: NostrEvent = JSON.parse(row.json as string);
-          if (filter.matches(event)) events.push(event);
+          if (complete || filter.matches(event, searched)) events.push(event);
         }
       }
 
@@ -685,7 +766,7 @@ export class NSQLite implements NStore {
         // between the write and the delete; treat the key as a miss.
         if (!event) continue;
 
-        if (plan.sqlOnly || filter.matches(event)) collected.push(event);
+        if (plan.sqlOnly || filter.matches(event, searched)) collected.push(event);
       }
 
       // A short page means the scan is exhausted.
@@ -811,6 +892,58 @@ export class NSQLite implements NStore {
     return sets;
   }
 
+  /**
+   * Resolve a filter's NIP-50 keywords against the full-text index.
+   *
+   * How the keywords are best applied depends on how selective they are, and
+   * the two cases want opposite plans:
+   *
+   *   - A selective term ("needle", a hundred hits in fifty thousand events)
+   *     should *drive* the query. Scanning `created_at` and testing each row
+   *     would walk most of the store to find twenty matches, and walk all of it
+   *     when the term matches nothing — the cost would grow with the database
+   *     rather than with the answer.
+   *   - A common term ("the") should not drive anything. Matches are dense
+   *     enough that an ordinary indexed scan finds a page of them almost
+   *     immediately, whereas driving from the index means fetching and sorting
+   *     every hit.
+   *
+   * So the index is probed for one more id than is worth driving with. Coming
+   * back under that bound settles it — those ids are the whole match set, and
+   * the query can be driven by them. Going over means the term is common, and
+   * the probe stops early, costing little.
+   */
+  private async resolveSearch(filter: ParsedFilter): Promise<SearchPlan | undefined> {
+    if (!filter.searchQuery) return undefined;
+
+    // Probed against the index alone. Reaching through the events table here
+    // would defeat the `LIMIT`: SQLite materializes a `rowid IN (subquery)`
+    // in full before limiting it, so a common term would cost every one of its
+    // matches just to discover there are too many. FTS5 streams its own
+    // results, so this stops as soon as the bound is passed.
+    const probe = await this.all(
+      `SELECT rowid FROM ${this.fts} WHERE ${this.fts} MATCH ? LIMIT ?`,
+      [filter.searchQuery, MAX_SEARCH_IDS + 1],
+    );
+
+    if (probe.length > MAX_SEARCH_IDS) {
+      // Too many to drive with, so the keywords filter a scan instead — and
+      // which filter is cheaper depends on how thickly the matches are spread.
+      // FTS5 returns matches in rowid order, so how far the probe had to reach
+      // to collect its bound estimates that: a term filling the first thousand
+      // rowids is everywhere, one spread over a hundred thousand is not.
+      const first = Number(probe[0].rowid);
+      const last = Number(probe[probe.length - 1].rowid);
+      const density = probe.length / Math.max(1, last - first + 1);
+
+      return { match: filter.searchQuery, dense: density >= DENSE_SEARCH };
+    }
+
+    // Kept as rowids. Translating them to event ids would mean handing every
+    // match across the driver just to look it up again by another key.
+    return { rowids: probe.map((row) => Number(row.rowid)) };
+  }
+
   /** Fetch event bodies by id. */
   private async fetchEvents(ids: string[]): Promise<Map<string, NostrEvent>> {
     const events = new Map<string, NostrEvent>();
@@ -835,7 +968,39 @@ export class NSQLite implements NStore {
    * value, pushing whatever else the filter asks for into each cursor's
    * `WHERE` clause when the chosen index can carry it.
    */
-  private planScan(filter: ParsedFilter): ScanPlan {
+  private planScan(filter: ParsedFilter, search?: SearchPlan): ScanPlan {
+    /**
+     * Apply the FTS5 match to a scan over the events table. Only reachable for
+     * a common term — a selective one drives the query as an id list instead —
+     * and only on the events table, since the tag index has no rowid to join
+     * the full-text index by.
+     */
+    const addSearch = (source: ScanCursor['source'], conditions: string[], params: NSQLiteValue[]): void => {
+      if (source !== 'events' || !search?.match) return;
+
+      // A dense term is tested row by row, which costs only the handful of rows
+      // the scan reads before it has enough matches. A sparse one is collected
+      // up front instead, since testing rows individually would mean reading
+      // far too many of them to find anything.
+      conditions.push(
+        search.dense
+          ? `EXISTS (SELECT 1 FROM ${this.fts} WHERE ${this.fts}.rowid = ${this.events}.rowid AND ${this.fts} MATCH ?)`
+          : `rowid IN (SELECT rowid FROM ${this.fts} WHERE ${this.fts} MATCH ?)`,
+      );
+      params.push(search.match);
+    };
+
+    // Whether the filter's keywords end up applied by the query rather than in
+    // memory. An id set settles them for any plan; a match expression only
+    // works on the events table, so a tag-driven scan still has to check them
+    // itself.
+    // A rowid set can only drive the query when nothing else is driving it: an
+    // `ids` filter is already a lookup, and combining two key lists in one
+    // statement isn't worth the chunking it would need, so the keywords are
+    // checked in memory there instead.
+    const searchInIds = !filter.searchKeywords || (!!search?.rowids && !filter.ids);
+    const searchInSql = searchInIds || !!search?.match;
+
     /** Append the filter's `since`/`until` bounds to a cursor. */
     const addTime = (conditions: string[], params: NSQLiteValue[]): void => {
       if (filter.since !== undefined) {
@@ -851,9 +1016,13 @@ export class NSQLite implements NStore {
     /** Whether a value list is short enough to filter a scan with. */
     const pushable = (values: unknown[] | undefined): boolean => !!values && values.length <= MAX_PUSHDOWN;
 
-    // 1. ids — the primary key. Fetched directly, no index scan.
+    // 1. ids — the primary key. Fetched directly, no index scan. A selective
+    //    search resolves to a rowid set, which is the same kind of lookup.
     if (filter.ids) {
-      return { ids: filter.ids, cursors: [], sqlOnly: false };
+      return { ids: filter.ids, cursors: [], sqlOnly: false, searchInSql: searchInIds };
+    }
+    if (search?.rowids) {
+      return { rowids: search.rowids, cursors: [], sqlOnly: false, searchInSql: searchInIds };
     }
 
     // 2. tags — the most selective tag filter (fewest values). An event
@@ -884,6 +1053,9 @@ export class NSQLite implements NStore {
       return {
         cursors,
         extraTags,
+        // The tag index has no rowid to reach the full-text index by, so
+        // keywords on a tag-driven scan are still matched in memory.
+        searchInSql: searchInIds,
         sqlOnly: !filter.searchKeywords && !filter.authors && filter.tags.length === 1 &&
           (!filter.kinds || pushKinds),
       };
@@ -898,6 +1070,7 @@ export class NSQLite implements NStore {
         const params: NSQLiteValue[] = [...authors, ...filter.kinds!];
 
         addTime(conditions, params);
+        addSearch('events', conditions, params);
 
         return {
           source: 'events',
@@ -907,7 +1080,7 @@ export class NSQLite implements NStore {
         };
       });
 
-      return { cursors, sqlOnly: !filter.searchKeywords };
+      return { cursors, searchInSql, sqlOnly: searchInSql };
     }
 
     // 4. authors. When kinds is also present it filters the scan instead of
@@ -926,6 +1099,8 @@ export class NSQLite implements NStore {
           params.push(...filter.kinds!);
         }
 
+        addSearch('events', conditions, params);
+
         return {
           source: 'events',
           from: `${this.events} INDEXED BY ${this.idxPubkey}`,
@@ -934,7 +1109,7 @@ export class NSQLite implements NStore {
         };
       });
 
-      return { cursors, sqlOnly: !filter.searchKeywords && (!filter.kinds || pushKinds) };
+      return { cursors, searchInSql, sqlOnly: searchInSql && (!filter.kinds || pushKinds) };
     }
 
     // 5. kinds.
@@ -944,6 +1119,7 @@ export class NSQLite implements NStore {
         const params: NSQLiteValue[] = [...kinds];
 
         addTime(conditions, params);
+        addSearch('events', conditions, params);
 
         return {
           source: 'events',
@@ -953,13 +1129,14 @@ export class NSQLite implements NStore {
         };
       });
 
-      return { cursors, sqlOnly: !filter.searchKeywords };
+      return { cursors, searchInSql, sqlOnly: searchInSql };
     }
 
     // 6. fallback — the whole store, newest-first.
     const conditions: string[] = [];
     const params: NSQLiteValue[] = [];
     addTime(conditions, params);
+    addSearch('events', conditions, params);
 
     return {
       cursors: [{
@@ -968,7 +1145,8 @@ export class NSQLite implements NStore {
         where: conditions,
         params,
       }],
-      sqlOnly: !filter.searchKeywords,
+      searchInSql,
+      sqlOnly: searchInSql,
     };
   }
 
@@ -985,7 +1163,7 @@ export class NSQLite implements NStore {
       if (filter.limit === undefined) {
         const plan = this.planScan(filter);
 
-        if (plan.sqlOnly && !plan.ids && plan.cursors.length === 1) {
+        if (plan.sqlOnly && !plan.ids && !plan.rowids && plan.cursors.length === 1) {
           const [cursor] = plan.cursors;
 
           const [row] = await this.all(
@@ -1130,6 +1308,8 @@ interface ScanCursor {
 interface ScanPlan {
   /** For ids plans: fetch these primary keys directly instead of scanning. */
   ids?: string[];
+  /** The same, for a search selective enough to be resolved to rowids. */
+  rowids?: number[];
   /**
    * Normally one scan. A filter whose driving value list is too long for a
    * single statement is split into several, merged by the caller.
@@ -1146,4 +1326,19 @@ interface ScanPlan {
    * candidates need no in-memory re-check and the scan needs no paging.
    */
   sqlOnly: boolean;
+  /** Whether the plan applies the filter's NIP-50 keywords itself. */
+  searchInSql: boolean;
+}
+
+/**
+ * How a filter's NIP-50 keywords will be applied: as the ids they match, when
+ * selective enough to drive the query, or as a match expression filtering the
+ * scan when they aren't.
+ */
+interface SearchPlan {
+  /** The rowids the keywords match, when few enough to drive the query. */
+  rowids?: number[];
+  match?: string;
+  /** Whether the keywords match a large enough share of events to test row by row. */
+  dense?: boolean;
 }

@@ -145,6 +145,8 @@ scans. There are no joins.
 - **`nostr_coords`** maps a replaceable or addressable coordinate
   (`kind:pubkey:d`) to the id currently stored there, making supersession a
   single primary-key lookup.
+- **`nostr_events_fts`** is an FTS5 index over event content, kept in step by
+  triggers rather than by application code, so no write path can forget it.
 
 Every index ends in `(created_at DESC, id ASC)`, so scanning any index prefix
 yields it newest-first with no sorter — the same trick strfry uses by packing
@@ -156,9 +158,10 @@ most selective `#tag`, then pubkey+kind, pubkey, kind, and finally a full
 plan never depends on SQLite's cost estimates or on how stale `ANALYZE` is.
 Execution is two-phase: scan the index for candidate keys, then fetch those
 values by primary key. Conditions the index can't express become part of the
-scan's `WHERE` clause where SQLite can evaluate them; anything left over —
-extra tag terms, NIP-50 keywords — is matched in memory, with the scan paged by
-keyset so memory stays bounded.
+scan's `WHERE` clause where SQLite can evaluate them; anything left over — an
+extra tag term, or keywords a tag-driven scan can't reach the full-text index
+for — is matched in memory, with the scan paged by keyset so memory stays
+bounded.
 
 ## How NSQLiteJoin works
 
@@ -190,11 +193,17 @@ means `NSQLite` is faster:
 | **by tag, limit 20**        |    **2.5x**|   **10.3x** |
 | **by tag + kind, limit 20** |    **5.6x**|    **5.6x** |
 | **count by tag**            |    **3.7x**|    **8.3x** |
-| feed (500 authors × 2 kinds)|      1.0x  |       0.9x  |
-| count by kind               |      1.0x  |       0.9x  |
-| search, limit 20            |      0.9x  |       0.9x  |
-| **by two tags, limit 20**   |    **0.3x**|    **0.2x** |
-| insert (whole dataset)      |      1.0x  |       1.0x  |
+| feed (500 authors × 2 kinds)|      1.0x  |       1.0x  |
+| count by kind               |      1.0x  |       1.0x  |
+| **by two tags, limit 20**   |    **0.3x**|    **0.3x** |
+| insert (whole dataset)      |     0.75x  |       0.7x  |
+
+Search is absent from the table because the two no longer answer it the same
+way — `NSQLite` uses a full-text index and `NSQLiteJoin` scans — so comparing
+them would measure the index rather than the schema. See [Search](#search).
+
+Writes are the one place `NSQLiteJoin` is reliably ahead, by about a third,
+which is what maintaining the full-text index costs.
 
 On a database of a few thousand events the two are within noise of each other
 on most shapes, since deserializing the events dominates. The differences above
@@ -209,6 +218,50 @@ handed across the driver boundary for every event matching *either* term. A
 join lets SQLite intersect internally and apply the `LIMIT` before any row is
 materialized. Writes are within a couple of percent either way.
 
+## Search
+
+NIP-50 `search` is answered from an FTS5 index that triggers keep in step with
+the events table. Every keyword must appear in the event's `content`, and a
+`-keyword` token excludes it; unsupported extension tokens (`key:value`) are
+ignored per the NIP.
+
+Keywords match whole words, case- and accent-insensitively, so `nostr` matches
+"nostr" but not "nostrich", and `cafe` matches "café". Whatever a user types
+is passed as a literal phrase, so a keyword like `OR` or `(` searches for that
+word rather than being read as query syntax.
+
+How the keywords are applied depends on how many events they match, which the
+store measures before deciding:
+
+- **Selective** terms drive the query, so it reads only the matching rows.
+- **Common** terms filter an ordinary indexed scan instead, since matches are
+  dense enough that the scan runs into one almost immediately.
+
+Measured against the previous scan-and-match implementation, 200k events,
+better-sqlite3:
+
+| Query                      |     scan |   FTS5 |          |
+| -------------------------- | -------: | -----: | -------- |
+| rare term, limit 20        |  42.7 ms | 1.7 ms | 25x      |
+| rare term, unlimited       | 870.0 ms | 2.4 ms | 366x     |
+| term matching nothing      | 873.3 ms | 0.0 ms | 22600x   |
+| two keywords               |  39.8 ms | 1.8 ms | 23x      |
+| with negation              |  38.8 ms | 1.7 ms | 23x      |
+| search + kind              |  25.0 ms | 2.3 ms | 11x      |
+| search + tag               |  80.0 ms | 2.2 ms | 36x      |
+| count by search            | 842.4 ms | 2.4 ms | 352x     |
+| very common term, limit 20 |   1.8 ms | 3.2 ms | **0.6x** |
+| insert (whole dataset)     |  13.8 s  | 22.8 s | **0.6x** |
+
+The scan wins one case: a word appearing in nearly every event, where it runs
+into matches immediately while the index has more bookkeeping to do. Results
+there aren't useful anyway, and the absolute cost is a few milliseconds.
+
+Maintaining the index costs about 1.7x on writes. That buys search bounded by
+the number of matches rather than by the size of the database — without it,
+searching a 200k-event store took the better part of a second, and would keep
+growing.
+
 ## Behavior
 
 - **Replaceable and addressable events** supersede older versions at the same
@@ -217,8 +270,6 @@ materialized. Writes are within a couple of percent either way.
   the requester authored them. A deleted event can't be re-added — the attempt
   throws a `RelayError`.
 - **Ephemeral events** are never stored.
-- **NIP-50 `search`** matches every keyword against the event's `content`,
-  case-insensitively, with `-keyword` negating. Unsupported extension tokens
-  (`key:value`) are ignored per the NIP. There's no full-text index, so search
-  always post-filters a scan.
+- **NIP-50 `search`** is answered from a full-text index. See
+  [Search](#search).
 - **NIP-40 expiration is not handled**, and nothing is pruned automatically.

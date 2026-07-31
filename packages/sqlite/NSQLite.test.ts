@@ -779,3 +779,148 @@ for (const Store of [NSQLite, NSQLiteJoin] as StoreClass[]) {
     });
   });
 }
+
+// NSQLite answers NIP-50 `search` from an FTS5 index, so its matching differs
+// from NSQLiteJoin's substring scan. These pin down that behavior.
+await describe('NSQLite full-text search', () => {
+  const openFts = async (): Promise<NSQLite> => {
+    const store = new NSQLite(nodeSQLite(new DatabaseSync(':memory:')));
+    openStores.push(store);
+    await store.migrate();
+    return store;
+  };
+
+  const note = (content: string, overrides: Partial<NostrEvent> = {}) => makeEvent({ content, ...overrides });
+
+  it('matches whole words, not substrings', async () => {
+    const store = await openFts();
+    const word = note('hello nostr world');
+    await add(store, word, note('hello nostrich world'));
+
+    deepStrictEqual(await store.query([{ search: 'nostr' }]), [word]);
+  });
+
+  it('ignores case and diacritics', async () => {
+    const store = await openFts();
+    const event = note('Un CAFÉ, s\'il vous plaît');
+    await add(store, event);
+
+    deepStrictEqual(await store.query([{ search: 'cafe' }]), [event]);
+    deepStrictEqual(await store.query([{ search: 'CAFÉ' }]), [event]);
+  });
+
+  it('treats FTS5 operators in a search as literal words', async () => {
+    const store = await openFts();
+    const event = note('this AND that OR the other');
+    await add(store, event, note('nothing to see'));
+
+    // Read as syntax these would be malformed queries or mean something else.
+    deepStrictEqual(await store.query([{ search: 'AND' }]), [event]);
+    deepStrictEqual(await store.query([{ search: '"OR the"' }]), [event]);
+    deepStrictEqual(await store.query([{ search: 'NEAR' }]), []);
+  });
+
+  it('does not break on punctuation-only or empty searches', async () => {
+    const store = await openFts();
+    const event = note('hello');
+    await add(store, event);
+
+    deepStrictEqual(await store.query([{ search: '' }]), [event]);
+    deepStrictEqual(await store.query([{ search: '!!!' }]), []);
+    deepStrictEqual(await store.query([{ search: '(((' }]), []);
+  });
+
+  it('supports a search that is only negations', async () => {
+    const store = await openFts();
+    const kept = note('sunshine');
+    await add(store, kept, note('rain'));
+
+    // FTS5 can't express this, so it falls back to matching in memory.
+    deepStrictEqual(await store.query([{ search: '-rain' }]), [kept]);
+  });
+
+  it('applies a common keyword by filtering the scan', async () => {
+    const store = await openFts();
+
+    // More matches than are worth driving the query with, so the planner
+    // filters an indexed scan instead of leading with the index.
+    const events: NostrEvent[] = [];
+    for (let i = 0; i < 1200; i++) {
+      events.push(note(`common word number ${i}`, { created_at: 1000 + i }));
+    }
+    events.push(note('a distinctive phrase', { created_at: 9000 }));
+    await add(store, ...events);
+
+    deepStrictEqual((await store.query([{ search: 'common', limit: 20 }])).length, 20);
+    deepStrictEqual((await store.query([{ search: 'common' }])).length, 1200);
+    deepStrictEqual((await store.query([{ search: 'distinctive' }])).length, 1);
+  });
+
+  it('keeps the index in step when events are removed', async () => {
+    const store = await openFts();
+    const event = note('findable');
+    await add(store, event);
+    deepStrictEqual(await store.query([{ search: 'findable' }]), [event]);
+
+    await store.remove([{ ids: [event.id] }]);
+
+    deepStrictEqual(await store.query([{ search: 'findable' }]), []);
+  });
+
+  it('keeps the index in step when a replaceable event is superseded', async () => {
+    const store = await openFts();
+    await add(store, makeEvent({ kind: 0, pubkey: PK1, created_at: 1000, content: 'oldbio' }));
+    await add(store, makeEvent({ kind: 0, pubkey: PK1, created_at: 2000, content: 'newbio' }));
+
+    deepStrictEqual(await store.query([{ search: 'oldbio' }]), []);
+    deepStrictEqual((await store.query([{ search: 'newbio' }])).length, 1);
+  });
+
+  it('keeps the index in step when a deletion request removes an event', async () => {
+    const store = await openFts();
+    const target = makeEvent({ pubkey: PK1, created_at: 1000, content: 'deleteme' });
+    await add(store, target);
+    await add(store, makeEvent({ kind: 5, pubkey: PK1, created_at: 2000, tags: [['e', target.id]] }));
+
+    deepStrictEqual(await store.query([{ search: 'deleteme' }]), []);
+  });
+
+  it('combines search with tags, authors and kinds', async () => {
+    const store = await openFts();
+    const wanted = note('weather report', { kind: 1, pubkey: PK1, tags: [['t', 'oslo']] });
+    await add(
+      store,
+      wanted,
+      note('weather report', { kind: 1, pubkey: PK2, tags: [['t', 'oslo']] }),
+      note('weather report', { kind: 7, pubkey: PK1, tags: [['t', 'oslo']] }),
+      note('traffic report', { kind: 1, pubkey: PK1, tags: [['t', 'oslo']] }),
+    );
+
+    deepStrictEqual(await store.query([{ search: 'weather', kinds: [1], authors: [PK1] }]), [wanted]);
+    deepStrictEqual(await store.query([{ search: 'weather', '#t': ['oslo'], authors: [PK1], kinds: [1] }]), [wanted]);
+  });
+});
+
+await describe('NSQLite full-text search with a common keyword', () => {
+  it('still applies keywords on a tag-driven scan', async () => {
+    const store = new NSQLite(nodeSQLite(new DatabaseSync(':memory:')));
+    openStores.push(store);
+    await store.migrate();
+
+    // Enough matches that the keyword filters the scan rather than driving it,
+    // which a tag-driven scan can't express in SQL.
+    const events: NostrEvent[] = [];
+    for (let i = 0; i < 1200; i++) {
+      events.push(makeEvent({ content: `common word ${i}`, tags: [['t', 'x']], created_at: 1000 + i }));
+    }
+    events.push(makeEvent({ content: 'nothing here', tags: [['t', 'x']], created_at: 9000 }));
+    await add(store, ...events);
+
+    // The newest #t event has no keyword, so a scan that skipped the keyword
+    // check would return it.
+    const found = await store.query([{ search: 'common', '#t': ['x'], limit: 5 }]);
+
+    deepStrictEqual(found.length, 5);
+    ok(found.every((event) => event.content.includes('common')));
+  });
+});

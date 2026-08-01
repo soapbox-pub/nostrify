@@ -963,8 +963,40 @@ export class NSQLiteAuto implements NStore {
     });
   }
 
+  /**
+   * Refresh the statistics SQLite's planner uses to choose an index.
+   *
+   * This store names no index, which is what lets a filter be one statement —
+   * but with no statistics SQLite chooses by rule, and one of its rules is
+   * badly wrong here. Given `authors` and `kinds` it takes the `pubkey` index,
+   * because that one is already in `seq` order and so answers `ORDER BY seq
+   * DESC LIMIT ?` with no sort. The bet is that the limit fills quickly. For a
+   * prolific author and a rare kind — a profile, a relay list — it never fills,
+   * and the scan reads every event that author ever wrote: measured 500x slower
+   * than the composite index on a 200k-event store.
+   *
+   * Given statistics, the planner sees that `(pubkey, kind)` narrows to a
+   * handful of rows and accepts the sort. So the index hints the other stores
+   * hard-code are not really a disagreement with the planner — they are a
+   * substitute for measurements it was never given.
+   *
+   * `PRAGMA optimize` only re-analyzes what has changed enough to matter, so it
+   * is cheap to call periodically, and it is called on {@link close}.
+   */
+  async optimize(): Promise<void> {
+    await this.run('PRAGMA optimize');
+  }
+
   /** Close the underlying database connection, if the driver supports it. */
   async close(): Promise<void> {
+    // A read-only or already-failed connection can't analyze; that is no reason
+    // to fail the close.
+    try {
+      await this.optimize();
+    } catch {
+      // ignore
+    }
+
     await this.db.close?.();
   }
 

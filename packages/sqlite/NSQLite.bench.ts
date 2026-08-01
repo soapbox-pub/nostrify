@@ -2,6 +2,7 @@ import BetterSQLite3 from 'better-sqlite3';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
 import { NSQLite } from './NSQLite.ts';
+import { NSQLiteAuto } from './NSQLiteAuto.ts';
 import { NSQLiteFTS } from './NSQLiteFTS.ts';
 import { NSQLiteJoin } from './NSQLiteJoin.ts';
 import type { NSQLiteDatabase, NSQLiteRow, NSQLiteValue } from './types.ts';
@@ -26,7 +27,7 @@ import events from '../../fixtures/events.json' with { type: 'json' };
 //   deno bench -A --no-check NSQLite.bench.ts
 // ============================================================================
 
-type Store = NSQLite | NSQLiteFTS | NSQLiteJoin;
+type Store = NSQLite | NSQLiteAuto | NSQLiteFTS | NSQLiteJoin;
 
 /** A better-sqlite3 driver that caches prepared statements by SQL text. */
 function betterSQLite3(): NSQLiteDatabase {
@@ -70,17 +71,19 @@ async function empty(Store: new (db: NSQLiteDatabase) => Store): Promise<Store> 
   return store;
 }
 
-const read = {
-  NSQLite: await seeded(NSQLite),
-  NSQLiteFTS: await seeded(NSQLiteFTS),
-  NSQLiteJoin: await seeded(NSQLiteJoin),
-};
+interface StoreClass {
+  new (db: NSQLiteDatabase): Store;
+}
 
-const write = {
-  NSQLite: await empty(NSQLite),
-  NSQLiteFTS: await empty(NSQLiteFTS),
-  NSQLiteJoin: await empty(NSQLiteJoin),
-};
+const ALL: StoreClass[] = [NSQLite, NSQLiteAuto, NSQLiteFTS, NSQLiteJoin];
+
+const read = new Map<StoreClass, Store>();
+const write = new Map<StoreClass, Store>();
+
+for (const Store of ALL) {
+  read.set(Store, await seeded(Store));
+  write.set(Store, await empty(Store));
+}
 
 /**
  * Register the same benchmark against both stores, as a comparison group.
@@ -91,28 +94,16 @@ const write = {
  * out.
  */
 function compare(group: string, fn: (store: Store) => Promise<unknown>): void {
-  Deno.bench({
-    name: 'NSQLite',
-    group,
-    baseline: true,
-    fn: async () => {
-      await fn(read.NSQLite);
-    },
-  });
-  Deno.bench({
-    name: 'NSQLiteFTS',
-    group,
-    fn: async () => {
-      await fn(read.NSQLiteFTS);
-    },
-  });
-  Deno.bench({
-    name: 'NSQLiteJoin',
-    group,
-    fn: async () => {
-      await fn(read.NSQLiteJoin);
-    },
-  });
+  for (const [i, Store] of ALL.entries()) {
+    Deno.bench({
+      name: Store.name,
+      group,
+      baseline: i === 0,
+      fn: async () => {
+        await fn(read.get(Store)!);
+      },
+    });
+  }
 }
 
 /** Register a write benchmark, whose event is generated outside the timed section. */
@@ -123,9 +114,9 @@ function compareWrite(group: string, make: () => NostrEventInit): void {
     await store.event(event);
   };
 
-  Deno.bench({ name: 'NSQLite', group, baseline: true, fn: bench(write.NSQLite) });
-  Deno.bench({ name: 'NSQLiteFTS', group, fn: bench(write.NSQLiteFTS) });
-  Deno.bench({ name: 'NSQLiteJoin', group, fn: bench(write.NSQLiteJoin) });
+  for (const [i, Store] of ALL.entries()) {
+    Deno.bench({ name: Store.name, group, baseline: i === 0, fn: bench(write.get(Store)!) });
+  }
 }
 
 interface NostrEventInit {
@@ -153,8 +144,10 @@ compareWrite('event with many tags', () => ({
 
 // ── Reads ───────────────────────────────────────────────────────────────────
 
-compare('query by id', (db) =>
-  db.query([{ ids: ['1dd49619b558cc202b00c982922526d4bbb6dab09d5debbc2be3d3fd49b1db3b'], limit: 1 }]));
+compare(
+  'query by id',
+  (db) => db.query([{ ids: ['1dd49619b558cc202b00c982922526d4bbb6dab09d5debbc2be3d3fd49b1db3b'], limit: 1 }]),
+);
 
 compare('query by multiple ids', (db) =>
   db.query([{
@@ -169,8 +162,10 @@ compare('query by kind', (db) => db.query([{ kinds: [1], limit: 20 }]));
 
 compare('query by multiple kinds', (db) => db.query([{ kinds: [6, 7], limit: 20 }]));
 
-compare('query by author', (db) =>
-  db.query([{ authors: ['753d025936c8c3238b1b2b2f748be6df92743c2201e5198946e9d6a29156793f'], limit: 20 }]));
+compare(
+  'query by author',
+  (db) => db.query([{ authors: ['753d025936c8c3238b1b2b2f748be6df92743c2201e5198946e9d6a29156793f'], limit: 20 }]),
+);
 
 compare('query by multiple authors', (db) =>
   db.query([{

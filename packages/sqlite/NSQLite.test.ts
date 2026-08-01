@@ -5,6 +5,7 @@ import { DatabaseSync } from 'node:sqlite';
 import type { NostrEvent } from '@nostrify/types';
 
 import { NSQLite } from './NSQLite.ts';
+import { NSQLiteAuto } from './NSQLiteAuto.ts';
 import { NSQLiteFTS } from './NSQLiteFTS.ts';
 import { NSQLiteJoin } from './NSQLiteJoin.ts';
 import type { NSQLiteDatabase, NSQLiteOpts, NSQLiteRow, NSQLiteValue } from './types.ts';
@@ -25,7 +26,7 @@ function nodeSQLite(sqlite: DatabaseSync): NSQLiteDatabase {
  * The implementations share an interface and their semantics, so they share a
  * test suite. Anything any one of them gets wrong shows up here.
  */
-type Store = NSQLite | NSQLiteFTS | NSQLiteJoin;
+type Store = NSQLite | NSQLiteAuto | NSQLiteFTS | NSQLiteJoin;
 
 interface StoreClass {
   new (db: NSQLiteDatabase, opts?: NSQLiteOpts): Store;
@@ -69,7 +70,7 @@ async function add(store: Store, ...events: NostrEvent[]): Promise<void> {
   }
 }
 
-for (const Store of [NSQLite, NSQLiteFTS, NSQLiteJoin] as StoreClass[]) {
+for (const Store of [NSQLite, NSQLiteAuto, NSQLiteFTS, NSQLiteJoin] as StoreClass[]) {
   /** Open a store backed by a fresh in-memory database. */
   const openStore = async (opts: NSQLiteOpts = {}): Promise<Store> => {
     const store = new Store(nodeSQLite(new DatabaseSync(':memory:')), opts);
@@ -116,7 +117,7 @@ for (const Store of [NSQLite, NSQLiteFTS, NSQLiteJoin] as StoreClass[]) {
     });
 
     describe('authors filter', () => {
-      it('returns an author\'s events newest-first', async () => {
+      it("returns an author's events newest-first", async () => {
         const store = await openStore();
         const older = makeEvent({ pubkey: PK1, created_at: 1000 });
         const newer = makeEvent({ pubkey: PK1, created_at: 2000 });
@@ -646,7 +647,7 @@ for (const Store of [NSQLite, NSQLiteFTS, NSQLiteJoin] as StoreClass[]) {
         deepStrictEqual(await store.query([{ ids: [target.id] }]), []);
       });
 
-      it('does not delete another author\'s event', async () => {
+      it("does not delete another author's event", async () => {
         const store = await openStore();
         const target = makeEvent({ pubkey: PK1, created_at: 1000 });
         await add(store, target);
@@ -803,7 +804,7 @@ await describe('NSQLite full-text search', () => {
 
   it('ignores case and diacritics', async () => {
     const store = await openFts();
-    const event = note('Un CAFÉ, s\'il vous plaît');
+    const event = note("Un CAFÉ, s'il vous plaît");
     await add(store, event);
 
     deepStrictEqual(await store.query([{ search: 'cafe' }]), [event]);

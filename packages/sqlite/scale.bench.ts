@@ -2,6 +2,7 @@ import BetterSQLite3 from 'better-sqlite3';
 import type { NostrEvent } from '@nostrify/types';
 
 import { NSQLite } from './NSQLite.ts';
+import { NSQLiteAuto } from './NSQLiteAuto.ts';
 import { NSQLiteFTS } from './NSQLiteFTS.ts';
 import { NSQLiteJoin } from './NSQLiteJoin.ts';
 import type { NSQLiteDatabase, NSQLiteRow, NSQLiteValue } from './types.ts';
@@ -20,13 +21,13 @@ import type { NSQLiteDatabase, NSQLiteRow, NSQLiteValue } from './types.ts';
 // first store is faster by that factor.
 // ============================================================================
 
-type Store = NSQLite | NSQLiteFTS | NSQLiteJoin;
+type Store = NSQLite | NSQLiteAuto | NSQLiteFTS | NSQLiteJoin;
 
 interface StoreClass {
   new (db: NSQLiteDatabase): Store;
 }
 
-const ALL: StoreClass[] = [NSQLite, NSQLiteFTS, NSQLiteJoin];
+const ALL: StoreClass[] = [NSQLite, NSQLiteAuto, NSQLiteFTS, NSQLiteJoin];
 
 const COUNT = Number(Deno.args[0] ?? 50_000);
 const AUTHORS = 500;
@@ -115,23 +116,38 @@ const row = (name: string, times: number[]) =>
 
 row('insert (whole dataset)', stores.map((s) => s.ms));
 
-/** Time a query against every store. */
-async function compare(name: string, fn: (store: Store) => Promise<unknown>, iterations = 30): Promise<void> {
-  const time = async (store: Store): Promise<number> => {
-    await fn(store); // warm up
-    const started = performance.now();
-    for (let i = 0; i < iterations; i++) {
-      await fn(store);
-    }
-    return (performance.now() - started) / iterations;
-  };
-
-  const times: number[] = [];
+/**
+ * Time a query against every store.
+ *
+ * Rounds are interleaved and the best one kept, rather than timing each store
+ * once in turn. On a busy machine a single pass measures whatever else was
+ * running at the time — enough to reverse a ratio — and it lands on whichever
+ * store happened to be up. Alternating spreads that noise across all of them,
+ * and the minimum is the run that got the least of it.
+ */
+async function compare(
+  name: string,
+  fn: (store: Store) => Promise<unknown>,
+  iterations = 30,
+  rounds = 5,
+): Promise<void> {
   for (const { store } of stores) {
-    times.push(await time(store));
+    await fn(store); // warm up
   }
 
-  row(name, times);
+  const best = stores.map(() => Infinity);
+
+  for (let round = 0; round < rounds; round++) {
+    for (const [i, { store }] of stores.entries()) {
+      const started = performance.now();
+      for (let n = 0; n < iterations; n++) {
+        await fn(store);
+      }
+      best[i] = Math.min(best[i], (performance.now() - started) / iterations);
+    }
+  }
+
+  row(name, best);
 }
 
 await compare('query by kind (limit 20)', (db) => db.query([{ kinds: [1], limit: 20 }]));

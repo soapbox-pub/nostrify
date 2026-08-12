@@ -19,9 +19,9 @@ import { getFilterLimit } from './utils/getFilterLimit.ts';
 import { ArrayQueue, ExponentialBackoff, Websocket, WebsocketBuilder, WebsocketEvent } from 'websocket-ts';
 import type { Backoff } from 'websocket-ts';
 
+import { EventCollector } from './utils/EventCollector.ts';
 import { Machina } from './utils/Machina.ts';
 import { NSchema as n } from './NSchema.ts';
-import { NSet } from './NSet.ts';
 
 /** Map of EventEmitter events. */
 type EventMap = {
@@ -402,8 +402,7 @@ export class NRelay1 implements NRelay {
     filters: NostrFilter[],
     opts?: { signal?: AbortSignal },
   ): Promise<NostrEvent[]> {
-    const map = new Map<string, NostrEvent>();
-    const events = new NSet(map);
+    const events = new EventCollector();
 
     const limit = filters.reduce(
       (result, filter) => result + getFilterLimit(filter),
@@ -423,9 +422,9 @@ export class NRelay1 implements NRelay {
 
     // Don't sort results of search filters.
     if (filters.some((filter) => typeof filter.search === 'string')) {
-      return [...map.values()];
+      return events.toReceivedArray();
     } else {
-      return [...events];
+      return events.toArray();
     }
   }
 

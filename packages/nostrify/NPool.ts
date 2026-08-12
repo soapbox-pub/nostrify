@@ -9,8 +9,8 @@ import type {
 import { getFilterLimit } from './utils/getFilterLimit.ts';
 
 import { CircularSet } from './utils/CircularSet.ts';
+import { EventCollector } from './utils/EventCollector.ts';
 import { Machina } from './utils/Machina.ts';
-import { NSet } from './NSet.ts';
 
 export interface NPoolOpts<T extends NRelay> {
   /** Creates an `NRelay` instance for the given URL. */
@@ -234,8 +234,7 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
     filters: NostrFilter[],
     opts?: { signal?: AbortSignal; relays?: string[] },
   ): Promise<NostrEvent[]> {
-    const map = new Map<string, NostrEvent>();
-    const events = new NSet(map);
+    const events = new EventCollector();
 
     const limit = filters.reduce(
       (result, filter) => result + getFilterLimit(filter),
@@ -257,9 +256,9 @@ export class NPool<T extends NRelay = NRelay> implements NRelay {
 
     // Don't sort results of search filters.
     if (filters.some((filter) => typeof filter.search === 'string')) {
-      return [...map.values()];
+      return events.toReceivedArray();
     } else {
-      return [...events];
+      return events.toArray();
     }
   }
 

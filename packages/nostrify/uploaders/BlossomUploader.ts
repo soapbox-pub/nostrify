@@ -222,7 +222,7 @@ export class BlossomUploader implements NUploader {
       throw new Error(`Blossom server returned non-JSON response: ${text}`);
     }
 
-    const data = BlossomUploader.schema().parse(json);
+    const data = BlossomUploader.schema.parse(json);
 
     // Prefer the server-provided NIP-94 tags when present (BUD-08), ensuring `url` comes first.
     if (data.nip94?.length) {
@@ -260,16 +260,14 @@ export class BlossomUploader implements NUploader {
     return new URL(url).pathname.match(/[0-9a-f]{64}/)?.[0];
   }
 
-  /** Blossom "BlobDescriptor" schema. */
-  private static schema() {
-    return z.object({
-      url: z.string(),
-      sha256: z.string(),
-      size: z.number(),
-      type: z.string().optional(),
-      uploaded: z.number().optional(),
-      dim: z.string().regex(/^\d+x\d+$/).optional().catch(undefined),
-      nip94: z.array(z.array(z.string())).optional().catch(undefined),
-    });
-  }
+  /** Blossom "BlobDescriptor" schema. Built once, so it isn't reconstructed on every upload. */
+  private static readonly schema = z.object({
+    url: z.string(),
+    sha256: z.string(),
+    size: z.number(),
+    type: z.string().optional(),
+    uploaded: z.number().optional(),
+    dim: z.string().regex(/^\d+x\d+$/).optional().catch(undefined),
+    nip94: z.array(z.array(z.string())).optional().catch(undefined),
+  });
 }

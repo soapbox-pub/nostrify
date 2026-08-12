@@ -48,7 +48,7 @@ export class NostrBuildUploader implements NUploader {
     const response = await this.fetch(request);
     const json = await response.json();
     console.log(json);
-    const [data] = NostrBuildUploader.schema().parse(json).data;
+    const [data] = NostrBuildUploader.schema.parse(json).data;
 
     const tags: [["url", string], ...string[][]] = [
       ["url", data.url],
@@ -69,21 +69,19 @@ export class NostrBuildUploader implements NUploader {
     return tags;
   }
 
-  /** nostr.build API response schema. */
-  private static schema() {
-    return z.object({
-      data: z.object({
-        url: z.string().url(),
-        blurhash: z.string().optional().catch(undefined),
-        sha256: z.string(),
-        original_sha256: z.string(),
-        mime: z.string(),
-        size: z.number(),
-        dimensions: z.object({
-          width: z.number().positive(),
-          height: z.number().positive(),
-        }).optional().catch(undefined),
-      }).array().min(1),
-    });
-  }
+  /** nostr.build API response schema. Built once, so it isn't reconstructed on every upload. */
+  private static readonly schema = z.object({
+    data: z.object({
+      url: z.string().url(),
+      blurhash: z.string().optional().catch(undefined),
+      sha256: z.string(),
+      original_sha256: z.string(),
+      mime: z.string(),
+      size: z.number(),
+      dimensions: z.object({
+        width: z.number().positive(),
+        height: z.number().positive(),
+      }).optional().catch(undefined),
+    }).array().min(1),
+  });
 }

@@ -6,6 +6,10 @@ import { LNURLDetails } from './types/LNURLDetails.ts';
 
 import { NSchema as n, z } from '../NSchema.ts';
 
+/** Validators, built once, since `NSchema` constructs a new schema tree on every call. */
+const bech32Schema = n.bech32();
+const emailSchema = z.string().email();
+
 /**
  * Represents an LNURL, with methods to fetch details and generate invoices.
  */
@@ -36,7 +40,7 @@ export class LNURL {
     value: string,
     opts?: { fetch: typeof globalThis.fetch },
   ): LNURL {
-    if (!n.bech32().safeParse(value).success) {
+    if (!bech32Schema.safeParse(value).success) {
       throw new Error('Expected a bech32 string starting with "lnurl1"');
     }
 
@@ -63,7 +67,7 @@ export class LNURL {
     ln: string,
     opts?: { fetch: typeof globalThis.fetch },
   ): LNURL {
-    if (!z.string().email().safeParse(ln).success) {
+    if (!emailSchema.safeParse(ln).success) {
       throw new Error(
         'Expected a lightning address in email-like format (eg "example@getalby.com")',
       );
@@ -116,7 +120,7 @@ export class LNURL {
 
   /** LNURL response schema. */
   static lnurlDetailsSchema(): z.ZodType<LNURLDetails> {
-    return z.object({
+    return LNURL.#lnurlDetailsSchema ??= z.object({
       allowsNostr: z.boolean().optional(),
       callback: z.string().url(),
       commentAllowed: z.number().nonnegative().int().optional(),
@@ -138,9 +142,13 @@ export class LNURL {
 
   /** LNURL callback schema. */
   static lnurlCallbackSchema(): z.ZodType<LNURLCallback> {
-    return z.object({
+    return LNURL.#lnurlCallbackSchema ??= z.object({
       pr: n.bech32('lnbc'),
       routes: z.tuple([]),
     }) as unknown as z.ZodType<LNURLCallback>;
   }
+
+  /** Memoized schemas, so they aren't reconstructed on every call. */
+  static #lnurlDetailsSchema: z.ZodType<LNURLDetails> | undefined;
+  static #lnurlCallbackSchema: z.ZodType<LNURLCallback> | undefined;
 }

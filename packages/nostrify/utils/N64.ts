@@ -3,6 +3,9 @@ import { fromBase64, toBase64 } from "@smithy/util-base64";
 
 import { NSchema as n } from "../NSchema.ts";
 
+/** Parser for encoded events. Built once, since `NSchema` constructs a new schema tree on every call. */
+const eventSchema = n.json().pipe(n.event());
+
 /** Nostr base64 helper utilities. */
 export class N64 {
   /** Encode an event as a base64 string. */
@@ -34,9 +37,6 @@ export class N64 {
     const bytes = fromBase64(normalized);
     const text = new TextDecoder().decode(bytes);
 
-    return n
-      .json()
-      .pipe(n.event())
-      .parse(text);
+    return eventSchema.parse(text);
   }
 }

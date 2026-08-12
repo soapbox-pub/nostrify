@@ -11,6 +11,9 @@ interface TestRelayServerOpts {
 }
 
 export class TestRelayServer {
+  /** Parser for inbound messages. Built once, since `NSchema` constructs a new schema tree on every call. */
+  private static readonly msgSchema = n.json().pipe(n.clientMsg());
+
   private port = 0;
   private inited = false;
   private httpServer: Server;
@@ -52,7 +55,7 @@ export class TestRelayServer {
 
       socket.on('message', (data: Buffer) => {
         try {
-          const result = n.json().pipe(n.clientMsg()).safeParse(data.toString());
+          const result = TestRelayServer.msgSchema.safeParse(data.toString());
           if (result.success) {
             const handleMessage = this.opts?.handleMessage ??
               this.handleMessage.bind(this);

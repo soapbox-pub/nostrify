@@ -22,6 +22,13 @@ export interface NConnectSignerOpts {
 
 /** [NIP-46](https://github.com/nostr-protocol/nips/blob/master/46.md) remote signer through a relay. */
 export class NConnectSigner implements NostrSigner {
+  /** Parsers, built once, since `NSchema` constructs a new schema tree on every call. */
+  private static readonly eventSchema = n.json().pipe(n.event());
+  private static readonly responseSchema = n.json().pipe(n.connectResponse());
+  private static readonly relaysSchema = n
+    .json()
+    .pipe(z.record(z.string(), z.object({ read: z.boolean(), write: z.boolean() })));
+
   private relay: NRelay;
   private pubkey: string;
   private signer: NostrSigner;
@@ -46,7 +53,7 @@ export class NConnectSigner implements NostrSigner {
     event: Omit<NostrEvent, 'id' | 'pubkey' | 'sig'>,
   ): Promise<NostrEvent> {
     const result = await this.cmd('sign_event', [JSON.stringify(event)]);
-    return n.json().pipe(n.event()).parse(result);
+    return NConnectSigner.eventSchema.parse(result);
   }
 
   async getRelays(): Promise<
@@ -54,15 +61,7 @@ export class NConnectSigner implements NostrSigner {
   > {
     const result = await this.cmd('get_relays', []);
 
-    return n
-      .json()
-      .pipe(
-        z.record(
-          z.string(),
-          z.object({ read: z.boolean(), write: z.boolean() }),
-        ),
-      )
-      .parse(result) as Record<string, { read: boolean; write: boolean }>; // FIXME: hack!
+    return NConnectSigner.relaysSchema.parse(result) as Record<string, { read: boolean; write: boolean }>; // FIXME: hack!
   }
 
   readonly nip04 = {
@@ -147,9 +146,7 @@ export class NConnectSigner implements NostrSigner {
             if (msg[0] === 'EVENT') {
               const event = msg[2];
               const decrypted = await this.decrypt(this.pubkey, event.content);
-              const response = n.json().pipe(n.connectResponse()).parse(
-                decrypted,
-              );
+              const response = NConnectSigner.responseSchema.parse(decrypted);
               if (response.id === request.id) {
                 resolve(response);
                 return;

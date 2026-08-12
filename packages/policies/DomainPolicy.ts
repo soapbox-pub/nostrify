@@ -3,6 +3,9 @@ import type { NostrEvent, NPolicy, NProfilePointer, NStore } from '@nostrify/typ
 
 import { AuthorPolicy } from './AuthorPolicy.ts';
 
+/** Parser for kind 0 content. Built once, since `NSchema` constructs a new schema tree on every call. */
+const metadataSchema = n.json().pipe(n.metadata());
+
 /** Options for `DomainPolicy`. */
 interface DomainPolicyOpts {
   /** Custom NIP-05 lookup function. */
@@ -20,7 +23,7 @@ export class DomainPolicy extends AuthorPolicy implements NPolicy {
       async call(event: NostrEvent, signal: AbortSignal) {
         const { blacklist = [], whitelist, lookup = DomainPolicy.lookup } = opts;
 
-        const metadata = n.json().pipe(n.metadata()).safeParse(event.content);
+        const metadata = metadataSchema.safeParse(event.content);
 
         if (!metadata.success) {
           return ['OK', event.id, false, 'blocked: invalid kind 0 metadata'];

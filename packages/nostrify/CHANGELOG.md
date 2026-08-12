@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.54.1
+
+### Patch Changes
+
+- a7390f5: Build zod schemas once instead of reconstructing them on every call, in `NIP05`,
+  `NConnectSigner`, `N64`, `LNURL`, `BlossomUploader`, `NostrBuildUploader`,
+  `NRelay1`'s NIP-11 parsing, and `DomainPolicy`. Constructing these schemas cost
+  far more than parsing with them, so the affected calls are 60-600x cheaper.
+
+  `LNURL.lnurlDetailsSchema()` and `LNURL.lnurlCallbackSchema()` remain methods with
+  the same signatures, and are now memoized internally.
+
+- 7d8e193: NRelay1: build the inbound message schema once instead of rebuilding it for every message.
+- 46d3e0e: `NPool.query` and `NRelay1.query` no longer use `NSet` to collect results, which was
+  re-sorting and rescanning the whole result set on every incoming event. Collecting
+  100 events is now ~5x faster, and 1000 events ~40x faster.
+
+  This also fixes an edge case: previously, when an event was rejected because a kind `5`
+  deleted it, it could still evict the older version of the replaceable event it would
+  have replaced, dropping both from the results.
+
 ## 0.54.0
 
 ### Minor Changes

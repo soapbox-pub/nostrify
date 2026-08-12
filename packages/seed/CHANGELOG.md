@@ -1,5 +1,14 @@
 # @nostrify/seed
 
+## 0.43.20
+
+### Patch Changes
+
+- Updated dependencies [a7390f5]
+- Updated dependencies [7d8e193]
+- Updated dependencies [46d3e0e]
+  - @nostrify/nostrify@0.54.1
+
 ## 0.43.19
 
 ### Patch Changes

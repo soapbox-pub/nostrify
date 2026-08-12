@@ -55,6 +55,9 @@ export interface NRelay1Log {
 
 /** Single relay connection over WebSocket. */
 export class NRelay1 implements NRelay {
+  /** Parser for inbound messages. Built once, since `NSchema` constructs a new schema tree on every call. */
+  private static readonly msgSchema = n.json().pipe(n.relayMsg());
+
   socket: Websocket;
 
   private subs = new Map<string, NostrClientREQ>();
@@ -213,7 +216,7 @@ export class NRelay1 implements NRelay {
           return;
         }
 
-        const result = n.json().pipe(n.relayMsg()).safeParse(e.data);
+        const result = NRelay1.msgSchema.safeParse(e.data);
 
         if (result.success) {
           this.log({

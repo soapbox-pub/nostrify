@@ -492,7 +492,10 @@ export class NSQLite implements NStore {
    * same one. It costs a single seek to the end of the timestamp's bucket, and
    * it rides along in a statement the write was making anyway.
    */
-  private async check(event: NostrEvent, staged: WriteBatch): Promise<{ stored: boolean; deleted: boolean; seq: number }> {
+  private async check(
+    event: NostrEvent,
+    staged: WriteBatch,
+  ): Promise<{ stored: boolean; deleted: boolean; seq: number }> {
     const base = NSQLite.bucket(event.created_at);
     const replaceable = NKinds.replaceable(event.kind) || NKinds.addressable(event.kind);
 
@@ -819,7 +822,9 @@ export class NSQLite implements NStore {
       // this one statement rather than a paging loop: SQLite walks the posting
       // lists backwards and stops as soon as `limit` rows have survived
       // *everything*, so a page never comes back short of rows that exist.
-      sql = `SELECT ${keys ? `${scan.driver}.rowid AS seq, ` : ''}e.json FROM ${scan.driver} CROSS JOIN ${this.events} e ON e.seq = ${scan.driver}.rowid${
+      sql = `SELECT ${
+        keys ? `${scan.driver}.rowid AS seq, ` : ''
+      }e.json FROM ${scan.driver} CROSS JOIN ${this.events} e ON e.seq = ${scan.driver}.rowid${
         where(conditions)
       } ORDER BY ${scan.driver}.rowid DESC${limit === undefined ? '' : ' LIMIT ?'}`;
 

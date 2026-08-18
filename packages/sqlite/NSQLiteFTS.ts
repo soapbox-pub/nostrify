@@ -640,14 +640,11 @@ export class NSQLiteFTS implements NStore {
       return await this.queryIds(plan.ids, filter, limit);
     }
 
-    // A single cursor that keeps everything it finds is the answer: run it
-    // once, with the limit, and read the event bodies straight out of it. A
-    // cursor that discards rows can only do that when there's no limit to fall
-    // short of.
-    const [first] = plan.cursors;
-    const discards = plan.cursors.length === 1 && !('from' in first) && !!first.filtered;
-
-    if (plan.cursors.length === 1 && plan.sqlOnly && (limit === Infinity || !discards)) {
+    // A single complete cursor *is* the answer: its conditions are applied
+    // before its limit, so it returns exactly the rows wanted. Run it once and
+    // read the event bodies straight out of it, without the key column that
+    // only a later page would need.
+    if (plan.cursors.length === 1 && plan.sqlOnly) {
       const rows = await this.readPage(plan.cursors[0], undefined, limit === Infinity ? undefined : limit, false);
       return rows.filter((row) => row.event).map((row) => row.event!);
     }
@@ -746,10 +743,10 @@ export class NSQLiteFTS implements NStore {
   /**
    * Read one cursor's next rows, newest-first.
    *
-   * A full-text cursor resolves its rowids in a subquery, so the ordering and
-   * limit apply to the index scan and only the surviving rows have their bodies
-   * read. An events-table cursor is already reading the rows it wants, so it
-   * reads their bodies as it goes.
+   * Either shape returns only rows that passed every condition the cursor can
+   * express, with the limit applied after them — so a cursor whose plan is
+   * complete answers the whole query in one statement, and paging exists only
+   * for plans the in-memory matcher still has to finish.
    */
   private async readPage(
     cursor: ScanCursor,
@@ -762,24 +759,25 @@ export class NSQLiteFTS implements NStore {
 
     if (!('from' in cursor)) {
       const scan = this.ftsScan(cursor, before);
-      params.push(...scan.params);
 
-      const inner = `SELECT rowid AS r FROM ${scan.driver}${where(scan.conditions)} ORDER BY rowid DESC${
-        limit === undefined ? '' : ' LIMIT ?'
-      }`;
+      const conditions = [...scan.conditions, ...(cursor.where ?? [])];
+      params.push(...scan.params, ...(cursor.params ?? []));
+
+      // `CROSS JOIN` is load-bearing. It is SQLite's one way to fix a join
+      // order, and without it a condition on the events table is enough to make
+      // the planner drive from *there* instead — seeking this index by rowid
+      // once per row, re-evaluating the MATCH every time, then sorting the
+      // result through a temp b-tree.
+      //
+      // The conditions come first and the `LIMIT` last, which is what makes
+      // this one statement rather than a paging loop: SQLite walks the posting
+      // lists backwards and stops as soon as `limit` rows have survived
+      // *everything*, so a page never comes back short of rows that exist.
+      sql = `SELECT ${keys ? `${scan.driver}.rowid AS seq, ` : ''}e.json FROM ${scan.driver} CROSS JOIN ${this.events} e ON e.seq = ${scan.driver}.rowid${
+        where(conditions)
+      } ORDER BY ${scan.driver}.rowid DESC${limit === undefined ? '' : ' LIMIT ?'}`;
 
       if (limit !== undefined) params.push(limit);
-
-      // A LEFT JOIN rather than an inner one, so a row the conditions reject
-      // still comes back — with no event attached. What it carries is its
-      // rowid, which is where the next page has to resume from: resuming from
-      // the last row *kept* would read the rejected ones all over again.
-      const conditions = ['e.seq = m.r', ...(cursor.where ?? [])];
-      params.push(...(cursor.params ?? []));
-
-      sql = `SELECT ${keys ? 'm.r AS seq, ' : ''}e.json FROM (${inner}) m LEFT JOIN ${this.events} e ON ${
-        conditions.join(' AND ')
-      } ORDER BY m.r DESC`;
     } else {
       const conditions = [...cursor.where];
       params.push(...cursor.params);
@@ -825,17 +823,19 @@ export class NSQLiteFTS implements NStore {
     const conditions = [`${driver} MATCH ?`];
     const params: NSQLiteValue[] = [cursor.match ?? cursor.search!];
 
+    // Every rowid reference is qualified, since the events table joined against
+    // this one has an `INTEGER PRIMARY KEY` and therefore a `rowid` of its own.
     if (cursor.match && cursor.search) {
       // The `+` is load-bearing. Without it SQLite hands the rowid list to the
       // *token* index as a constraint, which turns one descending scan into one
       // scan per keyword match; with it, the list stays an ordinary filter over
       // a single scan, and SQLite builds a bloom filter for it. Measured 9×.
-      conditions.push(`+rowid IN (SELECT rowid FROM ${this.fts} WHERE ${this.fts} MATCH ?)`);
+      conditions.push(`+${driver}.rowid IN (SELECT rowid FROM ${this.fts} WHERE ${this.fts} MATCH ?)`);
       params.push(cursor.search);
     }
 
     if (cursor.min !== undefined) {
-      conditions.push('rowid >= ?');
+      conditions.push(`${driver}.rowid >= ?`);
       params.push(cursor.min);
     }
 
@@ -844,7 +844,7 @@ export class NSQLiteFTS implements NStore {
     const max = before !== undefined ? before - 1 : cursor.max;
 
     if (max !== undefined) {
-      conditions.push('rowid <= ?');
+      conditions.push(`${driver}.rowid <= ?`);
       params.push(max);
     }
 
@@ -1048,9 +1048,6 @@ export class NSQLiteFTS implements NStore {
       max,
       where,
       params,
-      // A cursor that discards rows can't be trusted to fill a page, so the
-      // caller has to keep asking until it does.
-      filtered: where.length > 0,
     }));
 
     return { cursors, sqlOnly: complete && searched, searched };
@@ -1106,9 +1103,9 @@ export class NSQLiteFTS implements NStore {
             // there is nothing to de-duplicate either. Otherwise the rows still
             // have to be visited, but only their columns, never their bodies.
             sql = cursor.where?.length
-              ? `SELECT COUNT(*) AS count FROM ${this.events} e WHERE e.seq IN (SELECT rowid FROM ${scan.driver}${
-                where(scan.conditions)
-              }) AND ${cursor.where.join(' AND ')}`
+              ? `SELECT COUNT(*) AS count FROM ${scan.driver} CROSS JOIN ${this.events} e ON e.seq = ${scan.driver}.rowid${
+                where([...scan.conditions, ...cursor.where])
+              }`
               : `SELECT COUNT(*) AS count FROM ${scan.driver}${where(scan.conditions)}`;
 
             params.push(...(cursor.where?.length ? cursor.params ?? [] : []));
@@ -1258,8 +1255,6 @@ interface FtsCursor {
   /** Conditions on the matched events, as `e.column …`. */
   where?: string[];
   params?: NSQLiteValue[];
-  /** Whether those conditions can leave a page short of the rows asked for. */
-  filtered?: boolean;
 }
 
 /** A scan of the events table with a forced index. */

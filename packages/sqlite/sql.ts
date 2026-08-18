@@ -18,6 +18,17 @@ export function memberOf(column: string, values: readonly NSQLiteValue[]): strin
   return values.length === 1 ? `${column} = ?` : `${column} IN (${qs(values.length)})`;
 }
 
+/**
+ * `(?, ?), (?, ?)` — a placeholder row list for a multi-row `INSERT`.
+ *
+ * Worth having because SQLite runs an `AFTER INSERT` trigger's sub-program once
+ * per INSERT *statement*, not once per row, so a table with a trigger on it is
+ * dramatically cheaper to fill a statement at a time than a row at a time.
+ */
+export function tuples(rows: number, width: number): string {
+  return new Array(rows).fill(`(${qs(width)})`).join(', ');
+}
+
 /** Join conditions into a `WHERE` clause, or nothing if there are none. */
 export function where(conditions: string[]): string {
   return conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : '';

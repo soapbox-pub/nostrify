@@ -3,7 +3,7 @@ import type { NostrEvent, NostrFilter, NostrRelayCOUNT, NStore } from '@nostrify
 
 import type { NSQLiteDatabase, NSQLiteOpts, NSQLiteRow, NSQLiteValue } from './types.ts';
 import { ParsedFilter } from './ParsedFilter.ts';
-import { batch, memberOf, qs, where } from './sql.ts';
+import { batch, memberOf, qs, tuples, where } from './sql.ts';
 import { matchExpr, part, phrase, tagToken } from './tokens.ts';
 
 // ============================================================================
@@ -110,6 +110,10 @@ const CHUNK_SIZE = 512;
 
 /** Upper bound on bound parameters per statement, as in `NSQLite`. */
 const MAX_PARAMS = 900;
+
+/** Columns a staged event row binds, and a staged token row. */
+const EVENT_WIDTH = 7;
+const TOKEN_WIDTH = 2;
 
 /** Upper bound on the rows one page of a scan may read, however large the limit. */
 const MAX_PAGE = 10_000;
@@ -324,8 +328,8 @@ export class NSQLiteFTS implements NStore {
 
   /** Commit every queued event in one transaction, then settle their callers. */
   private async flushWrites(): Promise<void> {
-    const batch = this.pending;
-    if (batch.length === 0) return;
+    const queued = this.pending;
+    if (queued.length === 0) return;
 
     this.pending = [];
 
@@ -333,28 +337,89 @@ export class NSQLiteFTS implements NStore {
 
     try {
       await this.transaction(async () => {
-        for (const item of batch) {
+        const staged = new WriteBatch();
+
+        for (const item of queued) {
+          // An event whose write depends on what is already stored — the
+          // version at its coordinate, or the events it deletes — has to see
+          // the batch so far, so the batch is written out before it and again
+          // after, leaving it exactly the view it had when writes were
+          // unbatched.
+          const alone = NSQLiteFTS.dependsOnStore(item.event);
+          if (alone) await this.writeBatch(staged);
+
           try {
-            await this.writeEvent(item.event);
+            await this.writeEvent(item.event, staged);
           } catch (error) {
             if (error instanceof RelayError) {
               rejections.set(item, error);
               continue;
             }
             throw error;
+          } finally {
+            if (alone) await this.writeBatch(staged);
           }
         }
+
+        await this.writeBatch(staged);
       });
     } catch (error) {
-      for (const item of batch) item.reject(error);
+      for (const item of queued) item.reject(error);
       return;
     }
 
-    for (const item of batch) {
+    for (const item of queued) {
       const rejection = rejections.get(item);
       if (rejection) item.reject(rejection);
       else item.resolve();
     }
+  }
+
+  /**
+   * Whether an event's write reads back something it may itself have just
+   * written, and so can't be staged alongside its neighbours.
+   *
+   * Replaceable and addressable events look up the version at their coordinate;
+   * deletion requests look up their targets by id.
+   */
+  private static dependsOnStore(event: NostrEvent): boolean {
+    return event.kind === 5 || NKinds.replaceable(event.kind) || NKinds.addressable(event.kind);
+  }
+
+  /**
+   * Write the staged rows, as few statements as their parameters allow.
+   *
+   * A row per statement is the obvious shape and the wrong one. `nostr_events`
+   * carries an `AFTER INSERT` trigger maintaining the search index, and SQLite
+   * runs a trigger's sub-program once per INSERT *statement* rather than
+   * folding it into the row loop — so a row per statement pays that setup once
+   * per event. Armada, where this store's schema also runs, measured the
+   * difference at 76µs a row against 17µs for the same rows and the same
+   * trigger written in batches.
+   *
+   * The token rows go first, so no reader on another connection can find an
+   * event before the tokens describing it exist.
+   */
+  private async writeBatch(staged: WriteBatch): Promise<void> {
+    if (staged.size === 0) return;
+
+    for (const chunk of batch(staged.tokens, MAX_PARAMS - MAX_PARAMS % TOKEN_WIDTH)) {
+      await this.run(
+        `INSERT INTO ${this.tags} (rowid, tokens) VALUES ${tuples(chunk.length / TOKEN_WIDTH, TOKEN_WIDTH)}`,
+        chunk,
+      );
+    }
+
+    for (const chunk of batch(staged.events, MAX_PARAMS - MAX_PARAMS % EVENT_WIDTH)) {
+      await this.run(
+        `INSERT INTO ${this.events} (seq, id, kind, pubkey, created_at, coord, json) VALUES ${
+          tuples(chunk.length / EVENT_WIDTH, EVENT_WIDTH)
+        }`,
+        chunk,
+      );
+    }
+
+    staged.clear();
   }
 
   /**
@@ -365,15 +430,15 @@ export class NSQLiteFTS implements NStore {
    * at its timestamp — are all answered by one statement, since each is a
    * scalar subquery over an index and none of them depends on the others.
    */
-  private async writeEvent(event: NostrEvent): Promise<void> {
-    const check = await this.check(event);
+  private async writeEvent(event: NostrEvent, staged: WriteBatch): Promise<void> {
+    const check = await this.check(event, staged);
 
     if (check.deleted) {
       throw new RelayError('invalid', 'event deleted');
     }
 
     // Already stored: a re-delivered event is a no-op.
-    if (check.existing !== undefined) return;
+    if (check.stored) return;
 
     const coord = NKinds.replaceable(event.kind) || NKinds.addressable(event.kind) ? NSQLiteFTS.getCoord(event) : null;
 
@@ -393,7 +458,7 @@ export class NSQLiteFTS implements NStore {
       }
     }
 
-    await this.insertEvent(event, check.seq, coord);
+    staged.add(event, check.seq, coord, this.tagTokens(event));
 
     // Applied after the insert so a kind 5 arriving alongside its targets in
     // the same session still resolves. The request itself is retained.
@@ -412,7 +477,7 @@ export class NSQLiteFTS implements NStore {
    * same one. It costs a single seek to the end of the timestamp's bucket, and
    * it rides along in a statement the write was making anyway.
    */
-  private async check(event: NostrEvent): Promise<{ existing?: number; deleted: boolean; seq: number }> {
+  private async check(event: NostrEvent, staged: WriteBatch): Promise<{ stored: boolean; deleted: boolean; seq: number }> {
     const base = NSQLiteFTS.bucket(event.created_at);
     const replaceable = NKinds.replaceable(event.kind) || NKinds.addressable(event.kind);
 
@@ -445,7 +510,11 @@ export class NSQLiteFTS implements NStore {
       .filter((value) => value !== null && value !== undefined)
       .map(Number);
 
-    const seq = row?.last === null || row?.last === undefined ? base : Number(row.last) + 1;
+    // The rowid has to clear both what is stored and what is staged, or two
+    // events arriving in one burst at the same timestamp would be handed the
+    // same one.
+    const stored = row?.last === null || row?.last === undefined ? base - 1 : Number(row.last);
+    const seq = Math.max(stored, staged.lastSeq(base) ?? base - 1) + 1;
 
     // One second may hold 2²⁰ events. A relay that manages more of them at the
     // same timestamp has outgrown this encoding, and silently reordering its
@@ -455,7 +524,7 @@ export class NSQLiteFTS implements NStore {
     }
 
     return {
-      existing: row?.existing === null || row?.existing === undefined ? undefined : Number(row.existing),
+      stored: (row?.existing !== null && row?.existing !== undefined) || staged.has(event.id),
       // Only the event's own author can delete it, so a request that names it
       // still has to be resolved to its pubkey — a second round trip, but only
       // on the vanishingly rare occasion that there is one.
@@ -472,25 +541,6 @@ export class NSQLiteFTS implements NStore {
     );
 
     return rows.length > 0;
-  }
-
-  /**
-   * Write the event row and its token index row.
-   *
-   * The search index is written by a trigger, the coordinate is a column of the
-   * row, and the rowid is already known, so a new event costs exactly two
-   * statements however many indexes it lands in.
-   */
-  private async insertEvent(event: NostrEvent, seq: number, coord: string | null): Promise<void> {
-    await this.run(
-      `INSERT INTO ${this.events} (seq, id, kind, pubkey, created_at, coord, json) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [seq, event.id, event.kind, event.pubkey, event.created_at, coord, JSON.stringify(event)],
-    );
-
-    await this.run(
-      `INSERT INTO ${this.tags} (rowid, tokens) VALUES (?, ?)`,
-      [seq, this.tagTokens(event)],
-    );
   }
 
   /**
@@ -1198,6 +1248,56 @@ export class NSQLiteFTS implements NStore {
   }
 
   [Symbol.toStringTag] = 'NSQLiteFTS';
+}
+
+/**
+ * Rows staged for the current transaction's multi-row INSERTs, with enough of
+ * an index over them to answer the two questions a write asks of rows that
+ * aren't in the table yet: is this event among them, and which rowid at this
+ * timestamp have they already taken.
+ */
+class WriteBatch {
+  /** Flat `(seq, id, kind, pubkey, created_at, coord, json)` tuples. */
+  readonly events: NSQLiteValue[] = [];
+  /** Flat `(rowid, tokens)` tuples. */
+  readonly tokens: NSQLiteValue[] = [];
+
+  private readonly ids = new Set<string>();
+  private readonly highest = new Map<number, number>();
+
+  /** How many events are staged. */
+  get size(): number {
+    return this.ids.size;
+  }
+
+  add(event: NostrEvent, seq: number, coord: string | null, tokens: string): void {
+    this.events.push(seq, event.id, event.kind, event.pubkey, event.created_at, coord, JSON.stringify(event));
+    this.tokens.push(seq, tokens);
+    this.ids.add(event.id);
+
+    const base = seq - seq % SEQ_SPACE;
+    const previous = this.highest.get(base);
+
+    if (previous === undefined || seq > previous) {
+      this.highest.set(base, seq);
+    }
+  }
+
+  has(id: string): boolean {
+    return this.ids.has(id);
+  }
+
+  /** The highest rowid staged in a timestamp's bucket, if any. */
+  lastSeq(base: number): number | undefined {
+    return this.highest.get(base);
+  }
+
+  clear(): void {
+    this.events.length = 0;
+    this.tokens.length = 0;
+    this.ids.clear();
+    this.highest.clear();
+  }
 }
 
 /** An event queued for the next batched commit, with its caller's settlers. */

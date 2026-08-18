@@ -25,6 +25,9 @@ import type { NSQLiteDatabase, NSQLiteRow, NSQLiteValue } from './types.ts';
 //     --replaceable  mix in replaceable and addressable kinds, so writes
 //                    exercise supersession rather than only appending
 //     --real         all three of the above
+//     --burst        hand events over concurrently rather than awaiting each in
+//                    turn, which is how a relay or a sync loop feeds a store,
+//                    and the only shape in which write batching can do anything
 //
 // Numbers below `ratio` are each store ÷ the first one, so above 1.0 means the
 // first store is faster by that factor.
@@ -45,6 +48,10 @@ const real = flags.has('--real');
 const DISK = real || flags.has('--disk');
 const SKEW = real || flags.has('--skew');
 const REPLACEABLE = real || flags.has('--replaceable');
+const BURST = flags.has('--burst');
+
+/** Events handed over at once under `--burst`. */
+const BURST_SIZE = 500;
 
 const COUNT = Number(args[0] ?? 50_000);
 const AUTHORS = 500;
@@ -187,9 +194,20 @@ async function seed(Store: StoreClass): Promise<Seeded> {
   await store.migrate();
 
   const started = performance.now();
-  for (const event of dataset) {
-    await store.event(event);
+
+  if (BURST) {
+    // Awaiting each event in turn gives a store nothing to batch: there is only
+    // ever one write in flight. A relay is fed by many connections at once, so
+    // this is the shape that decides what ingest actually costs.
+    for (let i = 0; i < dataset.length; i += BURST_SIZE) {
+      await Promise.all(dataset.slice(i, i + BURST_SIZE).map((event) => store.event(event)));
+    }
+  } else {
+    for (const event of dataset) {
+      await store.event(event);
+    }
   }
+
   const ms = performance.now() - started;
 
   // Every store gets statistics, since every real deployment has them: SQLite
@@ -217,6 +235,7 @@ const shape = [
   DISK ? 'on disk' : 'in memory',
   SKEW ? 'zipf authors/topics' : 'uniform authors/topics',
   REPLACEABLE ? 'with replaceable kinds' : 'append only',
+  BURST ? `ingested ${BURST_SIZE} at a time` : 'ingested one at a time',
 ].join(', ');
 
 console.log(`\ndataset: ${COUNT} events, ${AUTHORS} authors, ${TOPICS} topics — ${shape}\n`);

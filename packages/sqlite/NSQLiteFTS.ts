@@ -67,14 +67,15 @@ import { matchExpr, part, phrase, tagToken } from './tokens.ts';
 //
 // Storage layout:
 //
-//   nostr_events     the value store, keyed by the time-encoded `seq` rowid.
+//   nostr_events     the value store, keyed by the time-encoded `seq` rowid,
+//                    with `coord` carrying the replaceable/addressable
+//                    coordinate under a partial unique index.
 //   nostr_tags_fts   one row per event: its tag tokens, plus `_p:<pubkey>` and,
 //                    for deletion requests, `_d:`/`_c:` tokens naming what they
 //                    delete. Contentless and `detail=none`, which reduces FTS5
 //                    to a bare inverted index — no positions, no column tags,
 //                    no copy of the text.
 //   nostr_events_fts NIP-50 search over `content`, tokenized for prose.
-//   nostr_coords     replaceable/addressable coordinates, as in `NSQLite`.
 //
 // Token encoding: FTS5 tokenizers split on punctuation and fold case, so a tag
 // value is only safe to embed verbatim when it is lowercase alphanumeric —
@@ -165,12 +166,12 @@ export class NSQLiteFTS implements NStore {
   private readonly events: string;
   private readonly tags: string;
   private readonly fts: string;
-  private readonly coords: string;
 
   /** Index names, resolved from the `tablePrefix` option. */
   private readonly idxPubkey: string;
   private readonly idxKind: string;
   private readonly idxPubkeyKind: string;
+  private readonly idxCoord: string;
 
   /** Events queued by {@link event}, awaiting the next batched commit. */
   private pending: PendingWrite[] = [];
@@ -189,11 +190,11 @@ export class NSQLiteFTS implements NStore {
     this.events = `${prefix}_events`;
     this.tags = `${prefix}_tags_fts`;
     this.fts = `${prefix}_events_fts`;
-    this.coords = `${prefix}_coords`;
 
     this.idxPubkey = `${this.events}_pubkey`;
     this.idxKind = `${this.events}_kind`;
     this.idxPubkeyKind = `${this.events}_pubkey_kind`;
+    this.idxCoord = `${this.events}_coord`;
   }
 
   /** Default tag index policy, identical to `NSQLite.indexTags`. */
@@ -206,7 +207,8 @@ export class NSQLiteFTS implements NStore {
   /** Create the tables, indexes and triggers this store needs, if absent. */
   async migrate(): Promise<void> {
     // `seq` is the rowid, and encodes `created_at`, so the table is stored in
-    // time order and needs no separate index to be read newest-first.
+    // time order and needs no separate index to be read newest-first. `coord`
+    // is the replaceable/addressable coordinate, and null for every other kind.
     await this.exec(`
       CREATE TABLE IF NOT EXISTS ${this.events} (
         seq INTEGER PRIMARY KEY,
@@ -214,6 +216,7 @@ export class NSQLiteFTS implements NStore {
         kind INTEGER NOT NULL,
         pubkey TEXT NOT NULL,
         created_at INTEGER NOT NULL,
+        coord TEXT,
         json TEXT NOT NULL
       )
     `);
@@ -224,6 +227,13 @@ export class NSQLiteFTS implements NStore {
     await this.exec(`CREATE INDEX IF NOT EXISTS ${this.idxKind} ON ${this.events} (kind)`);
     await this.exec(`CREATE INDEX IF NOT EXISTS ${this.idxPubkey} ON ${this.events} (pubkey)`);
     await this.exec(`CREATE INDEX IF NOT EXISTS ${this.idxPubkeyKind} ON ${this.events} (pubkey, kind)`);
+
+    // Partial, so the index holds one entry per replaceable event rather than
+    // one per event — and unique, because a coordinate having exactly one live
+    // version is the invariant the write path exists to maintain.
+    await this.exec(
+      `CREATE UNIQUE INDEX IF NOT EXISTS ${this.idxCoord} ON ${this.events} (coord) WHERE coord IS NOT NULL`,
+    );
 
     // The tag index: one row per event, holding its tag tokens plus a `_p:`
     // token for its author, so a filter naming both is still one lookup.
@@ -281,17 +291,6 @@ export class NSQLiteFTS implements NStore {
         DELETE FROM ${this.tags} WHERE rowid = old.seq;
         DELETE FROM ${this.fts} WHERE rowid = old.seq;
       END
-    `);
-
-    // Replaceable/addressable coordinates. `seq` rides along so superseding a
-    // coordinate needs no second lookup to find the row to delete.
-    await this.exec(`
-      CREATE TABLE IF NOT EXISTS ${this.coords} (
-        coord TEXT PRIMARY KEY,
-        id TEXT NOT NULL,
-        seq INTEGER NOT NULL,
-        created_at INTEGER NOT NULL
-      ) WITHOUT ROWID
     `);
   }
 
@@ -376,11 +375,11 @@ export class NSQLiteFTS implements NStore {
     // Already stored: a re-delivered event is a no-op.
     if (check.existing !== undefined) return;
 
-    if (NKinds.replaceable(event.kind) || NKinds.addressable(event.kind)) {
-      const coord = NSQLiteFTS.getCoord(event);
+    const coord = NKinds.replaceable(event.kind) || NKinds.addressable(event.kind) ? NSQLiteFTS.getCoord(event) : null;
 
+    if (coord !== null) {
       const [existing] = await this.all(
-        `SELECT id, seq, created_at FROM ${this.coords} WHERE coord = ?`,
+        `SELECT id, seq, created_at FROM ${this.events} WHERE coord = ?`,
         [coord],
       );
 
@@ -389,18 +388,12 @@ export class NSQLiteFTS implements NStore {
         // Per NIP-01 the stored version wins ties, so only a strictly newer
         // event replaces it.
         if (!NSQLiteFTS.isNewer(event, stored)) return;
+        // Deleted before the insert, since the coordinate index is unique.
         await this.deleteEvents([Number(existing.seq)]);
       }
-
-      await this.insertEvent(event, check.seq);
-
-      await this.run(
-        `INSERT OR REPLACE INTO ${this.coords} (coord, id, seq, created_at) VALUES (?, ?, ?, ?)`,
-        [coord, event.id, check.seq, event.created_at],
-      );
-    } else {
-      await this.insertEvent(event, check.seq);
     }
+
+    await this.insertEvent(event, check.seq, coord);
 
     // Applied after the insert so a kind 5 arriving alongside its targets in
     // the same session still resolves. The request itself is retained.
@@ -484,13 +477,14 @@ export class NSQLiteFTS implements NStore {
   /**
    * Write the event row and its token index row.
    *
-   * The search index is written by a trigger, and the rowid is already known,
-   * so a new event costs exactly two statements.
+   * The search index is written by a trigger, the coordinate is a column of the
+   * row, and the rowid is already known, so a new event costs exactly two
+   * statements however many indexes it lands in.
    */
-  private async insertEvent(event: NostrEvent, seq: number): Promise<void> {
+  private async insertEvent(event: NostrEvent, seq: number, coord: string | null): Promise<void> {
     await this.run(
-      `INSERT INTO ${this.events} (seq, id, kind, pubkey, created_at, json) VALUES (?, ?, ?, ?, ?, ?)`,
-      [seq, event.id, event.kind, event.pubkey, event.created_at, JSON.stringify(event)],
+      `INSERT INTO ${this.events} (seq, id, kind, pubkey, created_at, coord, json) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [seq, event.id, event.kind, event.pubkey, event.created_at, coord, JSON.stringify(event)],
     );
 
     await this.run(
@@ -563,9 +557,11 @@ export class NSQLiteFTS implements NStore {
 
     const owned = aTags.filter((coord) => coord.split(':')[1] === request.pubkey);
 
+    // The coordinate is a column of the events table, so the versions a request
+    // may delete are found without a second table to consult.
     for (const chunk of batch(owned, MAX_PARAMS - 1)) {
       const rows = await this.all(
-        `SELECT seq FROM ${this.coords} WHERE coord IN (${qs(chunk.length)}) AND created_at <= ?`,
+        `SELECT seq FROM ${this.events} WHERE coord IN (${qs(chunk.length)}) AND created_at <= ?`,
         [...chunk, request.created_at],
       );
       for (const row of rows) seqs.add(Number(row.seq));
@@ -575,33 +571,18 @@ export class NSQLiteFTS implements NStore {
   }
 
   /**
-   * Delete events by rowid, along with any coordinate they occupy. The index
-   * row goes with them, dropped by the trigger — one statement, however many
-   * tags the event had.
+   * Delete events by rowid.
    *
-   * Coordinates are removed by their primary key, recomputed from the stored
-   * event, so the coordinate table needs no secondary index on `seq`.
+   * One statement, whatever the events were: the token and search index rows go
+   * with them by trigger, and the coordinate goes with them because it is a
+   * column of the row rather than a table keyed by it — which is what spares
+   * this path reading every row back and parsing its JSON to work out which
+   * coordinates to clean up.
    */
   private async deleteEvents(seqs: number[]): Promise<void> {
     if (seqs.length === 0) return;
 
     for (const chunk of batch(seqs, MAX_PARAMS)) {
-      const rows = await this.all(
-        `SELECT kind, json FROM ${this.events} WHERE seq IN (${qs(chunk.length)})`,
-        chunk,
-      );
-
-      // Only a coordinate-bearing event needs its body parsed, to find the `d`
-      // tag its coordinate is built from.
-      const coords = rows
-        .filter((row) => NKinds.replaceable(Number(row.kind)) || NKinds.addressable(Number(row.kind)))
-        .map((row): NostrEvent => JSON.parse(row.json as string))
-        .map((event) => NSQLiteFTS.getCoord(event));
-
-      for (const coordChunk of batch(coords, MAX_PARAMS)) {
-        await this.run(`DELETE FROM ${this.coords} WHERE coord IN (${qs(coordChunk.length)})`, coordChunk);
-      }
-
       await this.run(`DELETE FROM ${this.events} WHERE seq IN (${qs(chunk.length)})`, chunk);
     }
   }

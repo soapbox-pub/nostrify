@@ -2,22 +2,18 @@ import BetterSQLite3 from 'better-sqlite3';
 import { finalizeEvent, generateSecretKey } from 'nostr-tools';
 
 import { NSQLite } from './NSQLite.ts';
-import { NSQLiteAuto } from './NSQLiteAuto.ts';
-import { NSQLiteFTS } from './NSQLiteFTS.ts';
-import { NSQLiteJoin } from './NSQLiteJoin.ts';
 import type { NSQLiteDatabase, NSQLiteRow, NSQLiteValue } from './types.ts';
 
 import events from '../../fixtures/events.json' with { type: 'json' };
 
 // ============================================================================
-// Three schemas, one interface:
+// NSQLite against the 1000-event fixture, in memory.
 //
-//   NSQLite      key/value + hand-picked b-tree indexes, no joins
-//   NSQLiteFTS   every index term — tags included — in one FTS5 table
-//   NSQLiteJoin  events and tags tables, joined, planned by SQLite
-//
-// All three implement the same interface with the same semantics and run on
-// the same driver, so each group below isolates the schema and query strategy.
+// This is the shape most callers have: a small store, where deserializing the
+// events dominates and every query is a fraction of a millisecond. It's the
+// regression net — a change that makes one of these several times slower has
+// broken something. For the differences between query strategies, which only
+// appear once a store is large enough for them to matter, see scale.bench.ts.
 //
 // Read and write benchmarks use separate store instances: the write benchmarks
 // insert an event per iteration, and letting that grow the store the read
@@ -26,8 +22,6 @@ import events from '../../fixtures/events.json' with { type: 'json' };
 //
 //   deno bench -A --no-check NSQLite.bench.ts
 // ============================================================================
-
-type Store = NSQLite | NSQLiteAuto | NSQLiteFTS | NSQLiteJoin;
 
 /** A better-sqlite3 driver that caches prepared statements by SQL text. */
 function betterSQLite3(): NSQLiteDatabase {
@@ -54,69 +48,40 @@ function betterSQLite3(): NSQLiteDatabase {
   };
 }
 
-/** A migrated store seeded with the fixture events. */
-async function seeded(Store: new (db: NSQLiteDatabase) => Store): Promise<Store> {
-  const store = new Store(betterSQLite3());
-  await store.migrate();
-  for (const event of events) {
-    await store.event(event);
-  }
-  return store;
-}
+const read = new NSQLite(betterSQLite3());
+await read.migrate();
+await Promise.all(events.map((event) => read.event(event)));
 
-/** A migrated, empty store, for the write benchmarks. */
-async function empty(Store: new (db: NSQLiteDatabase) => Store): Promise<Store> {
-  const store = new Store(betterSQLite3());
-  await store.migrate();
-  return store;
-}
-
-interface StoreClass {
-  new (db: NSQLiteDatabase): Store;
-}
-
-const ALL: StoreClass[] = [NSQLite, NSQLiteAuto, NSQLiteFTS, NSQLiteJoin];
-
-const read = new Map<StoreClass, Store>();
-const write = new Map<StoreClass, Store>();
-
-for (const Store of ALL) {
-  read.set(Store, await seeded(Store));
-  write.set(Store, await empty(Store));
-}
+const write = new NSQLite(betterSQLite3());
+await write.migrate();
 
 /**
- * Register the same benchmark against both stores, as a comparison group.
+ * Register a read benchmark.
  *
  * The result is deliberately discarded rather than returned: the runner holds
  * on to whatever a benchmark returns, and these queries return whole events, so
  * returning them accumulates every iteration's result set until the heap runs
  * out.
  */
-function compare(group: string, fn: (store: Store) => Promise<unknown>): void {
-  for (const [i, Store] of ALL.entries()) {
-    Deno.bench({
-      name: Store.name,
-      group,
-      baseline: i === 0,
-      fn: async () => {
-        await fn(read.get(Store)!);
-      },
-    });
-  }
+function bench(name: string, fn: (store: NSQLite) => Promise<unknown>): void {
+  Deno.bench({
+    name,
+    fn: async () => {
+      await fn(read);
+    },
+  });
 }
 
 /** Register a write benchmark, whose event is generated outside the timed section. */
-function compareWrite(group: string, make: () => NostrEventInit): void {
-  const bench = (store: Store) => async (b: Deno.BenchContext) => {
-    const event = finalizeEvent(make(), generateSecretKey());
-    b.start();
-    await store.event(event);
-  };
-
-  for (const [i, Store] of ALL.entries()) {
-    Deno.bench({ name: Store.name, group, baseline: i === 0, fn: bench(write.get(Store)!) });
-  }
+function benchWrite(name: string, make: () => NostrEventInit): void {
+  Deno.bench({
+    name,
+    fn: async (b) => {
+      const event = finalizeEvent(make(), generateSecretKey());
+      b.start();
+      await write.event(event);
+    },
+  });
 }
 
 interface NostrEventInit {
@@ -128,14 +93,19 @@ interface NostrEventInit {
 
 // ── Writes ──────────────────────────────────────────────────────────────────
 
-compareWrite('event', () => ({
+// One event per iteration is the worst case for a store that batches writes:
+// there is only ever one in flight, so every event pays for its own
+// transaction. Concurrent ingest is several times cheaper per event.
+benchWrite('event', () => ({
   kind: 1,
   content: 'hello world!',
   created_at: Math.floor(Date.now() / 1000),
   tags: [['t', 'test']],
 }));
 
-compareWrite('event with many tags', () => ({
+// 300 tags is one index row here, not 300 — the case the token index is
+// most obviously better at than a b-tree.
+benchWrite('event with many tags', () => ({
   kind: 1,
   content: 'hello world!',
   created_at: Math.floor(Date.now() / 1000),
@@ -144,12 +114,12 @@ compareWrite('event with many tags', () => ({
 
 // ── Reads ───────────────────────────────────────────────────────────────────
 
-compare(
+bench(
   'query by id',
   (db) => db.query([{ ids: ['1dd49619b558cc202b00c982922526d4bbb6dab09d5debbc2be3d3fd49b1db3b'], limit: 1 }]),
 );
 
-compare('query by multiple ids', (db) =>
+bench('query by multiple ids', (db) =>
   db.query([{
     ids: [
       '1dd49619b558cc202b00c982922526d4bbb6dab09d5debbc2be3d3fd49b1db3b',
@@ -158,16 +128,16 @@ compare('query by multiple ids', (db) =>
     limit: 20,
   }]));
 
-compare('query by kind', (db) => db.query([{ kinds: [1], limit: 20 }]));
+bench('query by kind', (db) => db.query([{ kinds: [1], limit: 20 }]));
 
-compare('query by multiple kinds', (db) => db.query([{ kinds: [6, 7], limit: 20 }]));
+bench('query by multiple kinds', (db) => db.query([{ kinds: [6, 7], limit: 20 }]));
 
-compare(
+bench(
   'query by author',
   (db) => db.query([{ authors: ['753d025936c8c3238b1b2b2f748be6df92743c2201e5198946e9d6a29156793f'], limit: 20 }]),
 );
 
-compare('query by multiple authors', (db) =>
+bench('query by multiple authors', (db) =>
   db.query([{
     authors: [
       '753d025936c8c3238b1b2b2f748be6df92743c2201e5198946e9d6a29156793f',
@@ -176,7 +146,7 @@ compare('query by multiple authors', (db) =>
     limit: 20,
   }]));
 
-compare('query by author and kind', (db) =>
+bench('query by author and kind', (db) =>
   db.query([{
     authors: ['753d025936c8c3238b1b2b2f748be6df92743c2201e5198946e9d6a29156793f'],
     kinds: [1],
@@ -186,36 +156,36 @@ compare('query by author and kind', (db) =>
 // Feed-style query: every distinct author in the fixture set (~470) × 2 kinds.
 const authors = [...new Set(events.map((e) => e.pubkey))];
 
-compare('query feed (many authors + kinds, limit 20)', (db) => db.query([{ authors, kinds: [1, 6], limit: 20 }]));
+bench('query feed (many authors + kinds, limit 20)', (db) => db.query([{ authors, kinds: [1, 6], limit: 20 }]));
 
-compare('query by kind without limit', (db) => db.query([{ kinds: [7] }]));
+bench('query by kind without limit', (db) => db.query([{ kinds: [7] }]));
 
-// Tag queries: the sharpest difference between the two designs. NSQLite scans
-// one tag b-tree; NSQLiteJoin joins the tag table against the events table.
 const tagged = events.find((e) => e.tags.some(([name]) => name === 'p'))!;
 const pubkeyTag = tagged.tags.find(([name]) => name === 'p')![1];
 const eventTag = events.flatMap((e) => e.tags).find(([name]) => name === 'e')![1];
 
-compare('query by tag', (db) => db.query([{ '#p': [pubkeyTag], limit: 20 }]));
+bench('query by tag', (db) => db.query([{ '#p': [pubkeyTag], limit: 20 }]));
 
-compare('query by tag and kind', (db) => db.query([{ '#p': [pubkeyTag], kinds: [1], limit: 20 }]));
+bench('query by tag and kind', (db) => db.query([{ '#p': [pubkeyTag], kinds: [1], limit: 20 }]));
 
-compare('query by tag with multiple values', (db) => db.query([{ '#e': [eventTag, pubkeyTag], limit: 20 }]));
+bench('query by tag with multiple values', (db) => db.query([{ '#e': [eventTag, pubkeyTag], limit: 20 }]));
 
-compare('query by two tags', (db) => db.query([{ '#p': [pubkeyTag], '#e': [eventTag], limit: 20 }]));
+// Two terms intersected by FTS5, rather than one driving and the rest being
+// resolved to id sets and intersected in the application.
+bench('query by two tags', (db) => db.query([{ '#p': [pubkeyTag], '#e': [eventTag], limit: 20 }]));
 
-compare('count by kind', (db) => db.count([{ kinds: [1] }]));
+bench('count by kind', (db) => db.count([{ kinds: [1] }]));
 
-compare('count by tag', (db) => db.count([{ '#p': [pubkeyTag] }]));
+bench('count by tag', (db) => db.count([{ '#p': [pubkeyTag] }]));
 
-// NIP-50 search. These groups are not a schema comparison: NSQLite answers
-// keywords from an FTS5 index, NSQLiteJoin scans and matches in memory. The
-// gap is the index, not the joins.
+// ── NIP-50 search ───────────────────────────────────────────────────────────
 
-compare('query by search (limit 20)', (db) => db.query([{ search: 'temperature', limit: 20 }]));
+bench('query by search (limit 20)', (db) => db.query([{ search: 'temperature', limit: 20 }]));
 
-compare('query by search without limit', (db) => db.query([{ search: 'temperature' }]));
+bench('query by search without limit', (db) => db.query([{ search: 'temperature' }]));
 
-compare('query by search and kind (limit 20)', (db) => db.query([{ kinds: [1], search: 'temperature', limit: 20 }]));
+bench('query by search and kind (limit 20)', (db) => db.query([{ kinds: [1], search: 'temperature', limit: 20 }]));
 
-compare('query by search (rare/no match)', (db) => db.query([{ search: 'zzzznonexistentzzzz', limit: 20 }]));
+// Bounded by the number of matches rather than the size of the store, so a
+// keyword nothing contains is the cheapest search there is, not the dearest.
+bench('query by search (rare/no match)', (db) => db.query([{ search: 'zzzznonexistentzzzz', limit: 20 }]));

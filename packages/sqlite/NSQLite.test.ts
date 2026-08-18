@@ -5,9 +5,6 @@ import { DatabaseSync } from 'node:sqlite';
 import type { NostrEvent } from '@nostrify/types';
 
 import { NSQLite } from './NSQLite.ts';
-import { NSQLiteAuto } from './NSQLiteAuto.ts';
-import { NSQLiteFTS } from './NSQLiteFTS.ts';
-import { NSQLiteJoin } from './NSQLiteJoin.ts';
 import type { NSQLiteDatabase, NSQLiteOpts, NSQLiteRow, NSQLiteValue } from './types.ts';
 
 /**
@@ -22,15 +19,7 @@ function nodeSQLite(sqlite: DatabaseSync): NSQLiteDatabase {
   };
 }
 
-/**
- * The implementations share an interface and their semantics, so they share a
- * test suite. Anything any one of them gets wrong shows up here.
- */
-type Store = NSQLite | NSQLiteAuto | NSQLiteFTS | NSQLiteJoin;
-
-interface StoreClass {
-  new (db: NSQLiteDatabase, opts?: NSQLiteOpts): Store;
-}
+type Store = NSQLite;
 
 /** Stores opened during a test, closed afterwards. */
 const openStores: Store[] = [];
@@ -70,16 +59,16 @@ async function add(store: Store, ...events: NostrEvent[]): Promise<void> {
   }
 }
 
-for (const Store of [NSQLite, NSQLiteAuto, NSQLiteFTS, NSQLiteJoin] as StoreClass[]) {
+{
   /** Open a store backed by a fresh in-memory database. */
   const openStore = async (opts: NSQLiteOpts = {}): Promise<Store> => {
-    const store = new Store(nodeSQLite(new DatabaseSync(':memory:')), opts);
+    const store = new NSQLite(nodeSQLite(new DatabaseSync(':memory:')), opts);
     openStores.push(store);
     await store.migrate();
     return store;
   };
 
-  await describe(Store.name, () => {
+  await describe('NSQLite', () => {
     describe('migrate', () => {
       it('is idempotent', async () => {
         const store = await openStore();
@@ -741,7 +730,7 @@ for (const Store of [NSQLite, NSQLiteAuto, NSQLiteFTS, NSQLiteJoin] as StoreClas
         const { default: BetterSQLite3 } = await import('better-sqlite3');
         const sqlite = new BetterSQLite3(':memory:');
 
-        const store = new Store({
+        const store = new NSQLite({
           run: (sql, params = []) => void sqlite.prepare(sql).run(...params as NSQLiteValue[]),
           all: (sql, params = []) => sqlite.prepare(sql).all(...params as NSQLiteValue[]) as NSQLiteRow[],
           close: () => sqlite.close(),
@@ -764,7 +753,7 @@ for (const Store of [NSQLite, NSQLiteAuto, NSQLiteFTS, NSQLiteJoin] as StoreClas
 
       it('rolls back a failed write', async () => {
         const sqlite = new DatabaseSync(':memory:');
-        const store = new Store(nodeSQLite(sqlite));
+        const store = new NSQLite(nodeSQLite(sqlite));
         openStores.push(store);
         await store.migrate();
 
@@ -782,8 +771,9 @@ for (const Store of [NSQLite, NSQLiteAuto, NSQLiteFTS, NSQLiteJoin] as StoreClas
   });
 }
 
-// NSQLite answers NIP-50 `search` from an FTS5 index, so its matching differs
-// from NSQLiteJoin's substring scan. These pin down that behavior.
+// NIP-50 `search` is answered from an FTS5 index rather than by scanning
+// content, so matching is by whole word rather than by substring. These pin
+// down that behavior.
 await describe('NSQLite full-text search', () => {
   const openFts = async (): Promise<NSQLite> => {
     const store = new NSQLite(nodeSQLite(new DatabaseSync(':memory:')));
@@ -841,11 +831,11 @@ await describe('NSQLite full-text search', () => {
     deepStrictEqual(await store.query([{ search: '-rain' }]), [kept]);
   });
 
-  it('applies a common keyword by filtering the scan', async () => {
+  it('applies a keyword matching a large share of the store', async () => {
     const store = await openFts();
 
-    // More matches than are worth driving the query with, so the planner
-    // filters an indexed scan instead of leading with the index.
+    // A keyword most events contain: the posting list the scan walks is nearly
+    // the whole store, and the limit is what has to stop it.
     const events: NostrEvent[] = [];
     for (let i = 0; i < 1200; i++) {
       events.push(note(`common word number ${i}`, { created_at: 1000 + i }));
@@ -903,14 +893,15 @@ await describe('NSQLite full-text search', () => {
   });
 });
 
-await describe('NSQLite full-text search with a common keyword', () => {
+await describe('NSQLite full-text search alongside a tag', () => {
   it('still applies keywords on a tag-driven scan', async () => {
     const store = new NSQLite(nodeSQLite(new DatabaseSync(':memory:')));
     openStores.push(store);
     await store.migrate();
 
-    // Enough matches that the keyword filters the scan rather than driving it,
-    // which a tag-driven scan can't express in SQL.
+    // Tokens drive the scan, so the keywords are a second index FTS5 cannot
+    // merge with the first — they are resolved to a rowid set the scan tests
+    // against, and this is what checks that it does.
     const events: NostrEvent[] = [];
     for (let i = 0; i < 1200; i++) {
       events.push(makeEvent({ content: `common word ${i}`, tags: [['t', 'x']], created_at: 1000 + i }));
@@ -927,9 +918,9 @@ await describe('NSQLite full-text search with a common keyword', () => {
   });
 });
 
-await describe('NSQLiteFTS token encoding', () => {
-  const openStore = async (): Promise<NSQLiteFTS> => {
-    const store = new NSQLiteFTS(nodeSQLite(new DatabaseSync(':memory:')));
+await describe('NSQLite token encoding', () => {
+  const openStore = async (): Promise<NSQLite> => {
+    const store = new NSQLite(nodeSQLite(new DatabaseSync(':memory:')));
     openStores.push(store);
     await store.migrate();
     return store;
@@ -953,7 +944,7 @@ await describe('NSQLiteFTS token encoding', () => {
   for (const value of awkward) {
     it(`round-trips a tag value: ${JSON.stringify(value)}`, async () => {
       // The default policy skips empty values and long ones, so index everything.
-      const store = new NSQLiteFTS(nodeSQLite(new DatabaseSync(':memory:')), {
+      const store = new NSQLite(nodeSQLite(new DatabaseSync(':memory:')), {
         indexTags: (event) => event.tags,
       });
       openStores.push(store);

@@ -2,143 +2,149 @@ import { NKinds, RelayError } from '@nostrify/nostrify';
 import type { NostrEvent, NostrFilter, NostrRelayCOUNT, NStore } from '@nostrify/types';
 
 import type { NSQLiteDatabase, NSQLiteOpts, NSQLiteRow, NSQLiteValue } from './types.ts';
-import { ParsedFilter, type TagFilter } from './ParsedFilter.ts';
-import { batch, memberOf, qs, where } from './sql.ts';
+import { ParsedFilter } from './ParsedFilter.ts';
+import { batch, memberOf, qs, tuples, where } from './sql.ts';
+import { matchExpr, part, phrase, tagToken } from './tokens.ts';
 
 // ============================================================================
-// NSQLite — a general-purpose `NStore` backed by SQLite.
+// NSQLite — an `NStore` whose tag index is an FTS5 inverted index.
 //
-// This is a port of `NIndexedDB` (itself a port of strfry's LMDB query engine)
-// onto SQLite. It keeps the same architecture: SQLite is treated as a *key
-// value store* plus a set of hand-maintained indexes, and the query planner
-// here — not SQLite's — decides which index a filter scans.
+// There is no tags table. An event's tags are flattened into a string of opaque
+// tokens — `e:<id>`, `p:<pubkey>`, `t:nostr` — and handed to FTS5, whose
+// tokenizer is configured so that each one is a single indivisible token.
+// `{"#e": [id]}` then becomes a full-text match for the word `e:<id>`.
 //
-// Why not model this relationally? A tags table joined against an events table
-// forces SQLite's planner to pick a join order and an index for every query,
-// and it frequently picks badly for Nostr's shape (a handful of very selective
-// terms, an unbounded `created_at DESC` ordering, and a small limit). By
-// scanning one index for keys and then fetching values by primary key, the
-// plan is fixed, predictable, and free to use whatever index is most selective
-// — the "index freedom" that makes strfry fast. There are no joins anywhere in
-// this file.
+// The bet is that a posting list is a better fit for Nostr's tag filters than a
+// b-tree is. Measured against two b-tree implementations of this same
+// interface — one a hand-planned `(name, value, created_at DESC, id)` covering
+// table, the other a conventional tags table joined by SQLite — it holds:
+//
+//   - A tag filter is a boolean expression over terms, which is exactly what an
+//     FTS5 query *is*. `{"#t": [a, b], "#p": [c]}` is one MATCH —
+//     `(t:a OR t:b) AND p:c` — intersected by merging sorted posting lists in
+//     C. A b-tree can drive on only one term and must intersect the rest in the
+//     application, or hand the whole thing to SQLite's join planner and hope.
+//     At 200k events that filter took 63ms the first way and 108ms the second,
+//     against 0.4ms here.
+//   - Posting lists are delta-encoded varints, so an indexed tag costs a byte
+//     or two per event rather than a whole b-tree entry. An event with 300 tags
+//     is one insert of one row, not 300 index inserts.
+//   - One event is one row of the index, so a filter that matches an event
+//     through several of its tags yields it once. No DISTINCT, no
+//     de-duplication pass.
+//
+// The catch is ordering. Nostr wants newest-first with a small limit; FTS5 only
+// ever yields rows in rowid order. That's fine — *if* rowid order is time
+// order, which is arranged by construction:
+//
+//     rowid = created_at × 2²⁰ + a per-second sequence number
+//
+// so `ORDER BY rowid DESC` is `ORDER BY created_at DESC`, and FTS5 does it by
+// walking its posting lists backwards, with no sorter. `since`/`until` become a
+// rowid range, which FTS5 pushes down into that walk. Terms, ordering, time
+// window and limit are then one statement that stops as soon as it has enough
+// rows.
+//
+// The same encoding pays off outside the index. The events table is *clustered*
+// by time, so:
+//
+//   - the `created_at DESC` index the other designs need is the table itself;
+//   - `(kind)` and `(pubkey)` are implicitly `(kind, created_at)` and
+//     `(pubkey, created_at)`, since SQLite appends the rowid to every index
+//     entry — narrower keys than spelling `created_at DESC, id ASC` out;
+//   - a candidate key is one integer, and reading its event is a seek into the
+//     table b-tree rather than into a 64-character text index.
+//
+// What the index does *not* carry is as deliberate as what it does. A posting
+// list is only worth intersecting when it's short, and in descending order FTS5
+// reads a term's list in full — so a term matching a large share of the store
+// costs its whole length, however small the answer. Kinds are exactly that kind
+// of term: there are only a handful in use. So kinds (and authors, unless a tag
+// is already driving) are tested on the events rows the index finds, which
+// costs a column read on a row that was going to be fetched anyway. Measured
+// both ways, that is 2-3× faster than intersecting a `_k:` posting list, and it
+// leaves the index smaller.
 //
 // Storage layout:
 //
-//   nostr_events   the value store, keyed by event id. `kind`, `pubkey` and
-//                  `created_at` are duplicated out of the JSON as columns so
-//                  they can be indexed and filtered without deserializing.
-//   nostr_tags     the tag index: (name, value, created_at DESC, id) covering
-//                  `kind`. Rows are the index — it's a WITHOUT ROWID table, so
-//                  a tag scan reads exactly one b-tree.
-//   nostr_coords   replaceable/addressable coordinates (`kind:pubkey:d`) → the
-//                  id currently stored at that coordinate. Supersession is a
-//                  single primary-key lookup rather than a scan.
+//   nostr_events     the value store, keyed by the time-encoded `seq` rowid,
+//                    with `coord` carrying the replaceable/addressable
+//                    coordinate under a partial unique index.
+//   nostr_tags_fts   one row per event: its tag tokens, plus `_p:<pubkey>` and,
+//                    for deletion requests, `_d:`/`_c:` tokens naming what they
+//                    delete. Contentless and `detail=none`, which reduces FTS5
+//                    to a bare inverted index — no positions, no column tags,
+//                    no copy of the text.
+//   nostr_events_fts NIP-50 search over `content`, tokenized for prose.
 //
-// Every index ends in `(created_at DESC, id ASC)`, so a forward scan of any
-// index prefix yields that prefix newest-first with no sorter. This mirrors
-// strfry packing `created_at` into the trailing bytes of an LMDB key.
+// Token encoding: FTS5 tokenizers split on punctuation and fold case, so a tag
+// value is only safe to embed verbatim when it is lowercase alphanumeric —
+// which the values that matter (event ids, pubkeys, most topics) are. Anything
+// else is hex-escaped to `_<hex>`, a form no tokenizer will split or alter, and
+// which can't be confused with a verbatim value since those contain no
+// underscore. Tag *names* are encoded the same way, so the reserved `_p:`,
+// `_d:` and `_c:` prefixes can never be produced by a user's tag: an escaped
+// name is `_` followed by an even number of hex digits, and none of `p`, `d`
+// or `c` alone is that.
 //
-// Query planning (the `DBScan` priority cascade):
-//   ids → most-selective #tag → pubkey+kind (<1000 combos) → pubkey → kind →
-//   full created_at scan. One index is chosen and forced with `INDEXED BY`, so
-//   the plan never depends on SQLite's cost estimates or on how stale ANALYZE
-//   happens to be.
-//
-// Unlike NIndexedDB, a filter becomes a *single* statement rather than one
-// cursor per discrete value, with the values as an `IN (…)` list. Stepping an
-// IndexedDB cursor is a round trip, so merging N cursors in the application
-// beats letting the store scan; in SQLite the whole scan runs in C, and a
-// `LIMIT`-bounded sorter over one covering index measured 15× faster than
-// merging the equivalent 940 per-value statements — the cost of crossing into
-// the driver 940 times dwarfs what the merge saves.
-//
-// Scan execution is two-phase, like a key/value store:
-//   1. Scan the chosen index for candidate keys. The index covers
-//      `(…, created_at DESC, id ASC)`, so this reads no event bodies.
-//   2. Fetch the values for those keys with a single `id IN (…)` lookup.
-//
-//   Conditions the chosen index can't express become part of the scan's
-//   `WHERE` clause wherever SQLite can evaluate them (`kind IN …` on a tag
-//   scan, for instance, works because `kind` is denormalized onto the tag
-//   index). Anything left over — extra tag terms, NIP-50 keywords — is matched
-//   in memory, and the scan is then paged by keyset until the filter's limit
-//   is met, so memory stays bounded.
-//
-// A scan over `nostr_events` that SQL fully satisfies skips phase 2 and reads
-// the event bodies directly, since the extra key lookup would buy nothing.
-//
-// NIP-50 `search` (basic full-text): the search input is parsed per NIP-50 —
-// extension tokens (`key:value`) are parsed out and removed, since no
-// extensions are supported and the NIP says unsupported extensions are
-// ignored — and every remaining keyword must appear in the event's `content`,
-// case-insensitively. A `-keyword` token means the content must NOT contain
-// the keyword. Matching is done in memory (with Unicode-aware case folding,
-// which SQLite's ASCII-only `LIKE` can't provide), so search always
-// post-filters a scan.
-//
-// Replaceable/addressable supersession: on write, an older version at the same
-// (kind, pubkey, d) coordinate is deleted, so queries never surface a stale
-// profile or list. NIP-09 deletion requests (kind 5) are applied on write: the
-// events they target (`e` by id, `a` by coordinate) are removed, but only when
-// authored by the requester. A deleted event can't be re-added — the stored
-// kind 5 is itself indexed by its `e`/`a` tags, so the check is one index seek.
-//
-// NIP-40 expiration is NOT handled, and nothing is pruned automatically.
 // ============================================================================
 
+/** Bits of the rowid reserved for the per-second sequence number. */
+const SEQ_BITS = 20;
+
+/** Rowids per second: how many events may share one `created_at`. */
+const SEQ_SPACE = 2 ** SEQ_BITS;
 
 /**
- * How many candidate keys a paged scan fetches per round trip. Only scans that
- * need in-memory post-filtering (extra tag terms, NIP-50 keywords) page; a
- * scan that SQL fully satisfies reads exactly the rows it needs.
+ * Largest `created_at` the rowid encoding can carry (2106-02-07). Beyond this
+ * the timestamp is clamped, which keeps the rowid a safe integer at the cost of
+ * ordering *among* absurdly-dated events; plans touching such an event fall
+ * back to matching it in memory, so results stay correct either way.
  */
+const MAX_TIME = 0xFFFFFFFF;
+
+/** How many candidate rows a paged scan reads per round trip. */
 const CHUNK_SIZE = 512;
 
 /**
  * Upper bound on bound parameters per statement. SQLite's own limit is 32766
- * on modern builds but only 999 on older ones, and some drivers impose their
- * own, so statements are split well below the floor.
+ * since 3.32, but was 999 before it, and a driver may impose its own.
  */
 const MAX_PARAMS = 900;
+
+/** Columns a staged event row binds, and a staged token row. */
+const EVENT_WIDTH = 7;
+const TOKEN_WIDTH = 2;
 
 /** Upper bound on the rows one page of a scan may read, however large the limit. */
 const MAX_PAGE = 10_000;
 
-/** Longest `IN (…)` list driving a scan before it is split across statements. */
+/**
+ * Longest `IN (…)` list driving a scan over the events table before it is split
+ * across statements.
+ */
 const MAX_IN = 500;
 
 /**
- * Longest `IN (…)` list used to *filter* a scan. A longer one is matched in
- * memory instead, which keeps the statement's parameter count bounded.
+ * Most terms one MATCH expression may `OR` together. FTS5 opens an iterator per
+ * term, so a very long list is split across statements and merged instead.
+ */
+const MAX_OR = 500;
+
+/**
+ * Whether a value list is short enough to filter (rather than drive) a scan
+ * over the events table.
  */
 const MAX_PUSHDOWN = 100;
 
 /**
- * Most ids a secondary tag term is materialized into before it's left to the
- * in-memory match instead.
- */
-const MAX_TAG_SET = 100_000;
-
-/**
- * How many full-text matches are worth driving a query with. A term matching
- * more than this is common enough that an ordinary indexed scan will run into
- * matches quickly, so it filters the scan instead of driving it.
- */
-const MAX_SEARCH_IDS = 1_000;
-
-/**
- * The share of events a keyword must match before the scan tests rows against
- * the index one at a time rather than collecting every match up front. Measured
- * crossover: below this the two are within noise of each other, and either side
- * of it the wrong choice costs an order of magnitude.
- */
-const DENSE_SEARCH = 0.25;
-
-/**
- * A general-purpose `NStore` backed by SQLite, suitable for relays, desktop
- * apps, and anywhere else a durable local event store is wanted.
+ * An `NStore` backed by SQLite that indexes tags as full-text tokens rather
+ * than b-tree rows, and keys every table by time.
  *
- * Pass any SQLite driver satisfying {@link NSQLiteDatabase}:
+ * It depends on no particular SQLite library: give it an object with `run` and
+ * `all` and it works with whatever driver is already at hand — `node:sqlite`,
+ * `better-sqlite3`, `bun:sqlite`, `@db/sqlite`, wa-sqlite in the browser, or a
+ * remote database over HTTP. Either method may be sync or async.
  *
  * ```ts
  * import { DatabaseSync } from 'node:sqlite';
@@ -153,9 +159,10 @@ const DENSE_SEARCH = 0.25;
  * });
  *
  * await store.migrate();
- * await store.event(event);
- * const events = await store.query([{ kinds: [1] }]);
  * ```
+ *
+ * Requires an FTS5-enabled SQLite of at least 3.43 (2023), for contentless
+ * tables that support deletion.
  */
 export class NSQLite implements NStore {
   private readonly db: NSQLiteDatabase;
@@ -165,24 +172,19 @@ export class NSQLite implements NStore {
   /** Table names, resolved from the `tablePrefix` option. */
   private readonly events: string;
   private readonly tags: string;
-  private readonly coords: string;
   private readonly fts: string;
 
   /** Index names, resolved from the `tablePrefix` option. */
-  private readonly idxCreatedAt: string;
   private readonly idxPubkey: string;
   private readonly idxKind: string;
   private readonly idxPubkeyKind: string;
+  private readonly idxCoord: string;
 
   /** Events queued by {@link event}, awaiting the next batched commit. */
   private pending: PendingWrite[] = [];
   /** Whether a flush is already scheduled for the current burst. */
   private flushScheduled = false;
-  /**
-   * Tail of the write chain. Transactions queue behind it rather than
-   * interleaving, since SQLite has no nested transactions and two overlapping
-   * writers would otherwise share — and roll back — each other's work.
-   */
+  /** Tail of the write chain, so transactions queue rather than interleave. */
   private writeLock: Promise<unknown> = Promise.resolve();
 
   constructor(db: NSQLiteDatabase, opts: NSQLiteOpts = {}) {
@@ -193,122 +195,125 @@ export class NSQLite implements NStore {
     this.onQuery = opts.onQuery;
 
     this.events = `${prefix}_events`;
-    this.tags = `${prefix}_tags`;
-    this.coords = `${prefix}_coords`;
+    this.tags = `${prefix}_tags_fts`;
     this.fts = `${prefix}_events_fts`;
 
-    this.idxCreatedAt = `${this.events}_created_at`;
     this.idxPubkey = `${this.events}_pubkey`;
     this.idxKind = `${this.events}_kind`;
     this.idxPubkeyKind = `${this.events}_pubkey_kind`;
+    this.idxCoord = `${this.events}_coord`;
   }
 
-  /**
-   * Default tag index policy: index every single-letter tag with a non-empty
-   * value under 200 chars. Matches Nostrify's `NPostgres.indexTags`.
-   */
+  /** Default tag index policy: every single-letter tag with a usable value. */
   static indexTags(event: NostrEvent): string[][] {
     return event.tags.filter(([name, value]) => name.length === 1 && !!value && value.length < 200);
   }
 
   // ── Schema ────────────────────────────────────────────────────────────────
 
-  /**
-   * Create the tables and indexes this store needs, if they don't already
-   * exist. Safe to call on every startup.
-   */
+  /** Create the tables, indexes and triggers this store needs, if absent. */
   async migrate(): Promise<void> {
-    // The value store. `kind`, `pubkey` and `created_at` are duplicated out of
-    // the JSON so they can be indexed and filtered without deserializing.
+    // `seq` is the rowid, and encodes `created_at`, so the table is stored in
+    // time order and needs no separate index to be read newest-first. `coord`
+    // is the replaceable/addressable coordinate, and null for every other kind.
     await this.exec(`
       CREATE TABLE IF NOT EXISTS ${this.events} (
-        id TEXT PRIMARY KEY,
+        seq INTEGER PRIMARY KEY,
+        id TEXT NOT NULL UNIQUE,
         kind INTEGER NOT NULL,
         pubkey TEXT NOT NULL,
         created_at INTEGER NOT NULL,
+        coord TEXT,
         json TEXT NOT NULL
       )
     `);
 
-    // Each index ends in (created_at DESC, id ASC) so scanning a prefix yields
-    // it newest-first with no sorter, and so `created_at, id` keyset paging is
-    // a pure index read.
-    await this.exec(`CREATE INDEX IF NOT EXISTS ${this.idxCreatedAt} ON ${this.events} (created_at DESC, id ASC)`);
+    // SQLite appends the rowid to every index entry, and the rowid is time, so
+    // these are already `(…, created_at)` indexes — scanned backwards for
+    // newest-first with no sorter and no `created_at`/`id` in the key.
+    await this.exec(`CREATE INDEX IF NOT EXISTS ${this.idxKind} ON ${this.events} (kind)`);
+    await this.exec(`CREATE INDEX IF NOT EXISTS ${this.idxPubkey} ON ${this.events} (pubkey)`);
+    await this.exec(`CREATE INDEX IF NOT EXISTS ${this.idxPubkeyKind} ON ${this.events} (pubkey, kind)`);
+
+    // Partial, so the index holds one entry per replaceable event rather than
+    // one per event — and unique, because a coordinate having exactly one live
+    // version is the invariant the write path exists to maintain.
     await this.exec(
-      `CREATE INDEX IF NOT EXISTS ${this.idxPubkey} ON ${this.events} (pubkey, created_at DESC, id ASC)`,
-    );
-    await this.exec(`CREATE INDEX IF NOT EXISTS ${this.idxKind} ON ${this.events} (kind, created_at DESC, id ASC)`);
-    await this.exec(
-      `CREATE INDEX IF NOT EXISTS ${this.idxPubkeyKind} ON ${this.events} (pubkey, kind, created_at DESC, id ASC)`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS ${this.idxCoord} ON ${this.events} (coord) WHERE coord IS NOT NULL`,
     );
 
-    // The tag index. WITHOUT ROWID, so the table *is* the b-tree and a tag scan
-    // touches exactly one. `kind` rides along as a payload column so
-    // `{"#e": [...], "kinds": [...]}` — replies and reactions to a note, the
-    // single most common tag query — is answered from this b-tree alone.
+    // The tag index: one row per event, holding its tag tokens plus a `_p:`
+    // token for its author, so a filter naming both is still one lookup.
+    //
+    // `tokenchars ':_'` is what makes a tag token indivisible: without it the
+    // tokenizer would split `e:<id>` into `e` and `<id>`, and a `#e` filter
+    // would match any event mentioning that id in any tag at all.
+    //
+    // `detail=none` strips everything FTS5 keeps for *text*: no positions, no
+    // per-column tags, just a delta-encoded list of rowids per token. That is
+    // precisely an inverted index and nothing more — the smallest form of the
+    // only thing this table is asked for. `content=''` drops the copy of the
+    // text FTS5 would otherwise keep, and `contentless_delete` keeps rows
+    // deletable, which a plain contentless table isn't.
     await this.exec(`
-      CREATE TABLE IF NOT EXISTS ${this.tags} (
-        name TEXT NOT NULL,
-        value TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        id TEXT NOT NULL,
-        kind INTEGER NOT NULL,
-        PRIMARY KEY (name, value, created_at DESC, id ASC)
-      ) WITHOUT ROWID
+      CREATE VIRTUAL TABLE IF NOT EXISTS ${this.tags} USING fts5(
+        tokens,
+        tokenize = 'ascii tokenchars '':_''',
+        content = '',
+        contentless_delete = 1,
+        detail = none
+      )
     `);
 
-    // NIP-50 search. The index is keyed by the events table's rowid, and is
-    // kept in step by triggers rather than by this class, so there is no way
-    // for a write path to forget it. `unicode61` case-folds and strips
-    // diacritics, so matching is case- and accent-insensitive.
+    // NIP-50 search, kept in a table of its own so the two can be tokenized on
+    // their own terms: prose wants case folding, diacritic stripping and
+    // positions for phrases, none of which a tag token has any use for.
     await this.exec(`
       CREATE VIRTUAL TABLE IF NOT EXISTS ${this.fts}
-      USING fts5(content, tokenize='unicode61 remove_diacritics 2')
+      USING fts5(content, tokenize = 'unicode61 remove_diacritics 2', content = '', contentless_delete = 1)
     `);
 
-    // Events are only ever inserted or deleted, never updated, so those are the
-    // only two triggers needed. `content` is read back out of the stored JSON,
-    // which keeps the events table itself unchanged.
+    // Every commit leaves behind a segment, and a query with N terms opens an
+    // iterator per term *per segment* — so a store written an event at a time,
+    // as a relay writes, answers a multi-term filter several times slower than
+    // the same data bulk-loaded. `automerge` is FTS5's incremental defrag: it
+    // folds a little merging into each write. Turning it down from the default
+    // 4 to its minimum measured free on the write side and several times faster
+    // on many-term reads, which is the trade this store wants.
+    await this.exec(`INSERT INTO ${this.tags}(${this.tags}, rank) VALUES('automerge', 2)`);
+    await this.exec(`INSERT INTO ${this.fts}(${this.fts}, rank) VALUES('automerge', 2)`);
+
+    // The search index is maintained entirely by triggers — its content is a
+    // field of the event, so SQLite can read it out of the stored JSON without
+    // a round trip, and no write path can forget to. The token index can only
+    // be kept in step on delete this way, since its tokens depend on the
+    // `indexTags` policy, which lives in JavaScript.
     await this.exec(`
       CREATE TRIGGER IF NOT EXISTS ${this.events}_fts_insert AFTER INSERT ON ${this.events} BEGIN
-        INSERT INTO ${this.fts} (rowid, content) VALUES (new.rowid, json_extract(new.json, '$.content'));
+        INSERT INTO ${this.fts} (rowid, content) VALUES (new.seq, json_extract(new.json, '$.content'));
       END
     `);
     await this.exec(`
       CREATE TRIGGER IF NOT EXISTS ${this.events}_fts_delete AFTER DELETE ON ${this.events} BEGIN
-        DELETE FROM ${this.fts} WHERE rowid = old.rowid;
+        DELETE FROM ${this.tags} WHERE rowid = old.seq;
+        DELETE FROM ${this.fts} WHERE rowid = old.seq;
       END
-    `);
-
-    // Replaceable/addressable coordinates. Only the current version of a
-    // coordinate is ever stored, so this maps `kind:pubkey:d` to a single id
-    // and supersession costs one primary-key lookup.
-    await this.exec(`
-      CREATE TABLE IF NOT EXISTS ${this.coords} (
-        coord TEXT PRIMARY KEY,
-        id TEXT NOT NULL,
-        created_at INTEGER NOT NULL
-      ) WITHOUT ROWID
     `);
   }
 
   // ── Write path ────────────────────────────────────────────────────────────
 
   /**
-   * Add an event to the store.
+   * Add an event to the store: ephemeral events are dropped, replaceable and
+   * addressable events supersede older versions at their coordinate, kind 5
+   * requests delete what they target, and an event a stored request has already
+   * deleted is rejected.
    *
-   * Ephemeral events are ignored. Replaceable and addressable events supersede
-   * (and delete) any older version at the same coordinate, and are themselves
-   * ignored if a newer version is already stored. Kind 5 deletion requests
-   * delete the events they target. An event that a stored deletion request has
-   * already deleted is rejected with a `RelayError`.
-   *
-   * Events handed over without awaiting each one — a relay feeding several
-   * connections, or a `Promise.all` over a page of results — are collected and
-   * committed together in a single transaction. The returned promise still
-   * resolves only once the event is durably committed, so nothing about the
-   * contract changes; a caller that awaits each `event()` in turn simply gets
-   * batches of one, exactly as before.
+   * Events handed over without an intervening `await` are committed in one
+   * transaction. The contract is unchanged — the promise resolves only once
+   * that event is durably committed — but the per-event overhead is amortized
+   * across the burst, so feeding events in concurrently is worth several times
+   * awaiting each in turn.
    */
   event(event: NostrEvent, _opts?: { signal?: AbortSignal }): Promise<void> {
     if (NKinds.ephemeral(event.kind)) return Promise.resolve();
@@ -322,10 +327,9 @@ export class NSQLite implements NStore {
   /**
    * Schedule a flush for the events queued so far.
    *
-   * A microtask is the tightest window that still catches a whole burst: every
-   * `event()` call made before the caller next awaits lands in the same batch,
-   * and no latency is added for callers that don't batch. A timer would widen
-   * the window at the cost of delaying every write.
+   * A microtask is the tightest window that still catches a whole burst: it
+   * runs after the synchronous run of code that queued the events, and before
+   * any I/O the event loop might otherwise interleave.
    */
   private scheduleFlush(): void {
     if (this.flushScheduled) return;
@@ -337,18 +341,10 @@ export class NSQLite implements NStore {
     });
   }
 
-  /**
-   * Commit every queued event in one transaction, then settle their callers.
-   *
-   * An event the store rejects on its own terms — one a deletion request has
-   * already removed — only fails that caller; it's checked before anything is
-   * written, so the rest of the batch is unaffected. Any other failure means
-   * the transaction itself is in doubt, so the batch rolls back together and
-   * every caller sees the error.
-   */
+  /** Commit every queued event in one transaction, then settle their callers. */
   private async flushWrites(): Promise<void> {
-    const batch = this.pending;
-    if (batch.length === 0) return;
+    const queued = this.pending;
+    if (queued.length === 0) return;
 
     this.pending = [];
 
@@ -356,241 +352,303 @@ export class NSQLite implements NStore {
 
     try {
       await this.transaction(async () => {
-        for (const item of batch) {
+        const staged = new WriteBatch();
+
+        for (const item of queued) {
+          // An event whose write depends on what is already stored — the
+          // version at its coordinate, or the events it deletes — has to see
+          // the batch so far, so the batch is written out before it and again
+          // after, leaving it exactly the view it had when writes were
+          // unbatched.
+          const alone = NSQLite.dependsOnStore(item.event);
+          if (alone) await this.writeBatch(staged);
+
           try {
-            await this.writeEvent(item.event);
+            await this.writeEvent(item.event, staged);
           } catch (error) {
             if (error instanceof RelayError) {
               rejections.set(item, error);
               continue;
             }
             throw error;
+          } finally {
+            if (alone) await this.writeBatch(staged);
           }
         }
+
+        await this.writeBatch(staged);
       });
     } catch (error) {
-      for (const item of batch) item.reject(error);
+      for (const item of queued) item.reject(error);
       return;
     }
 
-    // Settled only after the commit, so resolving means durable.
-    for (const item of batch) {
+    for (const item of queued) {
       const rejection = rejections.get(item);
       if (rejection) item.reject(rejection);
       else item.resolve();
     }
   }
 
-  /** Apply a single event's writes. Runs inside the batch transaction. */
-  private async writeEvent(event: NostrEvent): Promise<void> {
-    {
-      if (await this.isDeleted(event)) {
-        throw new RelayError('invalid', 'event deleted');
-      }
-
-      if (NKinds.replaceable(event.kind) || NKinds.addressable(event.kind)) {
-        const coord = NSQLite.getCoord(event);
-
-        const [existing] = await this.all(
-          `SELECT id, created_at FROM ${this.coords} WHERE coord = ?`,
-          [coord],
-        );
-
-        if (existing) {
-          const stored = { id: existing.id as string, created_at: Number(existing.created_at) };
-          // Per NIP-01 the stored version wins ties, and an identical id is a
-          // no-op, so only a strictly newer event replaces it.
-          if (!NSQLite.isNewer(event, stored)) return;
-          await this.deleteEvents([stored.id]);
-        }
-
-        await this.insertEvent(event);
-
-        await this.run(
-          `INSERT OR REPLACE INTO ${this.coords} (coord, id, created_at) VALUES (?, ?, ?)`,
-          [coord, event.id, event.created_at],
-        );
-      } else {
-        await this.insertEvent(event);
-      }
-
-      // Applied after the insert so a kind 5 arriving alongside its targets in
-      // the same session still resolves. The request itself is retained —
-      // clients may need to re-broadcast it.
-      if (event.kind === 5) {
-        await this.applyDeletion(event);
-      }
-    }
+  /**
+   * Whether an event's write reads back something it may itself have just
+   * written, and so can't be staged alongside its neighbours.
+   *
+   * Replaceable and addressable events look up the version at their coordinate;
+   * deletion requests look up their targets by id.
+   */
+  private static dependsOnStore(event: NostrEvent): boolean {
+    return event.kind === 5 || NKinds.replaceable(event.kind) || NKinds.addressable(event.kind);
   }
 
-  /** Write the event row and its tag index rows. */
-  private async insertEvent(event: NostrEvent): Promise<void> {
-    // `OR IGNORE` makes a re-delivered event a no-op rather than an error.
-    await this.run(
-      `INSERT OR IGNORE INTO ${this.events} (id, kind, pubkey, created_at, json) VALUES (?, ?, ?, ?, ?)`,
-      [event.id, event.kind, event.pubkey, event.created_at, JSON.stringify(event)],
-    );
+  /**
+   * Write the staged rows, as few statements as their parameters allow.
+   *
+   * A row per statement is the obvious shape and the wrong one. `nostr_events`
+   * carries an `AFTER INSERT` trigger maintaining the search index, and SQLite
+   * runs a trigger's sub-program once per INSERT *statement* rather than
+   * folding it into the row loop — so a row per statement pays that setup once
+   * per event. Armada, where this store's schema also runs, measured the
+   * difference at 76µs a row against 17µs for the same rows and the same
+   * trigger written in batches.
+   *
+   * The token rows go first, so no reader on another connection can find an
+   * event before the tokens describing it exist.
+   */
+  private async writeBatch(staged: WriteBatch): Promise<void> {
+    if (staged.size === 0) return;
 
-    const rows = this.tagRows(event);
-    if (rows.length === 0) return;
-
-    // 5 columns per row; batch as many as the parameter budget allows.
-    const perStatement = Math.floor(MAX_PARAMS / 5);
-
-    for (let i = 0; i < rows.length; i += perStatement) {
-      const batch = rows.slice(i, i + perStatement);
-      const values = batch.map(() => '(?, ?, ?, ?, ?)').join(', ');
+    for (const chunk of batch(staged.tokens, MAX_PARAMS - MAX_PARAMS % TOKEN_WIDTH)) {
       await this.run(
-        `INSERT OR IGNORE INTO ${this.tags} (name, value, created_at, id, kind) VALUES ${values}`,
-        batch.flat(),
+        `INSERT INTO ${this.tags} (rowid, tokens) VALUES ${tuples(chunk.length / TOKEN_WIDTH, TOKEN_WIDTH)}`,
+        chunk,
       );
+    }
+
+    for (const chunk of batch(staged.events, MAX_PARAMS - MAX_PARAMS % EVENT_WIDTH)) {
+      await this.run(
+        `INSERT INTO ${this.events} (seq, id, kind, pubkey, created_at, coord, json) VALUES ${
+          tuples(chunk.length / EVENT_WIDTH, EVENT_WIDTH)
+        }`,
+        chunk,
+      );
+    }
+
+    staged.clear();
+  }
+
+  /**
+   * Apply a single event's writes. Runs inside the batch transaction.
+   *
+   * The three questions a write has to ask first — is this event already
+   * stored, has a deletion request already removed it, and which rowid is free
+   * at its timestamp — are all answered by one statement, since each is a
+   * scalar subquery over an index and none of them depends on the others.
+   */
+  private async writeEvent(event: NostrEvent, staged: WriteBatch): Promise<void> {
+    const check = await this.check(event, staged);
+
+    if (check.deleted) {
+      throw new RelayError('invalid', 'event deleted');
+    }
+
+    // Already stored: a re-delivered event is a no-op.
+    if (check.stored) return;
+
+    const coord = NKinds.replaceable(event.kind) || NKinds.addressable(event.kind) ? NSQLite.getCoord(event) : null;
+
+    if (coord !== null) {
+      const [existing] = await this.all(
+        `SELECT id, seq, created_at FROM ${this.events} WHERE coord = ?`,
+        [coord],
+      );
+
+      if (existing) {
+        const stored = { id: existing.id as string, created_at: Number(existing.created_at) };
+        // Per NIP-01 the stored version wins ties, so only a strictly newer
+        // event replaces it.
+        if (!NSQLite.isNewer(event, stored)) return;
+        // Deleted before the insert, since the coordinate index is unique.
+        await this.deleteEvents([Number(existing.seq)]);
+      }
+    }
+
+    staged.add(event, check.seq, coord, this.tagTokens(event));
+
+    // Applied after the insert so a kind 5 arriving alongside its targets in
+    // the same session still resolves. The request itself is retained.
+    if (event.kind === 5) {
+      await this.applyDeletion(event);
     }
   }
 
   /**
-   * The tag index rows for an event: one per distinct `(name, value)` pair the
-   * `indexTags` policy selects.
+   * Everything a write needs to know before it starts, in one round trip: the
+   * rowid of this event if it is already stored, the rowid of a deletion
+   * request that names it, and the next free rowid at its timestamp.
+   *
+   * The rowid is allocated by looking, rather than from a counter held in
+   * memory, so two processes writing to the same database can't hand out the
+   * same one. It costs a single seek to the end of the timestamp's bucket, and
+   * it rides along in a statement the write was making anyway.
    */
-  private tagRows(event: NostrEvent): NSQLiteValue[][] {
-    const rows: NSQLiteValue[][] = [];
+  private async check(event: NostrEvent, staged: WriteBatch): Promise<{ stored: boolean; deleted: boolean; seq: number }> {
+    const base = NSQLite.bucket(event.created_at);
+    const replaceable = NKinds.replaceable(event.kind) || NKinds.addressable(event.kind);
+
+    const terms = [
+      `(SELECT seq FROM ${this.events} WHERE id = ?) AS existing`,
+      `(SELECT MAX(seq) FROM ${this.events} WHERE seq >= ? AND seq < ?) AS last`,
+      `(SELECT rowid FROM ${this.tags} WHERE ${this.tags} MATCH ? LIMIT 1) AS deleted`,
+    ];
+
+    const params: NSQLiteValue[] = [
+      event.id,
+      base,
+      base + SEQ_SPACE,
+      phrase(`_d:${part(event.id)}`),
+    ];
+
+    // `e` deletions apply to an id whenever they were issued; `a` deletions
+    // only to versions at or before the request, so a newer replacement of a
+    // coordinate is allowed back in.
+    if (replaceable) {
+      terms.push(
+        `(SELECT rowid FROM ${this.tags} WHERE ${this.tags} MATCH ? AND rowid >= ? LIMIT 1) AS superseded`,
+      );
+      params.push(phrase(`_c:${part(NSQLite.getCoord(event))}`), base);
+    }
+
+    const [row] = await this.all(`SELECT ${terms.join(', ')}`, params);
+
+    const requests = [row?.deleted, row?.superseded]
+      .filter((value) => value !== null && value !== undefined)
+      .map(Number);
+
+    // The rowid has to clear both what is stored and what is staged, or two
+    // events arriving in one burst at the same timestamp would be handed the
+    // same one.
+    const stored = row?.last === null || row?.last === undefined ? base - 1 : Number(row.last);
+    const seq = Math.max(stored, staged.lastSeq(base) ?? base - 1) + 1;
+
+    // One second may hold 2²⁰ events. A relay that manages more of them at the
+    // same timestamp has outgrown this encoding, and silently reordering its
+    // events would be worse than saying so.
+    if (seq >= base + SEQ_SPACE) {
+      throw new RelayError('error', 'too many events at this timestamp');
+    }
+
+    return {
+      stored: (row?.existing !== null && row?.existing !== undefined) || staged.has(event.id),
+      // Only the event's own author can delete it, so a request that names it
+      // still has to be resolved to its pubkey — a second round trip, but only
+      // on the vanishingly rare occasion that there is one.
+      deleted: requests.length > 0 && await this.authored(requests, event.pubkey),
+      seq,
+    };
+  }
+
+  /** Whether any of these events was written by `pubkey`. */
+  private async authored(seqs: number[], pubkey: string): Promise<boolean> {
+    const rows = await this.all(
+      `SELECT 1 AS found FROM ${this.events} WHERE seq IN (${qs(seqs.length)}) AND pubkey = ? LIMIT 1`,
+      [...seqs, pubkey],
+    );
+
+    return rows.length > 0;
+  }
+
+  /**
+   * An event's index terms as a single space-separated token string: its
+   * indexed tags, plus `_p:<pubkey>` so an author constraint can be merged
+   * into the same MATCH as the tags.
+   */
+  private tagTokens(event: NostrEvent): string {
+    // The author rides along as a token so a filter that names both a tag and
+    // an author is still one index lookup. The *kind* deliberately doesn't:
+    // there are only a handful of kinds in use, so `_k:1` would be a posting
+    // list covering a large share of the store, and intersecting one of those
+    // measured several times more expensive than testing `kind` on the rows
+    // the tag already found.
+    const tokens: string[] = [`_p:${part(event.pubkey)}`];
     const seen = new Set<string>();
 
     for (const [name, value] of this.indexTags(event)) {
       if (typeof name !== 'string' || typeof value !== 'string') continue;
-      // The NUL separator can't appear in either part, so distinct pairs never
-      // collide in the dedupe set.
-      const key = `${name}\u0000${value}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      rows.push([name, value, event.created_at, event.id, event.kind]);
+      const token = tagToken(name, value);
+      if (seen.has(token)) continue;
+      seen.add(token);
+      tokens.push(token);
     }
 
-    return rows;
-  }
-
-  /**
-   * Whether a stored kind 5 has already deleted this event, in which case it
-   * must not be re-admitted.
-   *
-   * Deletion requests are indexed by their `e` and `a` tags like any other
-   * event, so this is an index seek against the tag b-tree — no separate
-   * bookkeeping table.
-   */
-  private async isDeleted(event: NostrEvent): Promise<boolean> {
-    // `e` deletions apply to a specific id regardless of when they were issued;
-    // `a` deletions only apply to versions at or before the request, so a newer
-    // replacement is allowed back in. Each term is written as its own indexed
-    // select so both are plain seeks into the tag index.
-    const terms = [`SELECT id FROM ${this.tags} WHERE name = 'e' AND value = ? AND kind = 5`];
-    const params: NSQLiteValue[] = [event.id];
-
-    if (NKinds.replaceable(event.kind) || NKinds.addressable(event.kind)) {
-      terms.push(
-        `SELECT id FROM ${this.tags} WHERE name = 'a' AND value = ? AND created_at >= ? AND kind = 5`,
-      );
-      params.push(NSQLite.getCoord(event), event.created_at);
+    // What a deletion request deletes, indexed under its own prefix.
+    //
+    // This is the one question asked on every single write — has anything
+    // already deleted the event being written? — and asking it of the `e` tags
+    // would mean intersecting them with `_k:5`, since an ordinary reply
+    // carries `e` tags too. Giving deletion targets a token of their own makes
+    // that a single term, and a term this store looks up a hundred thousand
+    // times an hour is worth half the work of a two-term intersection.
+    if (event.kind === 5) {
+      for (const [name, value] of event.tags) {
+        if (typeof value !== 'string' || !value) continue;
+        if (name === 'e') tokens.push(`_d:${part(value)}`);
+        else if (name === 'a') tokens.push(`_c:${part(value)}`);
+      }
     }
 
-    const requests = await this.all(terms.join(' UNION ALL '), params);
-
-    if (requests.length === 0) return false;
-
-    // Only the event's own author can delete it, so the requests have to be
-    // resolved to their pubkeys.
-    const authors = await this.all(
-      `SELECT pubkey FROM ${this.events} WHERE id IN (${qs(requests.length)})`,
-      requests.map((row) => row.id as string),
-    );
-
-    return authors.some((row) => row.pubkey === event.pubkey);
+    return tokens.join(' ');
   }
 
-  /**
-   * NIP-09: delete the events a kind 5 request targets.
-   *
-   * A request can only delete its author's own events, so every target is
-   * checked against the request's `pubkey`. `a` tags additionally only delete
-   * versions at or before the request's `created_at`, so a newer replacement
-   * survives.
-   */
+  /** NIP-09: delete the events a kind 5 request targets. */
   private async applyDeletion(request: NostrEvent): Promise<void> {
-    const ids = new Set<string>();
+    const seqs = new Set<number>();
 
     const targets = request.tags.filter(([name, value]) => (name === 'e' || name === 'a') && !!value);
     if (targets.length === 0) return;
 
-    const eTags = targets.filter(([name]) => name === 'e').map(([, value]) => value);
+    // A request can't delete itself, and a kind 5 occupies no coordinate, so
+    // dropping its own id from the `e` targets is the whole of that rule.
+    const eTags = targets.filter(([name, value]) => name === 'e' && value !== request.id).map(([, value]) => value);
     const aTags = targets.filter(([name]) => name === 'a').map(([, value]) => value);
 
     for (const chunk of batch(eTags, MAX_PARAMS - 1)) {
       const rows = await this.all(
-        `SELECT id FROM ${this.events} WHERE id IN (${qs(chunk.length)}) AND pubkey = ?`,
+        `SELECT seq FROM ${this.events} WHERE id IN (${qs(chunk.length)}) AND pubkey = ?`,
         [...chunk, request.pubkey],
       );
-      for (const row of rows) ids.add(row.id as string);
+      for (const row of rows) seqs.add(Number(row.seq));
     }
 
-    // Only one version of a coordinate is ever stored, so an `a` tag resolves
-    // to at most one event via a primary-key lookup.
     const owned = aTags.filter((coord) => coord.split(':')[1] === request.pubkey);
 
+    // The coordinate is a column of the events table, so the versions a request
+    // may delete are found without a second table to consult.
     for (const chunk of batch(owned, MAX_PARAMS - 1)) {
       const rows = await this.all(
-        `SELECT id FROM ${this.coords} WHERE coord IN (${qs(chunk.length)}) AND created_at <= ?`,
+        `SELECT seq FROM ${this.events} WHERE coord IN (${qs(chunk.length)}) AND created_at <= ?`,
         [...chunk, request.created_at],
       );
-      for (const row of rows) ids.add(row.id as string);
+      for (const row of rows) seqs.add(Number(row.seq));
     }
 
-    // The request can't delete itself.
-    ids.delete(request.id);
-
-    await this.deleteEvents([...ids]);
+    await this.deleteEvents([...seqs]);
   }
 
   /**
-   * Delete events by id, along with their tag index rows and any coordinate
-   * they occupy.
+   * Delete events by rowid.
    *
-   * Tag rows are removed by exact primary key, recomputed from the stored
-   * event, so the tag index needs no secondary index on `id` — which would
-   * otherwise cost a b-tree insert per tag on every write.
+   * One statement, whatever the events were: the token and search index rows go
+   * with them by trigger, and the coordinate goes with them because it is a
+   * column of the row rather than a table keyed by it — which is what spares
+   * this path reading every row back and parsing its JSON to work out which
+   * coordinates to clean up.
    */
-  private async deleteEvents(ids: string[]): Promise<void> {
-    if (ids.length === 0) return;
+  private async deleteEvents(seqs: number[]): Promise<void> {
+    if (seqs.length === 0) return;
 
-    const events: NostrEvent[] = [];
-    for (const chunk of batch(ids, MAX_PARAMS)) {
-      const rows = await this.all(
-        `SELECT json FROM ${this.events} WHERE id IN (${qs(chunk.length)})`,
-        chunk,
-      );
-      for (const row of rows) events.push(JSON.parse(row.json as string));
-    }
-    if (events.length === 0) return;
-
-    // Deleted one row at a time, by full primary key, so each is a seek into
-    // the tag b-tree. A tuple `IN (VALUES …)` would be one statement but would
-    // scan the table.
-    for (const event of events) {
-      for (const [name, value, created_at] of this.tagRows(event)) {
-        await this.run(
-          `DELETE FROM ${this.tags} WHERE name = ? AND value = ? AND created_at = ? AND id = ?`,
-          [name, value, created_at, event.id],
-        );
-      }
-    }
-
-    const coords = events
-      .filter((event) => NKinds.replaceable(event.kind) || NKinds.addressable(event.kind))
-      .map((event) => NSQLite.getCoord(event));
-
-    for (const chunk of batch(coords, MAX_PARAMS)) {
-      await this.run(`DELETE FROM ${this.coords} WHERE coord IN (${qs(chunk.length)})`, chunk);
-    }
-
-    for (const chunk of batch(events.map((event) => event.id), MAX_PARAMS)) {
-      await this.run(`DELETE FROM ${this.events} WHERE id IN (${qs(chunk.length)})`, chunk);
+    for (const chunk of batch(seqs, MAX_PARAMS)) {
+      await this.run(`DELETE FROM ${this.events} WHERE seq IN (${qs(chunk.length)})`, chunk);
     }
   }
 
@@ -603,8 +661,6 @@ export class NSQLite implements NStore {
   async query(filters: NostrFilter[], opts?: { signal?: AbortSignal }): Promise<NostrEvent[]> {
     const byId = new Map<string, NostrEvent>();
 
-    // Run sequentially: many SQLite drivers are synchronous or hold a single
-    // connection, so concurrency would buy nothing and could interleave badly.
     for (const filter of filters) {
       for (const event of await this.queryFilter(new ParsedFilter(filter), opts?.signal)) {
         byId.set(event.id, event);
@@ -614,10 +670,7 @@ export class NSQLite implements NStore {
     return [...byId.values()].sort(NSQLite.compareNewest);
   }
 
-  /**
-   * Run a single parsed filter through the planner cascade, returning matching
-   * events newest-first up to the filter's limit.
-   */
+  /** Run a single parsed filter through the planner. */
   private async queryFilter(filter: ParsedFilter, signal?: AbortSignal): Promise<NostrEvent[]> {
     if (filter.neverMatch) return [];
 
@@ -626,383 +679,260 @@ export class NSQLite implements NStore {
 
     signal?.throwIfAborted();
 
-    const search = await this.resolveSearch(filter);
-    if (search?.rowids?.length === 0) return [];
+    const plan = this.planScan(filter);
 
-    const plan = this.planScan(filter, search);
-    // FTS5 has applied the keywords already wherever the plan carries them.
-    const searched = plan.searchInSql;
-
-    // ids plans are primary-key lookups. Everything the events table can
-    // express goes into the query, so that when it expresses the whole filter
-    // the ordering and limit go in too — a selective search can resolve to
-    // thousands of ids, and deserializing all of them to return twenty would
-    // undo what the index just saved.
-    const keys: (string | number)[] | undefined = plan.ids ?? plan.rowids;
-
-    if (keys) {
-      const column = plan.ids ? 'id' : 'rowid';
-      const pushKinds = !filter.kinds || filter.kinds.length <= MAX_PUSHDOWN;
-      const pushAuthors = !filter.authors || filter.authors.length <= MAX_PUSHDOWN;
-      const complete = filter.tags.length === 0 && pushKinds && pushAuthors &&
-        (searched || !filter.searchKeywords);
-
-      const events: NostrEvent[] = [];
-
-      // Each part gets the full limit, so the merged result still holds the
-      // newest `limit` overall.
-      for (const chunk of batch(keys, MAX_PARAMS - 8)) {
-        const conditions = [memberOf(column, chunk)];
-        const params: NSQLiteValue[] = [...chunk];
-
-        if (filter.since !== undefined) {
-          conditions.push('created_at >= ?');
-          params.push(filter.since);
-        }
-        if (filter.until !== undefined) {
-          conditions.push('created_at <= ?');
-          params.push(filter.until);
-        }
-        if (filter.kinds && pushKinds) {
-          conditions.push(memberOf('kind', filter.kinds));
-          params.push(...filter.kinds);
-        }
-        if (filter.authors && pushAuthors) {
-          conditions.push(memberOf('pubkey', filter.authors));
-          params.push(...filter.authors);
-        }
-
-        let sql = `SELECT json FROM ${this.events}${where(conditions)}`;
-
-        if (complete && limit !== Infinity) {
-          sql += ' ORDER BY created_at DESC, id ASC LIMIT ?';
-          params.push(limit);
-        }
-
-        for (const row of await this.all(sql, params)) {
-          const event: NostrEvent = JSON.parse(row.json as string);
-          if (complete || filter.matches(event, searched)) events.push(event);
-        }
-      }
-
-      events.sort(NSQLite.compareNewest);
-      return events.length > limit ? events.slice(0, limit) : events;
+    // ids plans are lookups by primary key, not scans.
+    if (plan.ids) {
+      return await this.queryIds(plan.ids, filter, limit);
     }
 
-    // A single cursor that SQL fully satisfies needs no candidate phase: the
-    // rows the index scan yields are exactly the answer, so read their bodies
-    // straight from the covering scan instead of paying a second key lookup.
-    if (plan.sqlOnly && plan.cursors.length === 1 && plan.cursors[0].source === 'events') {
-      const [cursor] = plan.cursors;
-      const params = [...cursor.params];
-      let sql = `SELECT json FROM ${cursor.from}${where(cursor.where)} ORDER BY created_at DESC, id ASC`;
-
-      if (limit !== Infinity) {
-        sql += ' LIMIT ?';
-        params.push(limit);
-      }
-
-      const rows = await this.all(sql, params);
-      return rows.map((row) => JSON.parse(row.json as string));
+    // A single complete cursor *is* the answer: its conditions are applied
+    // before its limit, so it returns exactly the rows wanted. Run it once and
+    // read the event bodies straight out of it, without the key column that
+    // only a later page would need.
+    if (plan.cursors.length === 1 && plan.sqlOnly) {
+      const rows = await this.readPage(plan.cursors[0], undefined, limit === Infinity ? undefined : limit, false);
+      return rows.filter((row) => row.event).map((row) => row.event!);
     }
 
-    // Everything else: scan the index for candidate keys, fetch their values,
-    // and (when SQL couldn't express the whole filter) match in memory, paging
-    // by keyset until the limit is met or the scan is exhausted.
     const collected: NostrEvent[] = [];
     const seen = new Set<string>();
-    // When SQL expresses the whole filter, a page is the answer, so read the
-    // limit in one go; otherwise page in chunks so post-filtering a scan that
+
+    // A complete plan yields only matches, so a page need be no larger than
+    // what's still wanted; an incomplete one pages in chunks so a filter that
     // matches little doesn't materialize the whole range.
-    const pageSize = plan.sqlOnly && limit !== Infinity ? Math.min(limit, MAX_PAGE) : CHUNK_SIZE;
+    let pageSize = plan.sqlOnly ? Math.min(limit, MAX_PAGE) : CHUNK_SIZE;
 
-    // A single scan over `nostr_events` can read the bodies as it goes: the
-    // candidates are exactly the rows wanted, so a second lookup by id would
-    // re-seek rows the scan already visited. Splitting the phases still pays
-    // off for tag scans (the bodies live in another table) and for split
-    // scans (where each part over-reads by up to a page).
-    const inline = plan.cursors.length === 1 && plan.cursors[0].source === 'events';
-
-    // Tag terms the scan doesn't drive on, resolved to id sets so candidates
-    // failing them are dropped before their bodies are ever read.
-    const tagSets = await this.tagIdSets(plan, filter);
-
-    // Each set is a necessary condition, so a candidate must appear in all of
-    // them. Collapsing them up front turns the per-candidate check into one
-    // lookup, and an empty intersection settles the whole filter.
-    let required: Set<string> | undefined;
-
-    if (tagSets.length > 0) {
-      required = tagSets[0];
-      for (const set of tagSets.slice(1)) {
-        required = new Set([...required].filter((id) => set.has(id)));
-      }
-      if (required.size === 0) return [];
-    }
-
-    let after: Keyset | undefined;
+    let before: number | undefined;
 
     while (collected.length < limit) {
       signal?.throwIfAborted();
 
-      const page = await this.scanCandidates(plan, after, pageSize, inline);
+      const page = await this.scanPage(plan, before, pageSize);
       if (page.length === 0) break;
 
-      after = page[page.length - 1];
+      before = page[page.length - 1].seq;
 
-      const candidates = required ? page.filter(({ id }) => required.has(id)) : page;
-
-      const values = inline || candidates.length === 0
-        ? undefined
-        : await this.fetchEvents(candidates.map(({ id }) => id));
-
-      for (const candidate of candidates) {
+      for (const { event } of page) {
         if (collected.length >= limit) break;
-        if (seen.has(candidate.id)) continue;
-        seen.add(candidate.id);
-
-        const event = candidate.event ?? values?.get(candidate.id);
-        // A tag row can outlive its event if the `indexTags` policy changed
-        // between the write and the delete; treat the key as a miss.
         if (!event) continue;
+        if (seen.has(event.id)) continue;
+        seen.add(event.id);
 
-        if (plan.sqlOnly || filter.matches(event, searched)) collected.push(event);
+        if (plan.sqlOnly || filter.matches(event, plan.searched)) collected.push(event);
       }
 
       // A short page means the scan is exhausted.
       if (page.length < pageSize) break;
+
+      // Still short of the limit after a full page, so the conditions are
+      // rejecting more than they're keeping. Widening geometrically bounds the
+      // number of round trips a very selective filter costs.
+      pageSize = Math.min(pageSize * 4, MAX_PAGE);
     }
 
-    // Already newest-first, but merged pages can interleave `created_at` ties.
     collected.sort(NSQLite.compareNewest);
     return collected;
   }
 
-  /**
-   * Read one page of candidate keys, newest-first.
-   *
-   * Each cursor contributes a `LIMIT`-ed subquery over its own index range;
-   * `UNION ALL` plus an outer `ORDER BY … LIMIT` makes SQLite merge them, so
-   * the page costs ~`pageSize` rows per cursor rather than every row in range.
-   * The subqueries are covering, so no event bodies are read here.
-   *
-   * With more cursors than fit in one compound statement, the work is split
-   * across statements and merged here instead — each cursor still contributes
-   * its own newest `pageSize` keys, so the merged page is the same.
-   */
-  private async scanCandidates(
-    plan: ScanPlan,
-    after: Keyset | undefined,
-    pageSize: number,
-    inline: boolean,
-  ): Promise<Keyset[]> {
-    const merged: Keyset[] = [];
+  /** Fetch events by id, applying whatever else the filter asks for. */
+  private async queryIds(ids: string[], filter: ParsedFilter, limit: number): Promise<NostrEvent[]> {
+    const events: NostrEvent[] = [];
 
-    for (const cursor of plan.cursors) {
-      const conditions = [...cursor.where];
-      const params = [...cursor.params];
+    for (const chunk of batch(ids, MAX_PARAMS - 8)) {
+      const conditions = [memberOf('id', chunk)];
+      const params: NSQLiteValue[] = [...chunk];
 
-      if (after) {
-        // Resume strictly after the last key of the previous page. The
-        // `created_at <= ?` term drives the index seek; the disjunction only
-        // breaks ties, and guarantees progress when a whole page shares one
-        // timestamp.
-        conditions.push('created_at <= ?', '(created_at < ? OR id > ?)');
-        params.push(after.created_at, after.created_at, after.id);
+      if (filter.since !== undefined) {
+        conditions.push('created_at >= ?');
+        params.push(filter.since);
+      }
+      if (filter.until !== undefined) {
+        conditions.push('created_at <= ?');
+        params.push(filter.until);
+      }
+      if (filter.kinds && filter.kinds.length <= MAX_PUSHDOWN) {
+        conditions.push(memberOf('kind', filter.kinds));
+        params.push(...filter.kinds);
+      }
+      if (filter.authors && filter.authors.length <= MAX_PUSHDOWN) {
+        conditions.push(memberOf('pubkey', filter.authors));
+        params.push(...filter.authors);
       }
 
-      params.push(pageSize);
-
-      const rows = await this.all(
-        `SELECT ${cursor.distinct ? 'DISTINCT ' : ''}created_at, id${inline ? ', json' : ''} FROM ${cursor.from}${
-          where(conditions)
-        } ORDER BY created_at DESC, id ASC LIMIT ?`,
-        params,
-      );
-
-      for (const row of rows) {
-        merged.push({
-          created_at: Number(row.created_at),
-          id: row.id as string,
-          event: inline ? JSON.parse(row.json as string) : undefined,
-        });
+      for (const row of await this.all(`SELECT json FROM ${this.events}${where(conditions)}`, params)) {
+        const event: NostrEvent = JSON.parse(row.json as string);
+        if (filter.matches(event)) events.push(event);
       }
     }
 
-    if (plan.cursors.length === 1) return merged;
+    events.sort(NSQLite.compareNewest);
+    return events.length > limit ? events.slice(0, limit) : events;
+  }
 
-    merged.sort(NSQLite.compareKeyset);
+  /** Read one page of events, newest-first, merging the plan's cursors. */
+  private async scanPage(plan: ScanPlan, before: number | undefined, pageSize: number): Promise<Candidate[]> {
+    if (plan.cursors.length === 1) {
+      return await this.readPage(plan.cursors[0], before, pageSize);
+    }
+
+    const merged: Candidate[] = [];
+
+    for (const cursor of plan.cursors) {
+      merged.push(...await this.readPage(cursor, before, pageSize));
+    }
+
+    merged.sort((a, b) => b.seq - a.seq);
     return merged.slice(0, pageSize);
   }
 
   /**
-   * Resolve the plan's non-driving tag terms to sets of matching event ids.
+   * Read one cursor's next rows, newest-first.
    *
-   * A filter like `{"#t": [...], "#p": [...]}` can only be driven by one tag
-   * index. Reading each remaining term's ids — a covering scan of the tag
-   * index, no event bodies — turns the rest of the intersection into a Set
-   * lookup, so candidates that fail are discarded before anything is
-   * deserialized. Without this, a two-tag filter parses every event matching
-   * the first term just to check the second.
-   *
-   * A term matching more than {@link MAX_TAG_SET} events isn't worth
-   * materializing; it's left to the in-memory match instead.
+   * Either shape returns only rows that passed every condition the cursor can
+   * express, with the limit applied after them — so a cursor whose plan is
+   * complete answers the whole query in one statement, and paging exists only
+   * for plans the in-memory matcher still has to finish.
    */
-  private async tagIdSets(plan: ScanPlan, filter: ParsedFilter): Promise<Set<string>[]> {
-    if (!plan.extraTags?.length) return [];
+  private async readPage(
+    cursor: ScanCursor,
+    before: number | undefined,
+    limit: number | undefined,
+    keys = true,
+  ): Promise<Candidate[]> {
+    let sql: string;
+    const params: NSQLiteValue[] = [];
 
-    const sets: Set<string>[] = [];
+    if (!('from' in cursor)) {
+      const scan = this.ftsScan(cursor, before);
 
-    for (const tag of plan.extraTags) {
-      const ids = new Set<string>();
-      let overflowed = false;
+      const conditions = [...scan.conditions, ...(cursor.where ?? [])];
+      params.push(...scan.params, ...(cursor.params ?? []));
 
-      for (const values of batch(tag.values, MAX_IN)) {
-        const conditions = ['name = ?', memberOf('value', values)];
-        const params: NSQLiteValue[] = [tag.name, ...values];
+      // `CROSS JOIN` is load-bearing. It is SQLite's one way to fix a join
+      // order, and without it a condition on the events table is enough to make
+      // the planner drive from *there* instead — seeking this index by rowid
+      // once per row, re-evaluating the MATCH every time, then sorting the
+      // result through a temp b-tree.
+      //
+      // The conditions come first and the `LIMIT` last, which is what makes
+      // this one statement rather than a paging loop: SQLite walks the posting
+      // lists backwards and stops as soon as `limit` rows have survived
+      // *everything*, so a page never comes back short of rows that exist.
+      sql = `SELECT ${keys ? `${scan.driver}.rowid AS seq, ` : ''}e.json FROM ${scan.driver} CROSS JOIN ${this.events} e ON e.seq = ${scan.driver}.rowid${
+        where(conditions)
+      } ORDER BY ${scan.driver}.rowid DESC${limit === undefined ? '' : ' LIMIT ?'}`;
 
-        // The time bounds apply to every term, so they narrow this set too.
-        if (filter.since !== undefined) {
-          conditions.push('created_at >= ?');
-          params.push(filter.since);
-        }
-        if (filter.until !== undefined) {
-          conditions.push('created_at <= ?');
-          params.push(filter.until);
-        }
+      if (limit !== undefined) params.push(limit);
+    } else {
+      const conditions = [...cursor.where];
+      params.push(...cursor.params);
 
-        params.push(MAX_TAG_SET + 1);
-
-        const rows = await this.all(
-          `SELECT id FROM ${this.tags}${where(conditions)} LIMIT ?`,
-          params,
-        );
-
-        for (const row of rows) ids.add(row.id as string);
-
-        if (ids.size > MAX_TAG_SET) {
-          overflowed = true;
-          break;
-        }
+      if (before !== undefined) {
+        conditions.push('seq < ?');
+        params.push(before);
       }
 
-      if (!overflowed) sets.push(ids);
+      // The key is only read when a later page has to resume from it; a scan
+      // that answers the whole query in one go leaves the column out, which is
+      // worth a tenth of the statement.
+      sql = `SELECT ${keys ? 'seq, ' : ''}json FROM ${cursor.from}${where(conditions)} ORDER BY seq DESC${
+        limit === undefined ? '' : ' LIMIT ?'
+      }`;
+
+      if (limit !== undefined) params.push(limit);
     }
 
-    return sets;
+    const rows = await this.all(sql, params);
+
+    return rows.map((row) => ({
+      seq: keys ? Number(row.seq) : 0,
+      event: row.json === null || row.json === undefined ? undefined : JSON.parse(row.json as string) as NostrEvent,
+    }));
   }
 
   /**
-   * Resolve a filter's NIP-50 keywords against the full-text index.
+   * The index scan behind a full-text cursor: which table drives it, and the
+   * conditions that bound it.
    *
-   * How the keywords are best applied depends on how selective they are, and
-   * the two cases want opposite plans:
-   *
-   *   - A selective term ("needle", a hundred hits in fifty thousand events)
-   *     should *drive* the query. Scanning `created_at` and testing each row
-   *     would walk most of the store to find twenty matches, and walk all of it
-   *     when the term matches nothing — the cost would grow with the database
-   *     rather than with the answer.
-   *   - A common term ("the") should not drive anything. Matches are dense
-   *     enough that an ordinary indexed scan finds a page of them almost
-   *     immediately, whereas driving from the index means fetching and sorting
-   *     every hit.
-   *
-   * So the index is probed for one more id than is worth driving with. Coming
-   * back under that bound settles it — those ids are the whole match set, and
-   * the query can be driven by them. Going over means the term is common, and
-   * the probe stops early, costing little.
+   * Tokens drive whenever there are tokens, since the token index also carries
+   * the time window and the ordering; a keyword-only filter drives the text
+   * index the same way. Keywords *alongside* tokens are a second index to
+   * intersect with, which FTS5 can't do across tables, so they are resolved to
+   * a set the driving scan tests against.
    */
-  private async resolveSearch(filter: ParsedFilter): Promise<SearchPlan | undefined> {
-    if (!filter.searchQuery) return undefined;
+  private ftsScan(
+    cursor: FtsCursor,
+    before: number | undefined,
+  ): { driver: string; conditions: string[]; params: NSQLiteValue[] } {
+    const driver = cursor.match ? this.tags : this.fts;
+    const conditions = [`${driver} MATCH ?`];
+    const params: NSQLiteValue[] = [cursor.match ?? cursor.search!];
 
-    // Probed against the index alone. Reaching through the events table here
-    // would defeat the `LIMIT`: SQLite materializes a `rowid IN (subquery)`
-    // in full before limiting it, so a common term would cost every one of its
-    // matches just to discover there are too many. FTS5 streams its own
-    // results, so this stops as soon as the bound is passed.
-    const probe = await this.all(
-      `SELECT rowid FROM ${this.fts} WHERE ${this.fts} MATCH ? LIMIT ?`,
-      [filter.searchQuery, MAX_SEARCH_IDS + 1],
-    );
-
-    if (probe.length > MAX_SEARCH_IDS) {
-      // Too many to drive with, so the keywords filter a scan instead — and
-      // which filter is cheaper depends on how thickly the matches are spread.
-      // FTS5 returns matches in rowid order, so how far the probe had to reach
-      // to collect its bound estimates that: a term filling the first thousand
-      // rowids is everywhere, one spread over a hundred thousand is not.
-      const first = Number(probe[0].rowid);
-      const last = Number(probe[probe.length - 1].rowid);
-      const density = probe.length / Math.max(1, last - first + 1);
-
-      return { match: filter.searchQuery, dense: density >= DENSE_SEARCH };
+    // Every rowid reference is qualified, since the events table joined against
+    // this one has an `INTEGER PRIMARY KEY` and therefore a `rowid` of its own.
+    if (cursor.match && cursor.search) {
+      // The `+` is load-bearing. Without it SQLite hands the rowid list to the
+      // *token* index as a constraint, which turns one descending scan into one
+      // scan per keyword match; with it, the list stays an ordinary filter over
+      // a single scan, and SQLite builds a bloom filter for it. Measured 9×.
+      conditions.push(`+${driver}.rowid IN (SELECT rowid FROM ${this.fts} WHERE ${this.fts} MATCH ?)`);
+      params.push(cursor.search);
     }
 
-    // Kept as rowids. Translating them to event ids would mean handing every
-    // match across the driver just to look it up again by another key.
-    return { rowids: probe.map((row) => Number(row.rowid)) };
-  }
-
-  /** Fetch event bodies by id. */
-  private async fetchEvents(ids: string[]): Promise<Map<string, NostrEvent>> {
-    const events = new Map<string, NostrEvent>();
-
-    for (const chunk of batch([...new Set(ids)], MAX_PARAMS)) {
-      const rows = await this.all(
-        `SELECT json FROM ${this.events} WHERE id IN (${qs(chunk.length)})`,
-        chunk,
-      );
-      for (const row of rows) {
-        const event: NostrEvent = JSON.parse(row.json as string);
-        events.set(event.id, event);
-      }
+    if (cursor.min !== undefined) {
+      conditions.push(`${driver}.rowid >= ?`);
+      params.push(cursor.min);
     }
 
-    return events;
+    // The paging bound and the filter's `until` are the same kind of
+    // constraint, so whichever is tighter is the one that's applied.
+    const max = before !== undefined ? before - 1 : cursor.max;
+
+    if (max !== undefined) {
+      conditions.push(`${driver}.rowid <= ?`);
+      params.push(max);
+    }
+
+    return { driver, conditions, params };
   }
 
   /**
-   * The query planner — a port of strfry's `DBScan` constructor. Picks exactly
-   * one index by a fixed priority cascade and builds one cursor per discrete
-   * value, pushing whatever else the filter asks for into each cursor's
-   * `WHERE` clause when the chosen index can carry it.
+   * The query planner.
+   *
+   * A filter that names a tag or a keyword is driven by the index, which finds
+   * its rows newest-first and lets the events table test what's left. Anything
+   * else is driven by a b-tree, chosen by strfry's `DBScan` priority cascade —
+   * ids, then tags or search, then pubkey+kind, pubkey, kind, and finally the
+   * whole store. Every one of those indexes is ordered by time already, so each
+   * is read newest-first with no sorter.
    */
-  private planScan(filter: ParsedFilter, search?: SearchPlan): ScanPlan {
-    /**
-     * Apply the FTS5 match to a scan over the events table. Only reachable for
-     * a common term — a selective one drives the query as an id list instead —
-     * and only on the events table, since the tag index has no rowid to join
-     * the full-text index by.
-     */
-    const addSearch = (source: ScanCursor['source'], conditions: string[], params: NSQLiteValue[]): void => {
-      if (source !== 'events' || !search?.match) return;
+  private planScan(filter: ParsedFilter): ScanPlan {
+    // 1. ids — the primary key.
+    if (filter.ids) {
+      return { ids: filter.ids, cursors: [], sqlOnly: false, searched: false };
+    }
 
-      // A dense term is tested row by row, which costs only the handful of rows
-      // the scan reads before it has enough matches. A sparse one is collected
-      // up front instead, since testing rows individually would mean reading
-      // far too many of them to find anything.
-      conditions.push(
-        search.dense
-          ? `EXISTS (SELECT 1 FROM ${this.fts} WHERE ${this.fts}.rowid = ${this.events}.rowid AND ${this.fts} MATCH ?)`
-          : `rowid IN (SELECT rowid FROM ${this.fts} WHERE ${this.fts} MATCH ?)`,
-      );
-      params.push(search.match);
-    };
+    const { min, max, exact } = this.timeRange(filter);
 
-    // Whether the filter's keywords end up applied by the query rather than in
-    // memory. An id set settles them for any plan; a match expression only
-    // works on the events table, so a tag-driven scan still has to check them
-    // itself.
-    // A rowid set can only drive the query when nothing else is driving it: an
-    // `ids` filter is already a lookup, and combining two key lists in one
-    // statement isn't worth the chunking it would need, so the keywords are
-    // checked in memory there instead.
-    const searchInIds = !filter.searchKeywords || (!!search?.rowids && !filter.ids);
-    const searchInSql = searchInIds || !!search?.match;
+    // 2. tags, or a NIP-50 search: the index drives.
+    if (filter.tags.length > 0 || filter.searchQuery) {
+      const plan = this.planFts(filter, min, max, exact);
+      if (plan) return plan;
+    }
 
-    /** Append the filter's `since`/`until` bounds to a cursor. */
+    /** Append the filter's time bounds to an events-table cursor. */
     const addTime = (conditions: string[], params: NSQLiteValue[]): void => {
+      // The rowid bound is what stops the scan early; the `created_at` test is
+      // what makes it exact, for the timestamps the encoding has to clamp.
+      if (min !== undefined) {
+        conditions.push('seq >= ?');
+        params.push(min);
+      }
+      if (max !== undefined) {
+        conditions.push('seq <= ?');
+        params.push(max);
+      }
       if (filter.since !== undefined) {
         conditions.push('created_at >= ?');
         params.push(filter.since);
@@ -1013,103 +943,50 @@ export class NSQLite implements NStore {
       }
     };
 
-    /** Whether a value list is short enough to filter a scan with. */
-    const pushable = (values: unknown[] | undefined): boolean => !!values && values.length <= MAX_PUSHDOWN;
+    const searched = !filter.searchKeywords;
+    const pushKinds = !filter.kinds || filter.kinds.length <= MAX_PUSHDOWN;
 
-    // 1. ids — the primary key. Fetched directly, no index scan. A selective
-    //    search resolves to a rowid set, which is the same kind of lookup.
-    if (filter.ids) {
-      return { ids: filter.ids, cursors: [], sqlOnly: false, searchInSql: searchInIds };
-    }
-    if (search?.rowids) {
-      return { rowids: search.rowids, cursors: [], sqlOnly: false, searchInSql: searchInIds };
-    }
-
-    // 2. tags — the most selective tag filter (fewest values). An event
-    //    carrying several of the sought values matches once per value, hence
-    //    the DISTINCT.
-    if (filter.tags.length > 0) {
-      const tag = filter.tags.reduce((a, b) => (b.values.length < a.values.length ? b : a));
-      // `kind` is denormalized onto the tag index, so kinds can filter the
-      // scan; authors fall to the in-memory match. The remaining tag terms are
-      // intersected against the scan by id — see `tagIds`.
-      const pushKinds = pushable(filter.kinds);
-      const extraTags = filter.tags.filter((other) => other !== tag);
-
-      const cursors = [...batch(tag.values, MAX_IN)].map((values): ScanCursor => {
-        const conditions = ['name = ?', memberOf('value', values)];
-        const params: NSQLiteValue[] = [tag.name, ...values];
-
-        addTime(conditions, params);
-
-        if (pushKinds) {
-          conditions.push(memberOf('kind', filter.kinds!));
-          params.push(...filter.kinds!);
-        }
-
-        return { source: 'tags', from: this.tags, where: conditions, params, distinct: values.length > 1 };
-      });
-
-      return {
-        cursors,
-        extraTags,
-        // The tag index has no rowid to reach the full-text index by, so
-        // keywords on a tag-driven scan are still matched in memory.
-        searchInSql: searchInIds,
-        sqlOnly: !filter.searchKeywords && !filter.authors && filter.tags.length === 1 &&
-          (!filter.kinds || pushKinds),
-      };
-    }
-
-    // 3. authors + kinds. SQLite seeks the index once per combination, so this
-    //    is only worth it while the combinatorial product stays small; beyond
-    //    that, scanning by author alone and filtering on kind is cheaper.
-    if (filter.authors && filter.kinds && pushable(filter.kinds) && filter.authors.length * filter.kinds.length < 1000) {
+    // 3. authors + kinds, from the composite index.
+    //
+    //    SQLite seeks this index once per (author, kind) combination, which is
+    //    why a design whose index entries end in `(created_at DESC, id)` has to
+    //    abandon it once the product grows past a thousand or so. Here the
+    //    entries are (pubkey, kind, time) in that order — the rowid supplying
+    //    the time — so each seek walks straight to the newest events of a
+    //    combination and stops. A 500-author feed measured faster this way than
+    //    either scanning by author or merging the same constraint in the token
+    //    index.
+    if (filter.authors && filter.kinds && pushKinds) {
       const cursors = [...batch(filter.authors, MAX_IN)].map((authors): ScanCursor => {
         const conditions = [memberOf('pubkey', authors), memberOf('kind', filter.kinds!)];
         const params: NSQLiteValue[] = [...authors, ...filter.kinds!];
 
         addTime(conditions, params);
-        addSearch('events', conditions, params);
 
-        return {
-          source: 'events',
-          from: `${this.events} INDEXED BY ${this.idxPubkeyKind}`,
-          where: conditions,
-          params,
-        };
+        return { from: `${this.events} INDEXED BY ${this.idxPubkeyKind}`, where: conditions, params };
       });
 
-      return { cursors, searchInSql, sqlOnly: searchInSql };
+      return { cursors, sqlOnly: searched, searched };
     }
 
-    // 4. authors. When kinds is also present it filters the scan instead of
-    //    driving it.
+    // 4. authors alone, with kinds filtering the scan when there are few
+    //    enough of them to be worth binding.
     if (filter.authors) {
-      const pushKinds = pushable(filter.kinds);
-
       const cursors = [...batch(filter.authors, MAX_IN)].map((authors): ScanCursor => {
         const conditions = [memberOf('pubkey', authors)];
         const params: NSQLiteValue[] = [...authors];
 
         addTime(conditions, params);
 
-        if (pushKinds) {
-          conditions.push(memberOf('kind', filter.kinds!));
-          params.push(...filter.kinds!);
+        if (filter.kinds && pushKinds) {
+          conditions.push(memberOf('kind', filter.kinds));
+          params.push(...filter.kinds);
         }
 
-        addSearch('events', conditions, params);
-
-        return {
-          source: 'events',
-          from: `${this.events} INDEXED BY ${this.idxPubkey}`,
-          where: conditions,
-          params,
-        };
+        return { from: `${this.events} INDEXED BY ${this.idxPubkey}`, where: conditions, params };
       });
 
-      return { cursors, searchInSql, sqlOnly: searchInSql && (!filter.kinds || pushKinds) };
+      return { cursors, sqlOnly: searched && pushKinds, searched };
     }
 
     // 5. kinds.
@@ -1119,43 +996,140 @@ export class NSQLite implements NStore {
         const params: NSQLiteValue[] = [...kinds];
 
         addTime(conditions, params);
-        addSearch('events', conditions, params);
 
-        return {
-          source: 'events',
-          from: `${this.events} INDEXED BY ${this.idxKind}`,
-          where: conditions,
-          params,
-        };
+        return { from: `${this.events} INDEXED BY ${this.idxKind}`, where: conditions, params };
       });
 
-      return { cursors, searchInSql, sqlOnly: searchInSql };
+      return { cursors, sqlOnly: searched, searched };
     }
 
-    // 6. fallback — the whole store, newest-first.
+    // 6. fallback — the whole store. The table is clustered by time, so this
+    //    is a backwards walk of the table itself, with no index in the way.
     const conditions: string[] = [];
     const params: NSQLiteValue[] = [];
     addTime(conditions, params);
-    addSearch('events', conditions, params);
 
     return {
-      cursors: [{
-        source: 'events',
-        from: `${this.events} INDEXED BY ${this.idxCreatedAt}`,
-        where: conditions,
-        params,
-      }],
-      searchInSql,
-      sqlOnly: searchInSql,
+      cursors: [{ from: this.events, where: conditions, params }],
+      sqlOnly: searched,
+      searched,
     };
+  }
+
+  /**
+   * Plan a filter as one or more MATCH expressions, or `undefined` when the
+   * index can't drive it.
+   *
+   * Every constraint becomes a group of alternatives — the tag values, the
+   * kinds, the authors, the NIP-50 keywords — and the groups are ANDed. FTS5
+   * evaluates that by merging the groups' doclists, so the cost is the length
+   * of the *shortest* group rather than the product of them all.
+   */
+  private planFts(
+    filter: ParsedFilter,
+    min: number | undefined,
+    max: number | undefined,
+    exact: boolean,
+  ): ScanPlan | undefined {
+    const groups: string[][] = [];
+
+    for (const tag of filter.tags) {
+      groups.push(tag.values.map((value) => tagToken(tag.name, value)));
+    }
+
+    // A search whose keywords are all negations has nothing for FTS5 to match
+    // against — there is no way to say "every row except these" — so it is left
+    // to the in-memory matcher.
+    const searched = !filter.searchKeywords || !!filter.searchQuery;
+
+    // Authors join the tags in the index, where they are one more posting list
+    // to intersect. Without a tag to intersect *with*, they are better served
+    // by their own b-tree, so they're only added here when there is one.
+    const inIndex = groups.length > 0 && !!filter.authors && filter.authors.length <= MAX_OR;
+
+    if (inIndex) {
+      groups.push(filter.authors!.map((pubkey) => `_p:${part(pubkey)}`));
+    }
+
+    if (groups.length === 0 && !filter.searchQuery) return undefined;
+
+    // Whatever the index isn't carrying is tested on the rows it finds, which
+    // is what the events table is for. Every condition still ends up in SQL —
+    // it just costs a column read on a row already fetched instead of a posting
+    // list intersection over the whole store.
+    const where: string[] = [];
+    const params: NSQLiteValue[] = [];
+
+    if (filter.kinds && filter.kinds.length <= MAX_PUSHDOWN) {
+      where.push(memberOf('e.kind', filter.kinds));
+      params.push(...filter.kinds);
+    }
+
+    if (!inIndex && filter.authors && filter.authors.length <= MAX_PUSHDOWN) {
+      where.push(memberOf('e.pubkey', filter.authors));
+      params.push(...filter.authors);
+    }
+
+    // Timestamps the rowid encoding had to clamp are re-checked exactly here,
+    // rather than in memory.
+    if (!exact && filter.since !== undefined) {
+      where.push('e.created_at >= ?');
+      params.push(filter.since);
+    }
+    if (!exact && filter.until !== undefined) {
+      where.push('e.created_at <= ?');
+      params.push(filter.until);
+    }
+
+    const complete = (!filter.kinds || filter.kinds.length <= MAX_PUSHDOWN) &&
+      (inIndex || !filter.authors || filter.authors.length <= MAX_PUSHDOWN);
+
+    // The longest group is the one worth splitting: every cursor carries every
+    // other group in full, so splitting a short one would repeat more work.
+    const longest = groups.reduce((a, b) => (b.length > a.length ? b : a), groups[0] ?? []);
+    const chunks = longest.length > MAX_OR ? [...batch(longest, MAX_OR)] : [longest];
+
+    const cursors: ScanCursor[] = chunks.map((chunk): ScanCursor => ({
+      match: groups.length > 0 ? matchExpr(groups.map((group) => (group === longest ? chunk : group))) : undefined,
+      search: filter.searchQuery,
+      min,
+      max,
+      where,
+      params,
+    }));
+
+    return { cursors, sqlOnly: complete && searched, searched };
+  }
+
+  /**
+   * The rowid window a filter's `since`/`until` bounds describe, and whether
+   * that window is exact — it isn't when a bound falls outside the range the
+   * rowid encoding can represent, in which case the events in the clamped
+   * bucket have to be re-checked in memory.
+   */
+  private timeRange(filter: ParsedFilter): { min?: number; max?: number; exact: boolean } {
+    let exact = true;
+    let min: number | undefined;
+    let max: number | undefined;
+
+    if (filter.since !== undefined) {
+      if (filter.since > MAX_TIME || filter.since < 0) exact = false;
+      min = NSQLite.bucket(filter.since);
+    }
+
+    if (filter.until !== undefined) {
+      if (filter.until > MAX_TIME || filter.until < 0) exact = false;
+      max = NSQLite.bucket(filter.until) + SEQ_SPACE - 1;
+    }
+
+    return { min, max, exact };
   }
 
   /** COUNT support: the number of matching events. */
   async count(filters: NostrFilter[], opts?: { signal?: AbortSignal }): Promise<NostrRelayCOUNT[2]> {
-    // Fast path: a single unlimited filter that one scan expresses completely
-    // is counted inside the index, with no rows returned and no event bodies
-    // read. (ids plans are excluded — they're primary-key lookups, not scans.
-    // So are split scans, whose parts could both see the same event.)
+    // A single complete plan is counted inside the index: no rows returned, no
+    // event bodies read. One event is one row of the full-text index however
+    // many of its tags matched, so nothing has to be de-duplicated.
     if (filters.length === 1) {
       const filter = new ParsedFilter(filters[0]);
       if (filter.neverMatch) return { count: 0, approximate: false };
@@ -1163,16 +1137,32 @@ export class NSQLite implements NStore {
       if (filter.limit === undefined) {
         const plan = this.planScan(filter);
 
-        if (plan.sqlOnly && !plan.ids && !plan.rowids && plan.cursors.length === 1) {
+        if (plan.sqlOnly && !plan.ids && plan.cursors.length === 1) {
           const [cursor] = plan.cursors;
+          let sql: string;
+          const params: NSQLiteValue[] = [];
 
-          const [row] = await this.all(
-            `SELECT COUNT(*) AS count FROM (SELECT ${
-              cursor.distinct ? 'DISTINCT ' : ''
-            }created_at, id FROM ${cursor.from}${where(cursor.where)})`,
-            cursor.params,
-          );
+          if (!('from' in cursor)) {
+            const scan = this.ftsScan(cursor, undefined);
+            params.push(...scan.params);
 
+            // With nothing left to test, the index knows the answer by itself —
+            // one event is one row of it, however many of its tags matched, so
+            // there is nothing to de-duplicate either. Otherwise the rows still
+            // have to be visited, but only their columns, never their bodies.
+            sql = cursor.where?.length
+              ? `SELECT COUNT(*) AS count FROM ${scan.driver} CROSS JOIN ${this.events} e ON e.seq = ${scan.driver}.rowid${
+                where([...scan.conditions, ...cursor.where])
+              }`
+              : `SELECT COUNT(*) AS count FROM ${scan.driver}${where(scan.conditions)}`;
+
+            params.push(...(cursor.where?.length ? cursor.params ?? [] : []));
+          } else {
+            sql = `SELECT COUNT(*) AS count FROM ${cursor.from}${where(cursor.where)}`;
+            params.push(...cursor.params);
+          }
+
+          const [row] = await this.all(sql, params);
           return { count: Number(row?.count ?? 0), approximate: false };
         }
       }
@@ -1187,7 +1177,19 @@ export class NSQLite implements NStore {
     const events = await this.query(filters, opts);
     if (events.length === 0) return;
 
-    await this.transaction(() => this.deleteEvents(events.map((event) => event.id)));
+    await this.transaction(async () => {
+      const seqs: number[] = [];
+
+      for (const chunk of batch(events.map((event) => event.id), MAX_PARAMS)) {
+        const rows = await this.all(
+          `SELECT seq FROM ${this.events} WHERE id IN (${qs(chunk.length)})`,
+          chunk,
+        );
+        for (const row of rows) seqs.push(Number(row.seq));
+      }
+
+      await this.deleteEvents(seqs);
+    });
   }
 
   /** Close the underlying database connection, if the driver supports it. */
@@ -1201,28 +1203,21 @@ export class NSQLite implements NStore {
 
   // ── Driver plumbing ───────────────────────────────────────────────────────
 
-  /** Run a statement that returns no rows. */
   private async run(sql: string, params: NSQLiteValue[] = []): Promise<void> {
     this.onQuery?.(sql, params);
     await this.db.run(sql, params);
   }
 
-  /** Run a statement and return its rows. */
   private async all(sql: string, params: NSQLiteValue[] = []): Promise<NSQLiteRow[]> {
     this.onQuery?.(sql, params);
     return await this.db.all(sql, params);
   }
 
-  /** Run a DDL statement, normalizing the whitespace of the template literal. */
   private async exec(sql: string): Promise<void> {
     await this.run(sql.trim().replace(/\s+/g, ' '));
   }
 
-  /**
-   * Run `fn` inside a transaction, queued behind any transaction already in
-   * flight. Serializing them keeps a write that starts mid-flush from being
-   * swept into that flush's transaction and rolled back with it.
-   */
+  /** Run `fn` inside a transaction, queued behind any already in flight. */
   private transaction<T>(fn: () => Promise<T>): Promise<T> {
     const result = this.writeLock.then(async () => {
       await this.run('BEGIN IMMEDIATE');
@@ -1237,8 +1232,6 @@ export class NSQLite implements NStore {
       }
     });
 
-    // The chain must not break on failure, so successors wait on a settled
-    // promise rather than a rejected one.
     this.writeLock = result.catch(() => {});
 
     return result;
@@ -1246,16 +1239,19 @@ export class NSQLite implements NStore {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
+  /** The first rowid belonging to a timestamp, clamped to the encodable range. */
+  private static bucket(created_at: number): number {
+    const time = Math.min(Math.max(Math.floor(created_at), 0), MAX_TIME);
+    return time * SEQ_SPACE;
+  }
+
   /** The `kind:pubkey:d` coordinate of a replaceable or addressable event. */
   private static getCoord(event: NostrEvent): string {
     const d = NKinds.addressable(event.kind) ? event.tags.find(([name]) => name === 'd')?.[1] ?? '' : '';
     return `${event.kind}:${event.pubkey}:${d}`;
   }
 
-  /**
-   * Per NIP-01, `a` is "newer" than `b` (same coordinate) when its created_at
-   * is greater, or — on a tie — its id is lexicographically smaller.
-   */
+  /** Per NIP-01, newer means a greater created_at, or a smaller id on a tie. */
   private static isNewer(a: { id: string; created_at: number }, b: { id: string; created_at: number }): boolean {
     if (a.created_at > b.created_at) return true;
     if (a.created_at < b.created_at) return false;
@@ -1268,13 +1264,57 @@ export class NSQLite implements NStore {
     return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
   }
 
-  /** The same ordering, over bare candidate keys. */
-  private static compareKeyset(a: Keyset, b: Keyset): number {
-    if (a.created_at !== b.created_at) return b.created_at - a.created_at;
-    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  [Symbol.toStringTag] = 'NSQLite';
+}
+
+/**
+ * Rows staged for the current transaction's multi-row INSERTs, with enough of
+ * an index over them to answer the two questions a write asks of rows that
+ * aren't in the table yet: is this event among them, and which rowid at this
+ * timestamp have they already taken.
+ */
+class WriteBatch {
+  /** Flat `(seq, id, kind, pubkey, created_at, coord, json)` tuples. */
+  readonly events: NSQLiteValue[] = [];
+  /** Flat `(rowid, tokens)` tuples. */
+  readonly tokens: NSQLiteValue[] = [];
+
+  private readonly ids = new Set<string>();
+  private readonly highest = new Map<number, number>();
+
+  /** How many events are staged. */
+  get size(): number {
+    return this.ids.size;
   }
 
-  [Symbol.toStringTag] = 'NSQLite';
+  add(event: NostrEvent, seq: number, coord: string | null, tokens: string): void {
+    this.events.push(seq, event.id, event.kind, event.pubkey, event.created_at, coord, JSON.stringify(event));
+    this.tokens.push(seq, tokens);
+    this.ids.add(event.id);
+
+    const base = seq - seq % SEQ_SPACE;
+    const previous = this.highest.get(base);
+
+    if (previous === undefined || seq > previous) {
+      this.highest.set(base, seq);
+    }
+  }
+
+  has(id: string): boolean {
+    return this.ids.has(id);
+  }
+
+  /** The highest rowid staged in a timestamp's bucket, if any. */
+  lastSeq(base: number): number | undefined {
+    return this.highest.get(base);
+  }
+
+  clear(): void {
+    this.events.length = 0;
+    this.tokens.length = 0;
+    this.ids.clear();
+    this.highest.clear();
+  }
 }
 
 /** An event queued for the next batched commit, with its caller's settlers. */
@@ -1284,61 +1324,55 @@ interface PendingWrite {
   reject(error: unknown): void;
 }
 
-/** A candidate key produced by an index scan, and the keyset paging position. */
-interface Keyset {
-  created_at: number;
-  id: string;
-  /** The event body, when the scan read it inline rather than by a later lookup. */
+/**
+ * A row a scan produced: its rowid, which is where paging resumes from, and
+ * the event — absent when the scan found the row but its conditions rejected
+ * it.
+ */
+interface Candidate {
+  seq: number;
   event?: NostrEvent;
 }
 
-/** One scan: a table (with a forced index) plus its conditions. */
-interface ScanCursor {
-  /** Which b-tree the scan reads, which decides what can be filtered on it. */
-  source: 'events' | 'tags';
-  /** The `FROM` clause, including any `INDEXED BY`. */
+/**
+ * One scan: either a full-text match over a window of rowids, or a b-tree scan
+ * over the events table.
+ */
+type ScanCursor = FtsCursor | TableCursor;
+
+/**
+ * A full-text scan, bounded by the filter's time range: a token expression, a
+ * NIP-50 keyword expression, or both, plus whatever conditions are left for the
+ * events rows it finds.
+ */
+interface FtsCursor {
+  match?: string;
+  search?: string;
+  min?: number;
+  max?: number;
+  /** Conditions on the matched events, as `e.column …`. */
+  where?: string[];
+  params?: NSQLiteValue[];
+}
+
+/** A scan of the events table with a forced index. */
+interface TableCursor {
   from: string;
   where: string[];
   params: NSQLiteValue[];
-  /** Whether the scan can yield the same event more than once. */
-  distinct?: boolean;
 }
 
-/** A planned scan: how to fetch a single filter's candidate events. */
+/** A planned scan: how to fetch a single filter's events. */
 interface ScanPlan {
   /** For ids plans: fetch these primary keys directly instead of scanning. */
   ids?: string[];
-  /** The same, for a search selective enough to be resolved to rowids. */
-  rowids?: number[];
   /**
-   * Normally one scan. A filter whose driving value list is too long for a
-   * single statement is split into several, merged by the caller.
+   * Normally one scan. A filter with a value list too long for a single MATCH
+   * is split into several, merged by the caller.
    */
   cursors: ScanCursor[];
-  /**
-   * Tag terms the scan doesn't drive on. Each is resolved to a set of ids and
-   * intersected with the candidates, so a candidate failing one never has its
-   * body read.
-   */
-  extraTags?: TagFilter[];
-  /**
-   * Whether the scans' `WHERE` clauses express the filter completely, so
-   * candidates need no in-memory re-check and the scan needs no paging.
-   */
+  /** Whether the cursors express the filter completely. */
   sqlOnly: boolean;
   /** Whether the plan applies the filter's NIP-50 keywords itself. */
-  searchInSql: boolean;
-}
-
-/**
- * How a filter's NIP-50 keywords will be applied: as the ids they match, when
- * selective enough to drive the query, or as a match expression filtering the
- * scan when they aren't.
- */
-interface SearchPlan {
-  /** The rowids the keywords match, when few enough to drive the query. */
-  rowids?: number[];
-  match?: string;
-  /** Whether the keywords match a large enough share of events to test row by row. */
-  dense?: boolean;
+  searched: boolean;
 }

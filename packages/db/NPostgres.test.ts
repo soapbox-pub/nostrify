@@ -1161,3 +1161,124 @@ await test("NPostgres search extensions with multiple negative tokens", {
 
   deepStrictEqual(results.map((e) => e.id), [en.id]);
 });
+
+await test("NPostgres.event deletes only the addressed d value", {
+  skip: !databaseUrl,
+}, async () => {
+  await using db = await createDB();
+  const { store } = db;
+
+  const sk = generateSecretKey();
+
+  // An empty `d` is a value like any other, and addresses exactly one event.
+  const blank = genEvent({ kind: 30000, created_at: 0, tags: [] }, sk);
+  const named = genEvent({ kind: 30000, created_at: 0, tags: [["d", "a"]] }, sk);
+
+  await store.event(blank);
+  await store.event(named);
+
+  deepStrictEqual(
+    (await store.query([{ kinds: [30000] }])).length,
+    2,
+  );
+
+  await store.event(genEvent({
+    kind: 5,
+    tags: [["a", `30000:${blank.pubkey}:`]],
+    created_at: 1,
+  }, sk));
+
+  deepStrictEqual(await store.query([{ kinds: [30000] }]), [named]);
+});
+
+await test("NPostgres.event deletes a d value containing colons", {
+  skip: !databaseUrl,
+}, async () => {
+  await using db = await createDB();
+  const { store } = db;
+
+  const sk = generateSecretKey();
+
+  const deep = genEvent({ kind: 30000, created_at: 0, tags: [["d", "a:b"]] }, sk);
+  const shallow = genEvent({ kind: 30000, created_at: 0, tags: [["d", "a"]] }, sk);
+
+  await store.event(deep);
+  await store.event(shallow);
+
+  await store.event(genEvent({
+    kind: 5,
+    tags: [["a", `30000:${deep.pubkey}:a:b`]],
+    created_at: 1,
+  }, sk));
+
+  deepStrictEqual(await store.query([{ kinds: [30000] }]), [shallow]);
+});
+
+await test("NPostgres.event ignores addresses that address nothing", {
+  skip: !databaseUrl,
+}, async () => {
+  await using db = await createDB();
+  const { store } = db;
+
+  const sk = generateSecretKey();
+
+  const profile = genEvent({ kind: 0, created_at: 0 }, sk);
+  const note = genEvent({ kind: 1, created_at: 0 }, sk);
+
+  await store.event(profile);
+  await store.event(note);
+
+  await store.event(genEvent({
+    kind: 5,
+    tags: [
+      // `Number('')` is 0, which would name the author's profile.
+      ["a", `:${profile.pubkey}:`],
+      // A regular kind has no address, so this names nothing in particular —
+      // and without a `d` it would match every kind 1 the author has.
+      ["a", `1:${note.pubkey}:`],
+      // Not a kind.
+      ["a", `abc:${note.pubkey}:`],
+      // A replaceable address carries no `d`.
+      ["a", `0:${profile.pubkey}:whatever`],
+    ],
+    created_at: 1,
+  }, sk));
+
+  deepStrictEqual(await store.query([{ kinds: [0] }]), [profile]);
+  deepStrictEqual(await store.query([{ kinds: [1] }]), [note]);
+});
+
+await test("NPostgres with no filters", { skip: !databaseUrl }, async () => {
+  await using db = await createDB();
+  const { store } = db;
+
+  await store.event(genEvent({ kind: 1 }));
+
+  deepStrictEqual(await store.query([]), []);
+  deepStrictEqual(await store.count([]), { count: 0, approximate: false });
+  await store.remove([]);
+
+  deepStrictEqual((await store.query([{ kinds: [1] }])).length, 1);
+});
+
+await test("NPostgres rejects a timeout that isn't a number of milliseconds", {
+  skip: !databaseUrl,
+}, async () => {
+  await using db = await createDB();
+  const { store } = db;
+
+  // `SET LOCAL` can't bind parameters, so the value is interpolated. A number
+  // can't spell SQL, but a non-number used to skip the branch and silently
+  // leave the query with no timeout at all, and NaN/Infinity/fractions only
+  // failed once Postgres saw them.
+  for (const timeout of ["1000; drop table nostr_events", 1.5, -1, NaN, Infinity]) {
+    await rejects(
+      () => store.query([{ kinds: [1] }], { timeout: timeout as number }),
+      (e: unknown) =>
+        e instanceof Error && e.message === "Timeout must be a non-negative integer",
+    );
+  }
+
+  // The table is still there.
+  deepStrictEqual(await store.query([{ kinds: [1] }]), []);
+});

@@ -141,8 +141,12 @@ export class NPostgres implements NRelay {
   /** Delete events referenced by kind 5. */
   protected async deleteEvents(db: Kysely<NPostgresSchema>, event: NostrEvent): Promise<void> {
     if (event.kind === 5) {
-      const ids = new Set(event.tags.filter(([name]) => name === 'e').map(([_name, value]) => value));
-      const addrs: Set<string> = new Set(event.tags.filter(([name]) => name === 'a').map(([_name, value]) => value));
+      const ids = new Set(
+        event.tags.filter(([name, value]) => name === 'e' && value).map(([_name, value]) => value),
+      );
+      const addrs: Set<string> = new Set(
+        event.tags.filter(([name, value]) => name === 'a' && value).map(([_name, value]) => value),
+      );
 
       const filters: NostrFilter[] = [];
 
@@ -151,21 +155,44 @@ export class NPostgres implements NRelay {
       }
 
       for (const addr of addrs) {
-        const [k, pubkey, d] = addr.split(':');
-        const kind = Number(k);
+        // A `d` value may itself contain colons, so everything past the second
+        // one belongs to it.
+        const [k, pubkey, ...rest] = addr.split(':');
+        const d = rest.join(':');
 
         if (pubkey !== event.pubkey) continue;
-        if (!(Number.isInteger(kind) && kind >= 0)) continue;
-        if (d === undefined) continue;
+        // `Number('')` is 0, so an address of `:<pubkey>:` would otherwise ask
+        // to delete the author's kind 0.
+        if (!/^\d+$/.test(k)) continue;
+
+        const kind = Number(k);
+
+        if (kind > 65535) continue;
+        // NIP-01 writes an address with both colons, even when there's no `d`.
+        if (rest.length === 0) continue;
 
         const filter: NostrFilter = {
           kinds: [kind],
           authors: [event.pubkey],
+          // NIP-09: "relays SHOULD delete all versions of the replaceable
+          // event up to the `created_at` timestamp of the deletion request".
           until: event.created_at,
         };
 
-        if (d) {
+        if (NKinds.addressable(kind)) {
+          // An addressable event's identity includes its `d`, and an empty `d`
+          // is a value like any other — omitting the constraint would delete
+          // every event of that kind by the author, not the one addressed.
           filter['#d'] = [d];
+        } else if (NKinds.replaceable(kind)) {
+          // A replaceable address carries no `d`, so a non-empty one addresses
+          // nothing.
+          if (d) continue;
+        } else {
+          // Only replaceable and addressable events have an address at all. An
+          // `a` tag naming a regular kind would otherwise become an
+          // unconstrained "delete every event of this kind" filter.
+          continue;
         }
 
         filters.push(filter);
@@ -356,8 +383,17 @@ export class NPostgres implements NRelay {
     return query;
   }
 
-  /** Combine filter queries into a single union query. */
+  /**
+   * Combine filter queries into a single union query.
+   *
+   * There has to be at least one filter: a union of nothing is not a query, and
+   * "match nothing" is the caller's to express by not asking.
+   */
   protected getEventsQuery(trx: Kysely<NPostgresSchema>, filters: NostrFilter[]): SelectEventsQuery {
+    if (!filters.length) {
+      throw new Error('At least one filter is required');
+    }
+
     return trx.selectFrom((eb) =>
       filters
         .map((filter) => eb.selectFrom(() => this.getFilterQuery(trx, filter).as('e')).selectAll())
@@ -478,6 +514,8 @@ export class NPostgres implements NRelay {
 
   /** Remove events from the database. */
   protected async removeEvents(db: Kysely<NPostgresSchema>, filters: NostrFilter[]): Promise<void> {
+    if (!filters.length) return;
+
     await db
       .deleteFrom('nostr_events')
       .where('id', 'in', () => this.getEventsQuery(db, filters).clearSelect().select('id'))
@@ -494,6 +532,10 @@ export class NPostgres implements NRelay {
     filters: NostrFilter[],
     opts: { signal?: AbortSignal; timeout?: number } = {},
   ): Promise<{ count: number; approximate: boolean }> {
+    if (!filters.length) {
+      return { count: 0, approximate: false };
+    }
+
     return await this.withTimeout(this.db, opts.timeout, async (trx) => {
       const query = this.getEventsQuery(trx, filters);
       const [{ count }] = await query
@@ -541,7 +583,18 @@ export class NPostgres implements NRelay {
     timeout: number | undefined,
     callback: (trx: Kysely<NPostgresSchema>) => T | Promise<T>,
   ): Promise<T> {
-    if (typeof timeout === 'number') {
+    if (timeout !== undefined) {
+      // `SET LOCAL` takes no bind parameters, so this value is interpolated
+      // into the statement. A JS number can't spell SQL syntax, but everything
+      // else here can go quietly wrong: `NaN`, `Infinity` and fractions reach
+      // Postgres as an error at query time rather than at the call site, and a
+      // value that isn't a number at all — TypeScript is not there at runtime,
+      // and this comes from the `opts` of every public method — skipped this
+      // branch entirely, so the caller got no timeout and no complaint.
+      if (typeof timeout !== 'number' || !Number.isInteger(timeout) || timeout < 0) {
+        throw new Error('Timeout must be a non-negative integer');
+      }
+
       return await NPostgres.trx(db, async (trx) => {
         await sql`set local statement_timeout = ${sql.raw(timeout.toString())}`.execute(trx);
         return await callback(trx);

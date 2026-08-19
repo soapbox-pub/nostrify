@@ -28,9 +28,10 @@ export class NConnectSigner implements NostrSigner {
   /** Parsers, built once, since `NSchema` constructs a new schema tree on every call. */
   private static readonly eventSchema = n.json().pipe(n.event());
   private static readonly responseSchema = n.json().pipe(n.connectResponse());
+  private static readonly pubkeySchema = n.id();
   private static readonly relaysSchema = n
     .json()
-    .pipe(z.record(z.string(), z.object({ read: z.boolean(), write: z.boolean() })));
+    .pipe(z.record(n.relayUrl(), z.object({ read: z.boolean(), write: z.boolean() })));
 
   private relay: NRelay;
   private pubkey: string;
@@ -51,7 +52,14 @@ export class NConnectSigner implements NostrSigner {
   }
 
   async getPublicKey(): Promise<string> {
-    return this.cmd('get_public_key', []);
+    const result = await this.cmd('get_public_key', []);
+
+    // This is the identity the calling application signs in as and attributes
+    // events to. The remote signer is the authority on which key that is, but
+    // it is not the authority on what a pubkey looks like: an `npub`, an empty
+    // string or a stack trace would all be adopted as the user, and only fail
+    // somewhere further on where it reads as a different bug.
+    return NConnectSigner.pubkeySchema.parse(result);
   }
 
   async signEvent(
@@ -100,7 +108,15 @@ export class NConnectSigner implements NostrSigner {
     },
   };
 
-  /** Send a `connect` command to the relay. It should respond with `ack`. */
+  /**
+   * Send a `connect` command to the signer. It should respond with `ack`, or,
+   * when a secret was supplied, with that secret.
+   *
+   * NIP-46 allows either answer, so both are accepted and anything else is
+   * rejected. Without this the command only reports transport failures: a
+   * signer that answered with an empty string, or with the result of some
+   * other request, was taken as connected, and the caller went on to use it.
+   */
   async connect(secret?: string): Promise<string> {
     const params: string[] = [this.pubkey];
 
@@ -108,7 +124,13 @@ export class NConnectSigner implements NostrSigner {
       params.push(secret);
     }
 
-    return this.cmd('connect', params);
+    const result = await this.cmd('connect', params);
+
+    if (result !== 'ack' && !(secret && result === secret)) {
+      throw new Error('Remote signer did not acknowledge the connection');
+    }
+
+    return result;
   }
 
   /** Send a `ping` command to the signer. It should respond with `pong`. */

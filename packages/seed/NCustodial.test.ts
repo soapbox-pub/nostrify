@@ -1,5 +1,5 @@
 import { test } from "node:test";
-import { deepStrictEqual, ok } from "node:assert";
+import { deepStrictEqual, ok, throws } from "node:assert";
 import { NCustodial } from "@nostrify/seed";
 
 const seed = new TextEncoder().encode(
@@ -40,4 +40,20 @@ await test("signEvent", async () => {
     "ef8fb05de6bcb4795380dad56bf00644f16176f8acd6a4c2c600ee6f5a634390",
   );
   ok(event.sig);
+});
+
+await test("rejects a seed below the minimum length", () => {
+  // HMAC would accept every one of these, and the keys they derive would be
+  // indistinguishable from real ones.
+  for (const length of [0, 1, 16, NCustodial.minSeedLength - 1]) {
+    throws(
+      () => new NCustodial(new Uint8Array(length)),
+      /at least 32 bytes/,
+      `expected a ${length}-byte seed to be rejected`,
+    );
+  }
+});
+
+await test("accepts a seed at the minimum length", () => {
+  new NCustodial(new Uint8Array(NCustodial.minSeedLength));
 });

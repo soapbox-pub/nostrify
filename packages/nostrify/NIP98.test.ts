@@ -261,6 +261,80 @@ await test("NIP98.verify accepts a missing payload tag when validatePayload is o
   deepStrictEqual(proof, event);
 });
 
+await test("NIP98.verify accepts a body within maxPayloadSize", async () => {
+  const signer = new NSecSigner(generateSecretKey());
+  const body = "Hello, world!";
+
+  const template = await NIP98.template(
+    new Request("https://example.com", { method: "POST", body }),
+  );
+  const event = await signer.signEvent(template);
+
+  const request = new Request("https://example.com", { method: "POST", body });
+  request.headers.set("authorization", `Nostr ${N64.encodeEvent(event)}`);
+
+  const proof = await NIP98.verify(request, { maxPayloadSize: 1024 });
+
+  deepStrictEqual(proof, event);
+});
+
+await test("NIP98.verify refuses to hold a body over maxPayloadSize", async () => {
+  const signer = new NSecSigner(generateSecretKey());
+  const body = "x".repeat(4096);
+
+  // A valid signature costs an attacker nothing — this token is signed by a
+  // throwaway key and would still be rejected on authorization grounds. It gets
+  // far enough to be hashed, which is the point.
+  const template = await NIP98.template(
+    new Request("https://example.com", { method: "POST", body }),
+  );
+  const event = await signer.signEvent(template);
+
+  const request = new Request("https://example.com", { method: "POST", body });
+  request.headers.set("authorization", `Nostr ${N64.encodeEvent(event)}`);
+
+  await rejects(
+    () => NIP98.verify(request, { maxPayloadSize: 1024 }),
+    (e) =>
+      e instanceof Error && e.message === "Request body is too large to verify",
+  );
+});
+
+await test("NIP98.verify enforces maxPayloadSize without a content-length", async () => {
+  const signer = new NSecSigner(generateSecretKey());
+
+  const template = await NIP98.template(
+    new Request("https://example.com", { method: "POST", body: "x" }),
+  );
+  const event = await signer.signEvent(template);
+
+  // A streamed body carries no content-length, so the header shortcut can't
+  // turn it away and the running total has to.
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (let i = 0; i < 8; i++) {
+        controller.enqueue(new Uint8Array(512));
+      }
+      controller.close();
+    },
+  });
+
+  const request = new Request("https://example.com", {
+    method: "POST",
+    body: stream,
+    duplex: "half",
+  } as RequestInit);
+  request.headers.set("authorization", `Nostr ${N64.encodeEvent(event)}`);
+
+  deepStrictEqual(request.headers.get("content-length"), null);
+
+  await rejects(
+    () => NIP98.verify(request, { maxPayloadSize: 1024 }),
+    (e) =>
+      e instanceof Error && e.message === "Request body is too large to verify",
+  );
+});
+
 await test("NIP98.verify checks a payload tag it wasn't required to check", async () => {
   const signer = new NSecSigner(generateSecretKey());
 

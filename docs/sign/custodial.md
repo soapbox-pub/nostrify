@@ -27,3 +27,15 @@ fiatjaf.signEvent(t);
 
 The custodial signer combines the shared secret with the user ID to create a unique seed for each user.
 The seed is then used to create a [seed signer](/sign/seed) for each user.
+
+## The shared secret
+
+The secret must be at least 32 bytes; anything shorter is rejected by the constructor.
+
+HMAC accepts a key of any length, so without that check an empty or truncated secret — an unset
+environment variable, say — derives keys that look exactly like real ones. Every user of the
+application hangs off this one value, so a weak one exposes all of them at once, and nothing about
+the keys it produces would show it.
+
+Rotating the secret changes every derived key, and therefore every user's identity. Generate it once
+with something like `openssl rand -base64 48` and keep it.

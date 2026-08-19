@@ -1,3 +1,5 @@
+import { verifyEvent as _verifyEvent } from 'nostr-tools';
+
 import type { NostrEvent, NostrSigner } from '@nostrify/types';
 
 /**
@@ -20,9 +22,15 @@ import type { NostrEvent, NostrSigner } from '@nostrify/types';
  */
 export class NBrowserSigner implements NostrSigner {
   #timeout: number;
+  #verifyEvent: (event: NostrEvent) => boolean;
 
-  constructor(opts?: { timeout?: number }) {
+  constructor(opts?: {
+    timeout?: number;
+    /** Ensure an event returned by `signEvent` is valid. Default: `nostrTools.verifyEvent`. */
+    verifyEvent?(event: NostrEvent): boolean;
+  }) {
     this.#timeout = opts?.timeout ?? 3000;
+    this.#verifyEvent = opts?.verifyEvent ?? _verifyEvent;
   }
 
   /** Wait for `globalThis.nostr` to become available, polling every 100ms up to the configured timeout. */
@@ -65,7 +73,31 @@ export class NBrowserSigner implements NostrSigner {
         `Nostr event signing failed: expected object with id, pubkey, and sig, got ${JSON.stringify(signed)}`,
       );
     }
-    return signed;
+    // Rebuild from the NIP-01 fields alone. Besides normalizing what callers
+    // get back, this drops anything else the extension hung off the object —
+    // including nostr-tools' `verifiedSymbol`, which `verifyEvent` treats as a
+    // cached result and returns without looking at the event. An in-process
+    // signer (a polyfill, a test double, an extension shimmed into the page)
+    // can carry that symbol through an object spread and would otherwise be
+    // taken at its word.
+    const normalized: NostrEvent = {
+      id: signed.id,
+      pubkey: signed.pubkey,
+      kind: signed.kind,
+      content: signed.content,
+      tags: signed.tags,
+      created_at: signed.created_at,
+      sig: signed.sig,
+    };
+
+    // The three fields being present says only that the extension filled them
+    // in. An extension that hands back a stale `id`, or a signature over
+    // something other than what was asked for, produces an event that every
+    // relay rejects — a long way from the bug.
+    if (!this.#verifyEvent(normalized)) {
+      throw new Error('Nostr event signing failed: the extension returned an invalid event');
+    }
+    return normalized;
   }
 
   async getRelays(): Promise<Record<string, { read: boolean; write: boolean }>> {

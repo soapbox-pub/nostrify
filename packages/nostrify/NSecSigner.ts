@@ -20,7 +20,11 @@ export class NSecSigner implements NostrSigner {
   private pubkey?: string;
 
   constructor(secretKey: Uint8Array) {
-    this.#secretKey = secretKey;
+    // Copy rather than alias. `getPublicKey` memoizes, so a caller that zeroizes
+    // its own copy of the key after constructing the signer — the responsible
+    // thing to do with key material — would otherwise leave this signer
+    // reporting one pubkey while signing under whatever the array now holds.
+    this.#secretKey = new Uint8Array(secretKey);
   }
 
   async getPublicKey(): Promise<string> {

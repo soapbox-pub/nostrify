@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import { NSecSigner } from "@nostrify/nostrify";
 import { deepStrictEqual, ok, rejects } from "node:assert";
-import { finalizeEvent, generateSecretKey, getPublicKey } from "nostr-tools";
+import { generateSecretKey, getPublicKey, verifyEvent } from "nostr-tools";
 
 import { NBrowserSigner } from "./NBrowserSigner.ts";
 
@@ -44,19 +44,59 @@ await test("NBrowserSigner - with extension polyfill", async () => {
   // Test getPublicKey
   deepStrictEqual(await signer.getPublicKey(), getPublicKey(secretKey));
 
-  // Test signEvent
+  // Test signEvent. Compared field by field rather than against a second
+  // `finalizeEvent` call: that mutates and returns the template it is given, so
+  // comparing the two was comparing one object with itself, and Schnorr
+  // signatures are randomized anyway.
   const template = {
     kind: 1,
     content: "Hello, world!",
     tags: [],
     created_at: 0,
   };
-  deepStrictEqual(
-    await signer.signEvent(template),
-    finalizeEvent(template, secretKey),
-  );
+
+  const signed = await signer.signEvent({ ...template });
+
+  ok(verifyEvent(signed));
+  deepStrictEqual(signed.pubkey, getPublicKey(secretKey));
+  deepStrictEqual(signed.kind, template.kind);
+  deepStrictEqual(signed.content, template.content);
+  deepStrictEqual(signed.tags, template.tags);
+  deepStrictEqual(signed.created_at, template.created_at);
 
   // Clean up
+  (globalThis as { nostr?: NostrSigner }).nostr = undefined;
+});
+
+await test("NBrowserSigner - rejects an event the extension didn't sign", async () => {
+  const inner = new NSecSigner(generateSecretKey());
+
+  (globalThis as { nostr?: NostrSigner }).nostr = {
+    getPublicKey: () => inner.getPublicKey(),
+    signEvent: async (event: Omit<NostrEvent, "id" | "pubkey" | "sig">) => {
+      const signed = await inner.signEvent(event);
+      // Every field the presence check looks for is populated; the signature
+      // is what stops covering it.
+      return { ...signed, content: "something else" };
+    },
+  };
+
+  const signer = new NBrowserSigner();
+
+  await rejects(
+    () =>
+      signer.signEvent({
+        kind: 1,
+        content: "Hello, world!",
+        tags: [],
+        created_at: 0,
+      }),
+    (e: unknown) =>
+      e instanceof Error &&
+      e.message ===
+        "Nostr event signing failed: the extension returned an invalid event",
+  );
+
   (globalThis as { nostr?: NostrSigner }).nostr = undefined;
 });
 

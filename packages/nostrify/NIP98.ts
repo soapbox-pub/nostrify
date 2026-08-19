@@ -3,6 +3,7 @@ import { toHex } from "@smithy/util-hex-encoding";
 import { verifyEvent as _verifyEvent } from "nostr-tools";
 
 import { N64 } from "./utils/N64.ts";
+import { readCapped } from "./utils/readCapped.ts";
 
 /** [NIP-98](https://github.com/nostr-protocol/nips/blob/master/98.md) HTTP auth. */
 export class NIP98 {
@@ -51,6 +52,15 @@ export class NIP98 {
    * body of the attacker's choosing. Servers that must accept clients which
    * omit the tag can set it to `false`, accepting that trade. A payload tag
    * that *is* present is always checked, whatever the setting.
+   *
+   * Two things this deliberately does not do, both of which are the caller's:
+   *
+   * - **Authorization.** A valid token only proves the holder of `event.pubkey`
+   *   made this request. Deciding whether *that* pubkey may do so is yours.
+   * - **Replay defense.** NIP-98 has no nonce, so within the `maxAge` window a
+   *   captured token can be replayed verbatim against the same URL, method and
+   *   body. Servers that need exactly-once semantics should remember event IDs
+   *   for the length of the window and reject repeats.
    */
   static async verify(
     request: Request,
@@ -62,12 +72,26 @@ export class NIP98 {
       maxAge?: number;
       /** Require and check the `payload` tag. Default: `true` for `POST`, `PUT` and `PATCH`. */
       validatePayload?: boolean;
+      /**
+       * Largest body, in bytes, that will be read to check the `payload` tag.
+       * Default: `Infinity`.
+       *
+       * Checking the tag means hashing the body, and hashing it means holding
+       * it. A signature proves only that *somebody* signed — anyone can mint a
+       * keypair and a well-formed token — so an unauthenticated caller can
+       * reach this point at will and hand the process a body of whatever size
+       * it cares to send. The default preserves the old behavior, since a
+       * server that legitimately accepts large uploads would otherwise start
+       * rejecting them; anything exposed to untrusted callers should set this.
+       */
+      maxPayloadSize?: number;
       verifyEvent?: (event: NostrEvent) => boolean;
     },
   ): Promise<NostrEvent> {
     const {
       maxAge = 60_000,
       validatePayload = ["POST", "PUT", "PATCH"].includes(request.method),
+      maxPayloadSize = Infinity,
       verifyEvent = _verifyEvent,
     } = opts ?? {};
 
@@ -120,8 +144,8 @@ export class NIP98 {
       throw new Error("Event is missing the payload tag");
     }
     if (payload !== undefined) {
-      const buffer = await request.clone().arrayBuffer();
-      const digest = await crypto.subtle.digest("SHA-256", buffer);
+      const body = await NIP98.body(request, maxPayloadSize);
+      const digest = await crypto.subtle.digest("SHA-256", body);
       const hexed = toHex(new Uint8Array(digest));
 
       if (hexed !== payload) {
@@ -130,5 +154,35 @@ export class NIP98 {
     }
 
     return event;
+  }
+
+  /** Read the request body, refusing to hold more than `maxPayloadSize` bytes of it. */
+  private static async body(
+    request: Request,
+    maxPayloadSize: number,
+  ): Promise<Uint8Array<ArrayBuffer>> {
+    if (maxPayloadSize === Infinity) {
+      return new Uint8Array(await request.clone().arrayBuffer());
+    }
+
+    // Worth checking, since it lets an oversized body be turned away before any
+    // of it is read — but only as a shortcut. It is absent on a chunked body,
+    // and a sender is under no obligation to have told the truth in it, so the
+    // running total below is what actually enforces the limit.
+    const declared = Number(request.headers.get("content-length"));
+    if (Number.isFinite(declared) && declared > maxPayloadSize) {
+      throw new Error("Request body is too large to verify");
+    }
+
+    const stream = request.clone().body;
+    if (!stream) {
+      return new Uint8Array();
+    }
+
+    return readCapped(
+      stream,
+      maxPayloadSize,
+      "Request body is too large to verify",
+    );
   }
 }

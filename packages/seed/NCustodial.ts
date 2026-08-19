@@ -19,9 +19,28 @@ import { NSeedSigner } from "./NSeedSigner.ts";
  * ```
  */
 export class NCustodial {
+  /**
+   * Minimum acceptable seed length, in bytes.
+   *
+   * HMAC-SHA256 takes a key of any length, so a truncated or accidentally-empty
+   * secret — an unset environment variable, say — imports without complaint and
+   * derives keys that look exactly like real ones. This is the one secret behind
+   * every user of the application, so a weak one hands over every account at
+   * once, and nothing about the output shows it. 32 bytes is the size of the
+   * SHA-256 digest this seed is stretched into, and well under what the
+   * `openssl rand` above produces.
+   */
+  static readonly minSeedLength = 32;
+
   #seed: Uint8Array;
 
   constructor(seed: Uint8Array) {
+    if (seed.length < NCustodial.minSeedLength) {
+      throw new Error(
+        `NCustodial: seed must be at least ${NCustodial.minSeedLength} bytes, got ${seed.length}`,
+      );
+    }
+
     this.#seed = seed;
   }
 

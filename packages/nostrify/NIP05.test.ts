@@ -45,6 +45,48 @@ await test("NIP05.lookup with invalid values but valid profile pointer", async (
   fetchStub.restore();
 });
 
+await test("NIP05.lookup rejects an error response", async () => {
+  const fetchStub = sinon.stub(globalThis, "fetch");
+  fetchStub.resolves(
+    new Response("<!doctype html><title>Not Found</title>", { status: 404 }),
+  );
+
+  await rejects(
+    () => NIP05.lookup("alex@gleasonator.dev", { fetch: fetchStub }),
+    (e: unknown) =>
+      e instanceof Error &&
+      e.message === "NIP-05: gleasonator.dev responded 404",
+  );
+
+  fetchStub.restore();
+});
+
+await test("NIP05.lookup stops reading past maxSize", async () => {
+  // The identifier names the host, so looking up one supplied by a user points
+  // this at a server of their choosing — which need never stop talking.
+  const stream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      controller.enqueue(new Uint8Array(4096));
+    },
+  });
+
+  const fetchStub = sinon.stub(globalThis, "fetch");
+  fetchStub.resolves(new Response(stream));
+
+  await rejects(
+    () =>
+      NIP05.lookup("alex@gleasonator.dev", {
+        fetch: fetchStub,
+        maxSize: 64 * 1024,
+      }),
+    (e: unknown) =>
+      e instanceof Error &&
+      e.message === "NIP-05: gleasonator.dev sent too much data",
+  );
+
+  fetchStub.restore();
+});
+
 await test("NIP05.lookup with invalid document", () => {
   const fetchStub = sinon.stub(globalThis, "fetch");
   fetchStub.onCall(0).resolves(new Response(JSON.stringify({ names: "yolo" })));

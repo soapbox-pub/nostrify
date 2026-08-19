@@ -190,3 +190,94 @@ await test("NIP98.verify fails with invalid payload", async () => {
     "Event payload does not match request body",
   );
 });
+
+await test("NIP98.verify fails with a future-dated event", async () => {
+  const signer = new NSecSigner(generateSecretKey());
+  const request = new Request("https://example.com");
+
+  const t = await NIP98.template(request);
+  const event = await signer.signEvent({
+    ...t,
+    created_at: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 365,
+  });
+
+  request.headers.set("authorization", `Nostr ${N64.encodeEvent(event)}`);
+
+  await rejects(
+    () => NIP98.verify(request),
+    (e) =>
+      e instanceof Error && e.message === "Event is dated too far in the future",
+  );
+});
+
+await test("NIP98.verify fails when a body-bearing request has no payload tag", async () => {
+  const signer = new NSecSigner(generateSecretKey());
+
+  const template = await NIP98.template(
+    new Request("https://example.com", { method: "POST", body: "Hello, world!" }),
+  );
+
+  const event = await signer.signEvent({
+    ...template,
+    tags: template.tags.filter(([name]) => name !== "payload"),
+  });
+
+  // The token binds only the URL and method, so it authorizes any body at all.
+  const request = new Request("https://example.com", {
+    method: "POST",
+    body: "Goodbye, world!",
+  });
+  request.headers.set("authorization", `Nostr ${N64.encodeEvent(event)}`);
+
+  await rejects(
+    () => NIP98.verify(request),
+    (e) =>
+      e instanceof Error && e.message === "Event is missing the payload tag",
+  );
+});
+
+await test("NIP98.verify accepts a missing payload tag when validatePayload is off", async () => {
+  const signer = new NSecSigner(generateSecretKey());
+
+  const template = await NIP98.template(
+    new Request("https://example.com", { method: "POST", body: "Hello, world!" }),
+  );
+
+  const event = await signer.signEvent({
+    ...template,
+    tags: template.tags.filter(([name]) => name !== "payload"),
+  });
+
+  const request = new Request("https://example.com", {
+    method: "POST",
+    body: "Hello, world!",
+  });
+  request.headers.set("authorization", `Nostr ${N64.encodeEvent(event)}`);
+
+  const proof = await NIP98.verify(request, { validatePayload: false });
+
+  deepStrictEqual(proof, event);
+});
+
+await test("NIP98.verify checks a payload tag it wasn't required to check", async () => {
+  const signer = new NSecSigner(generateSecretKey());
+
+  const template = await NIP98.template(
+    new Request("https://example.com", { method: "POST", body: "Hello, world!" }),
+  );
+
+  const event = await signer.signEvent(template);
+
+  const request = new Request("https://example.com", {
+    method: "POST",
+    body: "Goodbye, world!",
+  });
+  request.headers.set("authorization", `Nostr ${N64.encodeEvent(event)}`);
+
+  await rejects(
+    () => NIP98.verify(request, { validatePayload: false }),
+    (e) =>
+      e instanceof Error &&
+      e.message === "Event payload does not match request body",
+  );
+});

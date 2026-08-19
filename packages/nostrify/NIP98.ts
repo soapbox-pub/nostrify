@@ -36,11 +36,31 @@ export class NIP98 {
     };
   }
 
-  /** Compare the auth event with the request, throwing a human-readable error if validation fails. */
+  /**
+   * Compare the auth event with the request, throwing a human-readable error if validation fails.
+   *
+   * Performs the four checks NIP-98 requires of a server — kind, timestamp
+   * window, `u`, `method` — plus the optional `payload` check.
+   *
+   * NIP-98 leaves the body binding to the server's discretion: clients SHOULD
+   * send a `payload` tag when the request has a body, and servers MAY check it.
+   * `validatePayload` decides which side of that this implementation takes.
+   * When it's on — the default for `POST`, `PUT` and `PATCH` — the tag is
+   * *required*, since a token that carries no payload tag binds only the URL
+   * and method, and can therefore be replayed against the same endpoint with a
+   * body of the attacker's choosing. Servers that must accept clients which
+   * omit the tag can set it to `false`, accepting that trade. A payload tag
+   * that *is* present is always checked, whatever the setting.
+   */
   static async verify(
     request: Request,
     opts?: {
+      /**
+       * How far, in milliseconds, `created_at` may be from now — in either
+       * direction. Default: `60_000`, the window NIP-98 suggests.
+       */
       maxAge?: number;
+      /** Require and check the `payload` tag. Default: `true` for `POST`, `PUT` and `PATCH`. */
       validatePayload?: boolean;
       verifyEvent?: (event: NostrEvent) => boolean;
     },
@@ -72,7 +92,7 @@ export class NIP98 {
       throw new Error("Event signature is invalid");
     }
 
-    const age = Date.now() - (event.created_at * 1_000);
+    const skew = Date.now() - (event.created_at * 1_000);
     const u = event.tags.find(([name]) => name === "u")?.[1];
     const method = event.tags.find(([name]) => name === "method")?.[1];
     const payload = event.tags.find(([name]) => name === "payload")?.[1];
@@ -86,10 +106,20 @@ export class NIP98 {
     if (method !== request.method) {
       throw new Error("Event method does not match HTTP request method");
     }
-    if (age >= maxAge) {
+    // NIP-98 asks for a *window* around `created_at`, not a deadline. Bounding
+    // only the past leaves a future-dated event valid forever: its age is
+    // negative, so it never reaches `maxAge`, and one token minted with a
+    // `created_at` a year out never stops being accepted.
+    if (skew >= maxAge) {
       throw new Error("Event expired");
     }
-    if (validatePayload && payload !== undefined) {
+    if (skew <= -maxAge) {
+      throw new Error("Event is dated too far in the future");
+    }
+    if (validatePayload && payload === undefined) {
+      throw new Error("Event is missing the payload tag");
+    }
+    if (payload !== undefined) {
       const buffer = await request.clone().arrayBuffer();
       const digest = await crypto.subtle.digest("SHA-256", buffer);
       const hexed = toHex(new Uint8Array(digest));

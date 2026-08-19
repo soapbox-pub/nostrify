@@ -10,8 +10,13 @@ import type { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
  */
 export class RegexPolicy implements NPolicy {
   private regex: RegExp;
+
   constructor(regex: RegExp) {
-    this.regex = regex;
+    // `test` on a `g` or `y` regex advances `lastIndex` and resumes from there on
+    // the next call, so a banned phrase would match, then miss, then match again
+    // — letting every other copy of it through. Drop those flags; this is a
+    // whole-string predicate, and where the match begins is of no interest.
+    this.regex = new RegExp(regex.source, regex.flags.replace(/[gy]/g, ''));
   }
 
   // deno-lint-ignore require-await

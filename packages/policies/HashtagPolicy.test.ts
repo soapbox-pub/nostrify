@@ -43,3 +43,23 @@ await test("HashtagPolicy", async () => {
   deepStrictEqual((await new HashtagPolicy(hashtags).call(event3))[2], true);
   deepStrictEqual((await new HashtagPolicy(hashtags).call(event4))[2], true);
 });
+
+await test("HashtagPolicy tolerates a tag with no value", async () => {
+  const event = finalizeEvent(
+    { kind: 1, content: "", tags: [["t"]], created_at: 0 },
+    generateSecretKey(),
+  );
+
+  deepStrictEqual((await new HashtagPolicy(["nsfw"]).call(event))[2], true);
+});
+
+await test("HashtagPolicy matches regardless of case", async () => {
+  const event = finalizeEvent(
+    { kind: 1, content: "", tags: [["t", "NSFW"]], created_at: 0 },
+    generateSecretKey(),
+  );
+
+  // Banned hashtag given in either case must block a tag given in either case.
+  deepStrictEqual((await new HashtagPolicy(["nsfw"]).call(event))[2], false);
+  deepStrictEqual((await new HashtagPolicy(["NSFW"]).call(event))[2], false);
+});

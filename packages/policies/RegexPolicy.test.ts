@@ -24,3 +24,20 @@ await test("RegexPolicy", async () => {
   deepStrictEqual((await new RegexPolicy(/🔥$/).call(event))[2], true);
   deepStrictEqual((await new RegexPolicy(/^🔥/).call(event))[2], false);
 });
+
+await test("RegexPolicy blocks consistently with a sticky or global regex", async () => {
+  const event = finalizeEvent(
+    { kind: 1, content: "https://t.me/spam", tags: [], created_at: 0 },
+    generateSecretKey(),
+  );
+
+  // `lastIndex` on a `g`/`y` regex used to persist between calls, so the same
+  // event would be blocked, then allowed, then blocked again.
+  for (const regex of [/https:\/\/t\.me\/\w+/g, /https:\/\/t\.me\/\w+/y]) {
+    const policy = new RegexPolicy(regex);
+
+    deepStrictEqual((await policy.call(event))[2], false);
+    deepStrictEqual((await policy.call(event))[2], false);
+    deepStrictEqual((await policy.call(event))[2], false);
+  }
+});

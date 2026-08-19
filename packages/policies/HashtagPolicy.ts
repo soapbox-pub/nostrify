@@ -10,15 +10,21 @@ import type { NostrEvent, NostrRelayOK, NPolicy } from '@nostrify/types';
  * ```
  */
 export class HashtagPolicy implements NPolicy {
-  private hashtags: string[];
-  constructor(hashtags: string[]) {
-    this.hashtags = hashtags;
+  /** Banned hashtags, lowercased once so the comparison can't be defeated by case. */
+  private hashtags: Set<string>;
+
+  constructor(hashtags: Iterable<string>) {
+    this.hashtags = new Set([...hashtags].map((hashtag) => hashtag.toLowerCase()));
   }
 
   // deno-lint-ignore require-await
   async call({ id, tags }: NostrEvent): Promise<NostrRelayOK> {
     for (const [name, value] of tags) {
-      if (name === 't' && this.hashtags.includes(value.toLowerCase())) {
+      // A tag is an arbitrary array of strings, so a bare `["t"]` is well-formed
+      // enough to reach here with no value at all.
+      if (name !== 't' || typeof value !== 'string') continue;
+
+      if (this.hashtags.has(value.toLowerCase())) {
         return ['OK', id, false, 'blocked: contains a banned hashtag'];
       }
     }

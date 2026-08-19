@@ -114,6 +114,12 @@ await test("n.event", () => {
   ok(!n.event().safeParse({ created_at: -1 }).success);
   ok(!n.event().safeParse({ sig: "abc" }).success);
 
+  // A signature is 64 bytes of lowercase hex, so anything else isn't one.
+  ok(!n.event().safeParse({ ...nostrEvent, sig: "" }).success);
+  ok(!n.event().safeParse({ ...nostrEvent, sig: "f".repeat(127) }).success);
+  ok(!n.event().safeParse({ ...nostrEvent, sig: "F".repeat(128) }).success);
+  ok(n.event().safeParse({ ...nostrEvent, sig: "f".repeat(128) }).success);
+
   // Kind upper bound (0–65535).
   ok(!n.event().safeParse({ ...nostrEvent, kind: 65536 }).success);
   ok(n.event().safeParse({ ...nostrEvent, kind: 65535 }).success);

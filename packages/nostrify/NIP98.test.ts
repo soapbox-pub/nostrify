@@ -87,7 +87,9 @@ await test("NIP98.verify fails with invalid event", async () => {
   const t = await NIP98.template(request);
   const event = await signer.signEvent(t);
 
-  event.sig = "invalid";
+  // Well-formed but wrong, so the token parses and it's the signature check
+  // that rejects it.
+  event.sig = "f".repeat(128);
 
   request.headers.set("authorization", `Nostr ${N64.encodeEvent(event)}`);
 

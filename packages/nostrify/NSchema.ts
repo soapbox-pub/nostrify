@@ -20,6 +20,14 @@ class NSchema {
     return z.string().regex(/^[0-9a-f]{64}$/);
   }
 
+  /**
+   * Schema to validate a Schnorr signature: NIP-01's "64-bytes lowercase hex",
+   * ie. 128 hex characters.
+   */
+  static signature() {
+    return z.string().regex(/^[0-9a-f]{128}$/);
+  }
+
   /** Nostr event schema. */
   static event() {
     return z.object({
@@ -29,7 +37,7 @@ class NSchema {
       tags: z.string().array().array(),
       content: z.string(),
       created_at: z.number().int().nonnegative(),
-      sig: z.string(),
+      sig: NSchema.signature(),
     });
   }
 

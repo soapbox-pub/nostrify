@@ -23,6 +23,12 @@ export interface BlossomUploaderOpts {
   /**
    * Scope each authorization to the target server by adding a `server` tag with the server's domain (BUD-11).
    * This produces a distinct authorization event per server. (Default: `false`)
+   *
+   * Leaving this off signs one authorization and sends that same token to every server in `servers`. BUD-11 is
+   * explicit about what that means: a token with no `server` tag is valid on any server that accepts it, so each
+   * server — and anyone who intercepts the request — can replay it against the others until it expires. Turning it
+   * on costs a signature per server, which a remote signer may prompt for, and not every server accepts a scoped
+   * token yet.
    */
   scopeToServer?: boolean;
 }
@@ -226,7 +232,10 @@ export class BlossomUploader implements NUploader {
 
     // Prefer the server-provided NIP-94 tags when present (BUD-08), ensuring `url` comes first.
     if (data.nip94?.length) {
-      const url = data.nip94.find(([name]) => name === "url")?.[1] ?? data.url;
+      const nip94Url = data.nip94.find(([name]) => name === "url")?.[1];
+      // These tags go straight into an event the caller is about to publish, so
+      // the URL out of them gets the same check as the descriptor's own.
+      const url = nip94Url === undefined ? data.url : BlossomUploader.urlSchema.parse(nip94Url);
       const rest = data.nip94.filter(([name]) => name !== "url");
       return [["url", url], ...rest];
     }
@@ -260,9 +269,30 @@ export class BlossomUploader implements NUploader {
     return new URL(url).pathname.match(/[0-9a-f]{64}/)?.[0];
   }
 
+  /**
+   * A blob URL, as BUD-02 defines it: a publicly accessible address of the
+   * server's `GET /<sha256>` endpoint.
+   *
+   * The scheme check is the point. What comes back here is a string chosen by
+   * the upload server, and it leaves as the `url` tag of a NIP-94 style
+   * attachment that the calling app will put in a note and, eventually,
+   * somewhere in a DOM. `javascript:` and `data:` are URLs too.
+   */
+  private static readonly urlSchema = z.string().refine(
+    (value) => {
+      try {
+        const { protocol } = new URL(value);
+        return protocol === "http:" || protocol === "https:";
+      } catch {
+        return false;
+      }
+    },
+    { message: "Expected an http(s) URL" },
+  );
+
   /** Blossom "BlobDescriptor" schema. Built once, so it isn't reconstructed on every upload. */
   private static readonly schema = z.object({
-    url: z.string(),
+    url: BlossomUploader.urlSchema,
     sha256: z.string(),
     size: z.number(),
     type: z.string().optional(),

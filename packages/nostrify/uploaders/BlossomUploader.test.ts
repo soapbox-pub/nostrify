@@ -1,5 +1,5 @@
 import { test } from "node:test";
-import { deepStrictEqual } from "node:assert";
+import { deepStrictEqual, rejects } from "node:assert";
 import { generateSecretKey } from "nostr-tools";
 import process from "node:process";
 import { BlossomUploader } from "./BlossomUploader.ts";
@@ -119,3 +119,37 @@ await test(
     ]);
   },
 );
+
+await test("BlossomUploader rejects a blob URL that isn't http(s)", async () => {
+  const signer = new NSecSigner(generateSecretKey());
+
+  for (
+    const body of [
+      // The descriptor's own url (BUD-02).
+      { url: "javascript:alert(1)", sha256: "abc", size: 3 },
+      // A url smuggled through the nip94 tags (BUD-08).
+      {
+        url: "https://example.com/abc.png",
+        sha256: "abc",
+        size: 3,
+        nip94: [["url", "data:text/html,<script>alert(1)</script>"]],
+      },
+    ]
+  ) {
+    const uploader = new BlossomUploader({
+      servers: ["https://one.example/"],
+      signer,
+      fetch: () =>
+        Promise.resolve(
+          new Response(JSON.stringify(body), {
+            status: 201,
+            headers: { "content-type": "application/json" },
+          }),
+        ),
+    });
+
+    await rejects(() =>
+      uploader.upload(new File(["abc"], "abc.png", { type: "image/png" }))
+    );
+  }
+});

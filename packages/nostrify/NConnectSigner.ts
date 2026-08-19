@@ -169,16 +169,17 @@ export class NConnectSigner implements NostrSigner {
               // isn't a response to this connection.
               if (event.pubkey !== this.pubkey) continue;
 
+              // Past the author check, this event is from the signer we are
+              // connected to — reaching here with a payload we can't read means
+              // that signer failed us, so say so rather than letting the caller
+              // sit until the timeout with nothing to go on. Nobody else can
+              // get here: forging this author requires forging its signature.
               let response: NostrConnectResponse;
               try {
                 const decrypted = await this.decrypt(this.pubkey, event.content);
                 response = NConnectSigner.responseSchema.parse(decrypted);
-              } catch {
-                // Anyone who has seen the REQ can address an event to the
-                // client pubkey, so a payload that won't decrypt or parse is
-                // noise to skip, not grounds for failing the request. The
-                // timeout still bounds the wait.
-                continue;
+              } catch (e) {
+                throw new Error('Failed to read the response from the remote signer', { cause: e });
               }
 
               if (response.id === request.id) {
@@ -207,13 +208,21 @@ export class NConnectSigner implements NostrSigner {
     }
   }
 
-  /** Local decrypt depending on settings. */
+  /**
+   * Local decrypt, dispatched on the ciphertext rather than on `encryption`.
+   * NIP-46 lets a signer answer in either scheme regardless of which one the
+   * request used, so the setting says nothing about what comes back. NIP-04
+   * ciphertext ends in `?iv=<iv>`, and `?` is outside the base64 alphabet a
+   * NIP-44 payload is confined to, so the two can't be confused.
+   */
   private async decrypt(pubkey: string, ciphertext: string): Promise<string> {
-    switch (this.encryption) {
-      case 'nip04':
-        return this.signer.nip04!.decrypt(pubkey, ciphertext);
-      case 'nip44':
-        return this.signer.nip44!.decrypt(pubkey, ciphertext);
+    const scheme = ciphertext.includes('?iv=') ? 'nip04' : 'nip44';
+    const nip = this.signer[scheme];
+
+    if (!nip) {
+      throw new Error(`Remote signer replied with ${scheme}, which the local signer does not implement`);
     }
+
+    return nip.decrypt(pubkey, ciphertext);
   }
 }

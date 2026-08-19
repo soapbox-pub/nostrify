@@ -118,7 +118,7 @@ await test("NConnectSigner.signEvent with nip44 encryption", async () => {
   deepStrictEqual(relay.subs.size, 0); // cleanup
 });
 
-await test("NConnectSigner.signEvent ignores noise addressed to the client", async () => {
+await test("NConnectSigner.signEvent ignores a response from the wrong author", async () => {
   const relay = new MockRelay();
   const remote = new NSecSigner(generateSecretKey());
   const impostor = new NSecSigner(generateSecretKey());
@@ -150,8 +150,8 @@ await test("NConnectSigner.signEvent ignores noise addressed to the client", asy
       const request = n.json().pipe(n.connectRequest()).parse(decrypted);
 
       // Anyone who has seen the REQ can address a kind 24133 to the client
-      // pubkey. A response from the wrong author, and a payload that won't
-      // decrypt, are both noise — neither may answer or fail the request.
+      // pubkey, answering in the signer's stead. It carries the right request
+      // id and decrypts cleanly; the author is what gives it away.
       await relay.event(
         await impostor.signEvent({
           kind: 24133,
@@ -159,15 +159,6 @@ await test("NConnectSigner.signEvent ignores noise addressed to the client", asy
             event.pubkey,
             JSON.stringify({ id: request.id, result: "gotcha" }),
           ),
-          tags: [["p", event.pubkey]],
-          created_at: Math.floor(Date.now() / 1000),
-        }),
-      );
-
-      await relay.event(
-        await remote.signEvent({
-          kind: 24133,
-          content: "not encrypted to anybody",
           tags: [["p", event.pubkey]],
           created_at: Math.floor(Date.now() / 1000),
         }),
@@ -260,4 +251,113 @@ await test("NConnectSigner.signEvent rejects an event that isn't signed", async 
       e instanceof Error &&
       e.message === "Remote signer returned an invalid event",
   );
+});
+
+await test("NConnectSigner.signEvent rejects a response it can't read", async () => {
+  const relay = new MockRelay();
+  const remote = new NSecSigner(generateSecretKey());
+  const pubkey = await remote.getPublicKey();
+
+  const connect = new NConnectSigner({
+    relay,
+    pubkey,
+    signer: new NSecSigner(generateSecretKey()),
+    timeout: 5_000,
+  });
+
+  const req = relay.req([{ kinds: [24133], "#p": [pubkey] }]);
+
+  const promise = connect.signEvent({
+    kind: 1,
+    content: "hello world",
+    tags: [],
+    created_at: Math.floor(Date.now() / 1000),
+  });
+
+  for await (const msg of req) {
+    if (msg[0] === "EVENT") {
+      const event = msg[2];
+
+      // Only the remote signer can author an event the client accepts, so
+      // garbage under its key is that signer failing rather than a stranger
+      // interfering. Fail the request instead of waiting out the timeout.
+      await relay.event(
+        await remote.signEvent({
+          kind: 24133,
+          content: "not encrypted to anybody",
+          tags: [["p", event.pubkey]],
+          created_at: Math.floor(Date.now() / 1000),
+        }),
+      );
+      break;
+    }
+  }
+
+  await rejects(
+    () => promise,
+    (e: unknown) =>
+      e instanceof Error &&
+      e.message === "Failed to read the response from the remote signer",
+  );
+});
+
+await test("NConnectSigner.signEvent reads a nip04 reply to a nip44 request", async () => {
+  const relay = new MockRelay();
+  const remote = new NSecSigner(generateSecretKey());
+  const pubkey = await remote.getPublicKey();
+
+  // NIP-46 lets the signer answer in whichever scheme it likes, so `encryption`
+  // governs what this client sends and nothing about what it receives.
+  const connect = new NConnectSigner({
+    relay,
+    pubkey,
+    signer: new NSecSigner(generateSecretKey()),
+    encryption: "nip44",
+    timeout: 5_000,
+  });
+
+  const req = relay.req([{ kinds: [24133], "#p": [pubkey] }]);
+
+  const promise = connect.signEvent({
+    kind: 1,
+    content: "hello world",
+    tags: [],
+    created_at: Math.floor(Date.now() / 1000),
+  });
+
+  for await (const msg of req) {
+    if (msg[0] === "EVENT") {
+      const event = msg[2];
+      const decrypted = await remote.nip44!.decrypt(
+        event.pubkey,
+        event.content,
+      );
+      const request = n.json().pipe(n.connectRequest()).parse(decrypted);
+
+      const response: NostrConnectResponse = {
+        id: request.id,
+        result: JSON.stringify(
+          await remote.signEvent(JSON.parse(request.params[0])),
+        ),
+      };
+
+      await relay.event(
+        await remote.signEvent({
+          kind: 24133,
+          content: await remote.nip04!.encrypt(
+            event.pubkey,
+            JSON.stringify(response),
+          ),
+          tags: [["p", event.pubkey]],
+          created_at: Math.floor(Date.now() / 1000),
+        }),
+      );
+      break;
+    }
+  }
+
+  const signed = await promise;
+
+  deepStrictEqual(signed.pubkey, pubkey);
+  ok(verifyEvent(signed));
 });

@@ -202,6 +202,14 @@ export class NLogin<T extends string, D> implements NLoginBase<T, D> {
         // who sees the REQ — every relay it is sent to — knows the ephemeral
         // client pubkey and can address an event to it. A malformed or
         // undecryptable payload is skipped rather than aborting the handshake.
+        //
+        // Unlike `NConnectSigner`, which pins `authors` to a known signer and
+        // so treats an unreadable payload as that signer failing, this flow
+        // cannot name its counterparty in advance — discovering it is the point
+        // of `nostrconnect://`. Relays enforcing signatures doesn't narrow the
+        // sender set here, because a stranger signs under their own key. So
+        // arrivals we can't read are expected, and one of them must not sink a
+        // login while the real signer waits on a human to tap approve.
         let response: { result?: unknown };
         try {
           const decrypted = await clientSigner.nip44!.decrypt(event.pubkey, event.content);

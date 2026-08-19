@@ -1,10 +1,16 @@
-import { mnemonicToSeedSync } from '@scure/bip39';
+import { mnemonicToSeedSync, validateMnemonic } from '@scure/bip39';
+import { wordlist as english } from '@scure/bip39/wordlists/english.js';
 
 import { NSeedSigner } from './NSeedSigner.ts';
 
 export interface NPhraseSignerOpts {
   account?: number;
   passphrase?: string;
+  /**
+   * BIP-39 wordlist the mnemonic is written in, used to check it.
+   * Default: English. Other wordlists ship with `@scure/bip39`.
+   */
+  wordlist?: string[];
 }
 
 /**
@@ -22,7 +28,16 @@ export interface NPhraseSignerOpts {
  */
 export class NPhraseSigner extends NSeedSigner {
   constructor(mnemonic: string, opts: NPhraseSignerOpts = {}) {
-    const { account, passphrase } = opts;
+    const { account, passphrase, wordlist = english } = opts;
+
+    // A mnemonic carries a checksum precisely so a mistyped one can be caught.
+    // Without this, any string at all is a valid input: it hashes to *a* seed,
+    // which derives *a* key, and the user gets an account that isn't theirs —
+    // silently, and identically every time, so it looks like it worked.
+    if (!validateMnemonic(mnemonic, wordlist)) {
+      throw new Error('Invalid mnemonic');
+    }
+
     const seed = mnemonicToSeedSync(mnemonic, passphrase);
 
     super(seed, account);

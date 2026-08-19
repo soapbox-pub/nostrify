@@ -44,6 +44,16 @@ export async function strfry(
       continue; // Skip malformed lines
     }
 
+    // Every reply is keyed by the event's id — including the error replies
+    // below, which read it out of `msg` after something has already gone
+    // wrong. A message without an event can't be answered at all, and
+    // reaching for `msg.event.id` to say so would throw out of the loop and
+    // take the plugin down with it.
+    if (typeof msg?.event?.id !== "string") {
+      console.error("Skipping input message with no event");
+      continue;
+    }
+
     try {
       // The AbortSignal logic remains the same, as AbortController/AbortSignal
       // are standard in modern Node.js versions.

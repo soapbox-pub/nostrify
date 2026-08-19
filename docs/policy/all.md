@@ -136,44 +136,6 @@ import { NoOpPolicy } from '@nostrify/policies';
 const policy = new NoOpPolicy();
 ```
 
-## OpenAIPolicy
-
-Sends event content to OpenAI's [Moderations API](https://platform.openai.com/docs/api-reference/moderations) and then rejects flagged events.
-
-```ts
-import { OpenAIPolicy } from '@nostrify/policies';
-
-// Reject events with a high toxicity score.
-const policy = new OpenAIPolicy({ apiKey: Deno.env.get('OPENAI_API_KEY') });
-```
-
-You can also provide a custom handler for more fine-grained control.
-
-```ts
-new OpenAIPolicy({
-  apiKey: Deno.env.get('OPENAI_API_KEY'),
-  handler(event, data) {
-    // Loop each result.
-    return data.results.some((result) => {
-      if (result.flagged) {
-        const { sexual, violence } = result.categories;
-        // Reject only events flagged as sexual and violent.
-        return sexual && violence;
-      }
-    });
-  },
-});
-```
-
-### Options
-
-- `apiKey`: Your OpenAI API key.
-- `handler`: Custom handler to process the OpenAI response. Rejects the event if the handler returns `true`.
-- `endpoint`: Custom endpoint to use instead of `https://api.openai.com/v1/moderations`.
-- `fetch`: Custom fetch implementation.
-- `timeout`: Timeout in milliseconds for each fetch request.
-- `kinds`: Array of kinds to apply the policy to.
-
 ## PipePolicy
 
 Compose multiple policies into a single policy.

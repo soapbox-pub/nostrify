@@ -8,7 +8,6 @@ export { HellthreadPolicy } from './HellthreadPolicy.ts';
 export { InvertPolicy } from './InvertPolicy.ts';
 export { KeywordPolicy } from './KeywordPolicy.ts';
 export { NoOpPolicy } from './NoOpPolicy.ts';
-export { OpenAIPolicy } from './OpenAIPolicy.ts';
 export { PipePolicy } from './PipePolicy.ts';
 export { PowPolicy } from './PowPolicy.ts';
 export { PubkeyBanPolicy } from './PubkeyBanPolicy.ts';

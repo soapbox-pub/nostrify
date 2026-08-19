@@ -1,5 +1,6 @@
 // deno-lint-ignore-file require-await
 
+import { verifyEvent as _verifyEvent } from 'nostr-tools';
 import { z } from 'zod';
 
 import type { NostrConnectRequest, NostrConnectResponse, NostrEvent, NostrSigner, NRelay } from '@nostrify/types';
@@ -18,6 +19,8 @@ export interface NConnectSignerOpts {
   timeout?: number;
   /** Encryption to use when encrypting local messages. Decryption is automatic. */
   encryption?: 'nip04' | 'nip44';
+  /** Ensure an event returned by `sign_event` is valid. Default: `nostrTools.verifyEvent`. */
+  verifyEvent?(event: NostrEvent): boolean;
 }
 
 /** [NIP-46](https://github.com/nostr-protocol/nips/blob/master/46.md) remote signer through a relay. */
@@ -34,15 +37,17 @@ export class NConnectSigner implements NostrSigner {
   private signer: NostrSigner;
   private timeout?: number;
   private encryption: 'nip04' | 'nip44';
+  private verifyEvent: (event: NostrEvent) => boolean;
 
   constructor(
-    { relay, pubkey, signer, timeout, encryption = 'nip44' }: NConnectSignerOpts,
+    { relay, pubkey, signer, timeout, encryption = 'nip44', verifyEvent = _verifyEvent }: NConnectSignerOpts,
   ) {
     this.relay = relay;
     this.pubkey = pubkey;
     this.signer = signer;
     this.timeout = timeout;
     this.encryption = encryption;
+    this.verifyEvent = verifyEvent;
   }
 
   async getPublicKey(): Promise<string> {
@@ -53,7 +58,18 @@ export class NConnectSigner implements NostrSigner {
     event: Omit<NostrEvent, 'id' | 'pubkey' | 'sig'>,
   ): Promise<NostrEvent> {
     const result = await this.cmd('sign_event', [JSON.stringify(event)]);
-    return NConnectSigner.eventSchema.parse(result);
+    const signed = NConnectSigner.eventSchema.parse(result);
+
+    // The remote signer holds the user's key, but that doesn't make whatever it
+    // returns an event: check the `id` and `sig` before handing it to a caller
+    // who is about to publish it. Note the signature is over the *user* key,
+    // which NIP-46 allows to differ from the remote-signer key this connection
+    // is with, so there is no pubkey here to pin it to.
+    if (!this.verifyEvent(signed)) {
+      throw new Error('Remote signer returned an invalid event');
+    }
+
+    return signed;
   }
 
   async getRelays(): Promise<
@@ -145,8 +161,26 @@ export class NConnectSigner implements NostrSigner {
             if (msg[0] === 'CLOSED') throw new Error('Subscription closed');
             if (msg[0] === 'EVENT') {
               const event = msg[2];
-              const decrypted = await this.decrypt(this.pubkey, event.content);
-              const response = NConnectSigner.responseSchema.parse(decrypted);
+
+              // The `authors` filter is a request, not a guarantee — the relay
+              // is the party being asked to honor it, and it is also the party
+              // best placed to answer in the signer's stead. Per NIP-46 the
+              // response comes from the remote-signer key, so anything else
+              // isn't a response to this connection.
+              if (event.pubkey !== this.pubkey) continue;
+
+              let response: NostrConnectResponse;
+              try {
+                const decrypted = await this.decrypt(this.pubkey, event.content);
+                response = NConnectSigner.responseSchema.parse(decrypted);
+              } catch {
+                // Anyone who has seen the REQ can address an event to the
+                // client pubkey, so a payload that won't decrypt or parse is
+                // noise to skip, not grounds for failing the request. The
+                // timeout still bounds the wait.
+                continue;
+              }
+
               if (response.id === request.id) {
                 resolve(response);
                 return;

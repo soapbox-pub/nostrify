@@ -44,7 +44,7 @@ export class AntiDuplicationPolicy implements NPolicy {
     const content = deobfuscate?.(event) ?? event.content;
 
     if (kind === 1 && content.length >= minLength) {
-      const hash = AntiDuplicationPolicy.hashCode(content);
+      const hash = await AntiDuplicationPolicy.hash(content);
       const key: KvKey = ['nostrify', 'policies', 'antiduplication', hash];
 
       const { value } = await kv.get(key);
@@ -66,17 +66,19 @@ export class AntiDuplicationPolicy implements NPolicy {
   }
 
   /**
-   * Get a "good enough" unique identifier for this content.
-   * This algorithm was chosen because it's very fast with a low chance of collisions.
-   * https://stackoverflow.com/a/8831937
+   * A collision-resistant identifier for this content.
+   *
+   * The key here is derived from a string an attacker writes, and a collision
+   * means blocking somebody else's post — so the hash has to be one that can't
+   * be aimed. The previous 32-bit `hashCode` could be: with a 4-byte digest,
+   * a preimage for any target is minutes of brute force, and a spammer who
+   * seeds the store with content colliding against a message they want
+   * suppressed gets it rejected for the whole `expireIn` window.
    */
-  private static hashCode(str: string): number {
-    let hash = 0;
-    for (let i = 0, len = str.length; i < len; i++) {
-      const chr = str.charCodeAt(i);
-      hash = (hash << 5) - hash + chr;
-      hash |= 0; // Convert to 32bit integer
-    }
-    return hash;
+  private static async hash(str: string): Promise<string> {
+    const data = new TextEncoder().encode(str);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+
+    return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
   }
 }

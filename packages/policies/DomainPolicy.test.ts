@@ -297,3 +297,89 @@ await test("DomainPolicy allows events from authors with similar but not subdoma
 
   deepStrictEqual(result, ["OK", event.id, true, ""]);
 });
+
+await test("DomainPolicy blacklists a domain regardless of case", async () => {
+  for (const nip05 of ["bot@REPLYGUY.dev", "bot@Spam.ReplyGuy.dev"]) {
+    const sk = generateSecretKey();
+    const pubkey = getPublicKey(sk);
+
+    const store = new MockRelay();
+    const policy = new DomainPolicy(store, {
+      // deno-lint-ignore require-await
+      async lookup(_nip05: string) {
+        return { pubkey };
+      },
+      // The list entry is normalized too, so an operator's stray capital or
+      // trailing dot doesn't silently disable the entry.
+      blacklist: ["ReplyGuy.dev."],
+    });
+
+    const metadata: NostrMetadata = { nip05 };
+    await store.event(
+      genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk),
+    );
+    const event = genEvent({ kind: 1, content: "hello world" }, sk);
+
+    deepStrictEqual(await policy.call(event), [
+      "OK",
+      event.id,
+      false,
+      "blocked: blacklisted nip05 domain",
+    ]);
+  }
+});
+
+await test("DomainPolicy whitelists a domain regardless of case", async () => {
+  for (const nip05 of ["alex@Gleasonator.dev", "alex@GLEASONATOR.DEV"]) {
+    const sk = generateSecretKey();
+    const pubkey = getPublicKey(sk);
+
+    const store = new MockRelay();
+    const policy = new DomainPolicy(store, {
+      // deno-lint-ignore require-await
+      async lookup(_nip05: string) {
+        return { pubkey };
+      },
+      whitelist: ["Gleasonator.dev."],
+    });
+
+    const metadata: NostrMetadata = { nip05 };
+    await store.event(
+      genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk),
+    );
+    const event = genEvent({ kind: 1, content: "hello world" }, sk);
+
+    deepStrictEqual(await policy.call(event), ["OK", event.id, true, ""]);
+  }
+});
+
+await test("DomainPolicy doesn't look up a domain it has already rejected", async () => {
+  for (
+    const opts of [
+      { blacklist: ["replyguy.dev"] },
+      { whitelist: ["gleasonator.dev"] },
+    ]
+  ) {
+    const sk = generateSecretKey();
+    let looked = false;
+
+    const store = new MockRelay();
+    const policy = new DomainPolicy(store, {
+      ...opts,
+      // deno-lint-ignore require-await
+      async lookup(_nip05: string) {
+        looked = true;
+        return { pubkey: getPublicKey(sk) };
+      },
+    });
+
+    const metadata: NostrMetadata = { nip05: "bot@replyguy.dev" };
+    await store.event(
+      genEvent({ kind: 0, content: JSON.stringify(metadata) }, sk),
+    );
+    const event = genEvent({ kind: 1, content: "hello world" }, sk);
+
+    deepStrictEqual((await policy.call(event))[2], false);
+    deepStrictEqual(looked, false);
+  }
+});

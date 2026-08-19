@@ -35,7 +35,7 @@ export class DomainPolicy extends AuthorPolicy implements NPolicy {
           return ['OK', event.id, false, 'blocked: missing nip05'];
         }
 
-        const domain = nip05.split('@').pop();
+        const domain = DomainPolicy.normalizeDomain(nip05.split('@').pop());
 
         if (!domain) {
           return ['OK', event.id, false, 'blocked: invalid nip05'];
@@ -45,20 +45,23 @@ export class DomainPolicy extends AuthorPolicy implements NPolicy {
           return ['OK', event.id, false, 'blocked: blacklisted nip05 domain'];
         }
 
+        // Both list checks run before `lookup`, so a rejected domain never costs
+        // a request. Otherwise any pubkey could steer the relay's HTTP client at
+        // a host of its choosing just by publishing a kind 0.
+        if (whitelist && !whitelist.map(DomainPolicy.normalizeDomain).includes(domain)) {
+          return [
+            'OK',
+            event.id,
+            false,
+            'blocked: nip05 domain not in whitelist',
+          ];
+        }
+
         try {
           const { pubkey } = await lookup(nip05, signal);
 
           if (pubkey !== event.pubkey) {
             return ['OK', event.id, false, 'blocked: mismatched nip05 pubkey'];
-          }
-
-          if (whitelist && !whitelist.includes(domain)) {
-            return [
-              'OK',
-              event.id,
-              false,
-              'blocked: nip05 domain not in whitelist',
-            ];
           }
 
           return ['OK', event.id, true, ''];
@@ -69,19 +72,30 @@ export class DomainPolicy extends AuthorPolicy implements NPolicy {
     });
   }
 
+  /**
+   * Fold a domain to the form the lists are compared against.
+   *
+   * DNS is case-insensitive and a trailing dot denotes the same (fully
+   * qualified) name, so `EVIL.COM` and `evil.com.` both resolve exactly where
+   * `evil.com` does. Compared verbatim they would slip past a blacklist while
+   * still passing the NIP-05 lookup, since `URL` folds the host itself.
+   */
+  private static normalizeDomain(domain: string | undefined): string {
+    return (domain ?? '').toLowerCase().replace(/\.$/, '');
+  }
+
   /** Check if a domain is blacklisted, including subdomains of blacklisted domains. */
   private static isDomainBlacklisted(
     domain: string,
     blacklist: string[],
   ): boolean {
-    // Check for exact match
-    if (blacklist.includes(domain)) {
-      return true;
-    }
+    for (const entry of blacklist) {
+      const blacklistedDomain = DomainPolicy.normalizeDomain(entry);
 
-    // Check if domain is a subdomain of any blacklisted domain
-    for (const blacklistedDomain of blacklist) {
-      if (domain.endsWith('.' + blacklistedDomain)) {
+      if (!blacklistedDomain) continue;
+
+      // Exact match, or a subdomain of a blacklisted domain.
+      if (domain === blacklistedDomain || domain.endsWith('.' + blacklistedDomain)) {
         return true;
       }
     }

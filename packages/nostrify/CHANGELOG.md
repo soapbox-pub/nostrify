@@ -1,5 +1,146 @@
 # Changelog
 
+## 0.55.0
+
+### Minor Changes
+
+- 31806d9: `LNURL`: validate the addresses it fetches.
+
+  - `fromLightningAddress` interpolated the name straight into the well-known
+    path after an email-shaped check. LUD-16 limits a name to `a-z0-9-_.` (plus
+    `+`), which is narrower than an email local part, and even that admits `..` —
+    which `new URL` resolves as a step up the path. Names and domains are now
+    checked against LUD-16's form, and the address is lowercased as LUD-16
+    specifies.
+  - Every URL an LNURL flow fetches must be https, or http for a `.onion` host,
+    per LUD-01. This covers both the endpoint itself — which arrives bech32
+    encoded, so it can decode to any string at all — and the `callback`, which is
+    chosen by whichever server answered the first request and was previously
+    fetched as given.
+
+- e7ed697: `NIP98.verify`: bound `created_at` in both directions, and require the `payload`
+  tag when payload validation is on.
+
+  NIP-98 asks that `created_at` be "within a reasonable time window"; only the
+  past was bounded, so a future-dated event had a negative age that never reached
+  `maxAge` and a token minted with a `created_at` a year out was accepted forever.
+  `maxAge` is now the tolerance in either direction.
+
+  The `payload` check was skipped entirely when the tag was absent, which meant a
+  `POST`/`PUT`/`PATCH` token bound only the URL and method — replayable against
+  the same endpoint with any body. NIP-98 makes the tag a client-side SHOULD and
+  the check a server-side MAY, so this is a policy choice, and `validatePayload`
+  is now the knob for it: when on (still the default for `POST`, `PUT` and
+  `PATCH`) the tag is required, and servers that must accept clients which omit it
+  can pass `validatePayload: false`. A payload tag that is present is checked
+  either way.
+
+- 49df722: `NSchema.event()` now validates `sig` as 64 bytes of lowercase hex, matching
+  NIP-01, instead of accepting any string (including `""`) while holding `id` and
+  `pubkey` to the exact hex form. Added `NSchema.signature()` for the same check
+  on its own.
+- dcbc857: Harden the signers and the HTTP auth helpers against inputs they were taking on
+  trust.
+
+  - **`NCustodial` now requires a seed of at least 32 bytes.** HMAC takes a key of
+    any length, so a truncated or empty secret — an unset environment variable,
+    say — was imported without complaint and derived keys indistinguishable from
+    real ones. This one secret sits behind every user of the application, so a
+    weak one gives up all of them at once, silently. Applications already passing
+    a properly generated secret are unaffected.
+  - **`NConnectSigner.getPublicKey` validates the result.** It was returned
+    verbatim, and it becomes the identity the application signs in as, so an
+    `npub`, an empty string or an error message were all adopted as the user and
+    failed somewhere later, reading as a different bug. `getRelays` likewise now
+    holds its keys to `n.relayUrl()` rather than accepting any string.
+  - **`NConnectSigner.connect` checks that the signer acknowledged.** The result
+    was returned but never inspected, so a signer answering with an empty string,
+    or with the result of some other request, was taken as connected. NIP-46
+    allows either `ack` or the secret, so both pass and nothing else does.
+  - **`NBrowserSigner.signEvent` verifies what the extension hands back**, which
+    it previously only checked for the presence of `id`, `pubkey` and `sig`. The
+    event is rebuilt from its NIP-01 fields before verifying: that normalizes what
+    callers get back, and drops nostr-tools' `verifiedSymbol`, which `verifyEvent`
+    honors as a cached result — an in-process signer can otherwise carry that
+    symbol through an object spread and be taken at its word. `verifyEvent` is
+    exposed as an option, defaulting to `nostrTools.verifyEvent`.
+  - **`NSecSigner` copies the secret key** instead of aliasing the caller's array.
+    It memoizes the pubkey, so a caller that zeroized its own copy after handing
+    the key over — the responsible thing to do — left the signer reporting one
+    pubkey and signing under another.
+  - **`NIP98.verify` takes a `maxPayloadSize`.** Checking the `payload` tag means
+    hashing the body, and hashing it means holding it. A signature proves only
+    that somebody signed, and anyone can mint a keypair, so an unauthenticated
+    caller could reach that point at will with a body of any size. The default
+    is `Infinity`, preserving current behavior for servers that legitimately
+    accept large uploads; anything exposed to untrusted callers should set it.
+    The docstring also now states what `verify` does not do: authorization, and
+    replay defense, which NIP-98 cannot provide on its own.
+  - **`NIP05.lookup` bounds the response.** The identifier names the host, so
+    resolving a user-supplied one points it at a server of their choosing, which
+    was free to answer with a body that never ended. Adds a `maxSize` (default
+    1 MiB) and a `timeout` (default 10s, superseded by `signal`), and rejects a
+    non-2xx response instead of parsing the error page and failing as a JSON
+    syntax error.
+
+- 9034956: Validate three inputs that were taken on trust.
+
+  - `BunkerURI` accepted any non-empty host as the remote-signer pubkey and any
+    string as a relay URL. NIP-46 pubkeys are hex; the pubkey is the counterparty
+    of every exchange on the connection, and the relay URLs get opened as
+    WebSockets. Both are now checked, and a hex pubkey is folded to lowercase.
+  - `NPhraseSigner` never checked the BIP-39 checksum, so a mistyped phrase
+    derived a different account without complaint. Mnemonics are now validated
+    against a wordlist, English by default and configurable via the new
+    `wordlist` option.
+  - `strfry()` read `msg.event.id` in its error handlers, so an input line
+    carrying no event threw out of the read loop and stopped the plugin. Such
+    lines are now skipped.
+
+### Patch Changes
+
+- 3521020: `BlossomUploader`: require the blob URL to be `http(s)`, both in the BUD-02 blob
+  descriptor and in the BUD-08 `nip94` tags. The value is chosen by the upload
+  server and leaves as the `url` tag of an attachment the app is about to put in a
+  note, so `javascript:` and `data:` URLs are no longer passed along. Also
+  documented what `scopeToServer` costs when it's off, per BUD-11's security
+  note: one unscoped token goes to every configured server, and any of them can
+  replay it against the others until it expires.
+- d6cdac8: `NConnectSigner`: decrypt NIP-46 responses by looking at the ciphertext rather
+  than at the `encryption` option, and surface a response that can't be read
+  instead of waiting out the timeout.
+
+  `encryption` is documented as governing outbound messages only — "Decryption is
+  automatic" — but `decrypt()` dispatched on it just as `encrypt()` did. NIP-46
+  lets a signer answer in either scheme no matter which one the request used, so a
+  NIP-04 bunker talking to a client configured for NIP-44 could not be understood.
+  A NIP-04 ciphertext ends in `?iv=<iv>`, and `?` is outside the base64 alphabet a
+  NIP-44 payload is confined to, so the scheme is readable off the payload itself.
+
+  Such a failure previously hung until the request timed out, with nothing to say
+  why. Because the author is checked first, and forging that author means forging
+  its signature, an unreadable payload can only be the signer we are connected to
+  failing — which is worth reporting, so it now throws.
+
+- e867b2b: `NConnectSigner`: only accept NIP-46 responses authored by the remote-signer
+  pubkey, and verify that the event returned by `sign_event` is actually signed.
+
+  The `authors` filter was the only thing keeping foreign events out, and the
+  relay is both the party asked to honor it and the party best placed to ignore
+  it. Anyone who has seen the REQ can address a kind 24133 to the ephemeral client
+  pubkey, so check the author locally instead of assuming the filter was applied.
+  `verifyEvent` is exposed as an option, defaulting to `nostrTools.verifyEvent`.
+
+- 6642803: `NRelay1.event` now clears its pending-event bookkeeping when the publish
+  settles, instead of only when an `OK` arrives — a relay that never answers, or
+  an aborted signal, used to leave the event held for the lifetime of the
+  connection.
+
+  `CircularSet` evicted the oldest member only if it was truthy, so a set holding
+  `''` or `0` could grow past its capacity.
+
+  `NostrBuildUploader` no longer logs the upload response to the console.
+
 ## 0.54.1
 
 ### Patch Changes

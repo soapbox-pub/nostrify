@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.35.31
+
+### Patch Changes
+
+- Updated dependencies [3521020]
+- Updated dependencies [31806d9]
+- Updated dependencies [d6cdac8]
+- Updated dependencies [e867b2b]
+- Updated dependencies [e7ed697]
+- Updated dependencies [49df722]
+- Updated dependencies [6642803]
+- Updated dependencies [dcbc857]
+- Updated dependencies [9034956]
+  - @nostrify/nostrify@0.55.0
+
 ## 0.35.30
 
 ### Patch Changes

@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.37.0
+
+### Minor Changes
+
+- a4443aa: Remove `OpenAIPolicy`.
+
+  The policy passed a `body` to `fetch` without setting `method`, so every request
+  was a GET with a body — which `fetch` rejects with a `TypeError` before the
+  request is ever sent. The surrounding `try`/`catch` turned that into
+  `blocked: error analyzing content`, so the policy rejected 100% of the events it
+  was configured to inspect. It also ignored the `fetch` option it documented,
+  always calling the global.
+
+### Patch Changes
+
+- 0e4d54b: `DomainPolicy`: compare NIP-05 domains case-insensitively (and ignore a trailing
+  dot), so `user@EVIL.COM` no longer walks past a blacklist of `evil.com` — DNS
+  resolves both to the same host, and the lookup succeeded either way because
+  `URL` folds the host itself. Blacklist and whitelist entries are folded the same
+  way. Both list checks now run _before_ the NIP-05 lookup, so a rejected domain
+  can't make the relay issue an HTTP request to a host of the event author's
+  choosing.
+
+  `AntiDuplicationPolicy`: key on a SHA-256 digest instead of a 32-bit
+  `hashCode`. A 4-byte digest is cheap to find preimages for, so a spammer could
+  seed the store with content colliding against a message they wanted suppressed
+  and have it rejected for the whole `expireIn` window.
+
+- ce68503: `HashtagPolicy`: don't throw on a tag with no value, and compare case-insensitively
+  on both sides. An event carrying a bare `["t"]` tag crashed the policy with a
+  `TypeError`, and a ban list entry containing uppercase never matched anything.
+
+  `RegexPolicy`: strip the `g` and `y` flags from the supplied regex. `RegExp.test`
+  advances `lastIndex` on those flags and resumes from it on the next call, so a
+  policy built with e.g. `/spam/g` blocked the first matching event, allowed the
+  second, and blocked the third.
+
+- Updated dependencies [3521020]
+- Updated dependencies [31806d9]
+- Updated dependencies [d6cdac8]
+- Updated dependencies [e867b2b]
+- Updated dependencies [e7ed697]
+- Updated dependencies [49df722]
+- Updated dependencies [6642803]
+- Updated dependencies [dcbc857]
+- Updated dependencies [9034956]
+  - @nostrify/nostrify@0.55.0
+
 ## 0.36.32
 
 ### Patch Changes

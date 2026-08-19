@@ -198,10 +198,27 @@ export class NLogin<T extends string, D> implements NLoginBase<T, D> {
       if (msg[0] === 'EVENT') {
         const event = msg[2];
 
-        const decrypted = await clientSigner.nip44!.decrypt(event.pubkey, event.content);
-        const response = JSON.parse(decrypted);
+        // The filter is `{ kinds: [24133], '#p': [clientPubkey] }`, so anyone
+        // who sees the REQ — every relay it is sent to — knows the ephemeral
+        // client pubkey and can address an event to it. A malformed or
+        // undecryptable payload is skipped rather than aborting the handshake.
+        let response: { result?: unknown };
+        try {
+          const decrypted = await clientSigner.nip44!.decrypt(event.pubkey, event.content);
+          response = JSON.parse(decrypted);
+        } catch {
+          continue;
+        }
 
-        if (response.result !== params.secret && response.result !== 'ack') {
+        // The secret is the *only* thing binding this response to the signer
+        // the user actually scanned: unlike `fromBunker`, where the counterparty
+        // is pinned by the bunker:// URI before connecting, `event.pubkey` here
+        // is adopted as the bunker with no prior knowledge of who it should be.
+        // Accepting a bare 'ack' — which anyone can produce, and which a relay
+        // can return in the same round-trip that delivered the REQ, long before
+        // a human has approved anything on the real signer — voids that binding
+        // entirely and lets the responder become the user's signer.
+        if (response.result !== params.secret) {
           continue;
         }
 

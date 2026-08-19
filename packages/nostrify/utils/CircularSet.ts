@@ -17,8 +17,11 @@ export class CircularSet<T> {
     }
 
     if (this.set.size >= this.capacity) {
-      const oldest = this.set.values().next().value;
-      if (oldest) {
+      // `undefined` is the only value a non-empty Set can't yield here, so
+      // anything else — including `''` or `0` — is a member to evict. Testing
+      // for truthiness let those stay and the set grow past its capacity.
+      const { value: oldest, done } = this.set.values().next();
+      if (!done) {
         this.set.delete(oldest);
       }
     }

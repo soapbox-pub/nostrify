@@ -47,7 +47,6 @@ export class NostrBuildUploader implements NUploader {
 
     const response = await this.fetch(request);
     const json = await response.json();
-    console.log(json);
     const [data] = NostrBuildUploader.schema.parse(json).data;
 
     const tags: [["url", string], ...string[][]] = [

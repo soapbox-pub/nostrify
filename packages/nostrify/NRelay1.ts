@@ -439,13 +439,22 @@ export class NRelay1 implements NRelay {
       this.send(['EVENT', event]);
     } catch (e) {
       result.catch(() => {});
+      this.pendingEvents.delete(event.id);
       throw e;
     }
 
-    const [, , ok, reason] = await result;
+    try {
+      const [, , ok, reason] = await result;
 
-    if (!ok) {
-      throw new Error(reason);
+      if (!ok) {
+        throw new Error(reason);
+      }
+    } finally {
+      // The `OK` handler clears these, but it only runs if an `OK` arrives. A
+      // relay that never answers, or a caller that aborts, would otherwise
+      // leave the event held here for the lifetime of the connection.
+      this.pendingEvents.delete(event.id);
+      this.authRetriedEvents.delete(event.id);
     }
   }
 

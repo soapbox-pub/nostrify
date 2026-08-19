@@ -87,6 +87,8 @@ catch (e) {
   console.error(`esbuild error: ${e}`);
 }
 
-if (!success) process.exit(0);
+// A build that failed has to say so, or `turbo run build` treats a package
+// that produced nothing as built and a release can ship it.
+if (!success) process.exit(1);
 
 console.info('Done!');

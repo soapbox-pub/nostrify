@@ -11,6 +11,16 @@ const bech32Schema = n.bech32();
 const emailSchema = z.string().email();
 
 /**
+ * LUD-16 limits the name to `a-z0-9-_.`, plus `+` where the service supports
+ * tags — a stricter set than an email local part, and one that contains no
+ * character that could end a URL path segment.
+ */
+const nameRegex = /^[a-z0-9\-_.+]+$/;
+
+/** A DNS name, as the host half of an address has to be. */
+const domainRegex = /^(?:[a-z0-9-]+\.)+[a-z0-9-]+$/;
+
+/**
  * Represents an LNURL, with methods to fetch details and generate invoices.
  */
 export class LNURL {
@@ -28,8 +38,23 @@ export class LNURL {
       fetch: typeof globalThis.fetch;
     },
   ) {
-    this.url = url;
+    this.url = LNURL.endpoint(url);
     this.fetch = opts?.fetch ?? globalThis.fetch.bind(globalThis);
+  }
+
+  /**
+   * Check that a URL is one an LNURL flow may fetch, and return it.
+   *
+   * LUD-01 has these served over https, or http for an onion service. Both ends
+   * of the flow need this: the address itself arrives bech32-encoded, so it can
+   * decode to any string at all, and the `callback` is chosen by whatever
+   * server answered the first request.
+   */
+  private static endpoint(url: URL): URL {
+    if (url.protocol === 'https:') return url;
+    if (url.protocol === 'http:' && url.hostname.endsWith('.onion')) return url;
+
+    throw new Error('LNURL endpoints must be https, or http for an onion service');
   }
 
   /**
@@ -73,8 +98,23 @@ export class LNURL {
       );
     }
 
-    const [name, host] = ln.split('@');
-    const url = new URL(`/.well-known/lnurlp/${name}`, `https://${host}`);
+    // LUD-16 addresses are lowercase, and both halves go into a URL — the name
+    // as a path segment and the host as the authority — so neither can be taken
+    // on the say-so of an email regex, which allows characters that would
+    // change the meaning of both.
+    const [name, host] = ln.toLowerCase().split('@');
+
+    // `.` is a legal character in a name, so the charset alone still admits
+    // `..`, which `new URL` would resolve as a step up the path.
+    if (!nameRegex.test(name) || /^\.+$/.test(name)) {
+      throw new Error(`Invalid lightning address name: ${name}`);
+    }
+
+    if (!domainRegex.test(host)) {
+      throw new Error(`Invalid lightning address domain: ${host}`);
+    }
+
+    const url = new URL(`/.well-known/lnurlp/${name}`, `https://${host}/`);
 
     return new LNURL(url, opts);
   }
@@ -103,7 +143,7 @@ export class LNURL {
     signal?: AbortSignal;
   }): Promise<LNURLCallback> {
     const details = await this.getDetails(opts);
-    const callback = new URL(details.callback);
+    const callback = LNURL.endpoint(new URL(details.callback));
 
     callback.searchParams.set('amount', opts.amount.toString());
     callback.searchParams.set('lnurl', this.toString());

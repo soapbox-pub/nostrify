@@ -8,7 +8,9 @@
   "dependencies": {
     "@nostrify/nostrify": "workspace:*",
     "@scure/bip32": "^2.0.1",
-    "@scure/bip39": "^2.0.1",
+    "@scure/bip39": "^2.0.1"
+  },
+  "devDependencies": {
     "@types/node": "^24.1.0"
   },
   "type": "module",

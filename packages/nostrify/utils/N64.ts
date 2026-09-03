@@ -1,5 +1,5 @@
 import type { NostrEvent } from "@nostrify/types";
-import { fromBase64, toBase64 } from "@smithy/util-base64";
+import { base64, base64urlnopad } from "@scure/base";
 
 import { NSchema as n } from "../NSchema.ts";
 
@@ -10,7 +10,7 @@ const eventSchema = n.json().pipe(n.event());
 export class N64 {
   /** Encode an event as a base64 string. */
   static encodeEvent(event: NostrEvent): string {
-    return toBase64(JSON.stringify(event));
+    return base64.encode(N64.#serialize(event));
   }
 
   /**
@@ -18,25 +18,27 @@ export class N64 {
    * Required by Blossom [BUD-11](https://github.com/hzrd149/blossom/blob/master/buds/11.md) for the `Authorization` header.
    */
   static encodeEventUrl(event: NostrEvent): string {
-    return toBase64(JSON.stringify(event))
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "");
+    return base64urlnopad.encode(N64.#serialize(event));
   }
 
   /**
    * Decode an event from a base64 string. Validates the event's structure but does not verify its signature.
    * Accepts both standard base64 and URL-safe (Base64url) encodings, with or without padding.
    */
-  static decodeEvent(base64: string): NostrEvent {
-    let normalized = base64.replace(/-/g, "+").replace(/_/g, "/");
+  static decodeEvent(encoded: string): NostrEvent {
+    let normalized = encoded.replace(/-/g, "+").replace(/_/g, "/");
     while (normalized.length % 4 !== 0) {
       normalized += "=";
     }
 
-    const bytes = fromBase64(normalized);
+    const bytes = base64.decode(normalized);
     const text = new TextDecoder().decode(bytes);
 
     return eventSchema.parse(text);
+  }
+
+  /** JSON-encode an event to UTF-8 bytes, which is what the base64 codecs take. */
+  static #serialize(event: NostrEvent): Uint8Array {
+    return new TextEncoder().encode(JSON.stringify(event));
   }
 }

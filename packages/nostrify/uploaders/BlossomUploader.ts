@@ -1,5 +1,5 @@
 import type { NostrSigner, NUploader } from "@nostrify/types";
-import { toHex } from "@smithy/util-hex-encoding";
+import { hex } from "@scure/base";
 import { z } from "zod";
 
 import { N64 } from "../utils/N64.ts";
@@ -261,7 +261,7 @@ export class BlossomUploader implements NUploader {
   /** Compute the lowercase hex sha256 hash of a file. */
   private static async sha256(file: File): Promise<string> {
     const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
-    return toHex(new Uint8Array(digest));
+    return hex.encode(new Uint8Array(digest));
   }
 
   /** Extract a 64-character hex sha256 hash from a blob URL, if present. */

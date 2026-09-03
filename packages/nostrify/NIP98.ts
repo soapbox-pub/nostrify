@@ -1,5 +1,5 @@
 import type { NostrEvent } from "@nostrify/types";
-import { toHex } from "@smithy/util-hex-encoding";
+import { hex } from "@scure/base";
 import { verifyEvent as _verifyEvent } from "nostr-tools";
 
 import { N64 } from "./utils/N64.ts";
@@ -26,7 +26,7 @@ export class NIP98 {
       const buffer = await request.clone().arrayBuffer();
       const digest = await crypto.subtle.digest("SHA-256", buffer);
 
-      tags.push(["payload", toHex(new Uint8Array(digest))]);
+      tags.push(["payload", hex.encode(new Uint8Array(digest))]);
     }
 
     return {
@@ -146,7 +146,7 @@ export class NIP98 {
     if (payload !== undefined) {
       const body = await NIP98.body(request, maxPayloadSize);
       const digest = await crypto.subtle.digest("SHA-256", body);
-      const hexed = toHex(new Uint8Array(digest));
+      const hexed = hex.encode(new Uint8Array(digest));
 
       if (hexed !== payload) {
         throw new Error("Event payload does not match request body");

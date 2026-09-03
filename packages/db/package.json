@@ -16,9 +16,11 @@
     "@nostrify/nostrify": "workspace:*",
     "@nostrify/types": "workspace:*",
     "kysely": "^0.27.3",
-    "kysely-postgres-js": "^2.0.0",
-    "postgres": "^3.4.4",
     "nostr-tools": "^2.13.0"
+  },
+  "devDependencies": {
+    "kysely-postgres-js": "^2.0.0",
+    "postgres": "^3.4.4"
   },
   "publishConfig": {
     "access": "public"
